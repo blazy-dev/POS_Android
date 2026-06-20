@@ -65,6 +65,8 @@ cd <CARPETA_DEL_PROYECTO>
     python -m venv venv
     # En Windows (PowerShell):
     .\venv\Scripts\Activate.ps1
+    # En Windows (CMD):
+    venv\Scripts\activate.bat
     # En Mac/Linux:
     source venv/bin/activate
     ```
