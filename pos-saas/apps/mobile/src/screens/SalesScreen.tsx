@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   ActivityIndicator,
   FlatList,
@@ -55,6 +55,8 @@ export function SalesScreen() {
   const { user } = useAuth();
   const { colors, isDark } = useTheme();
   const styles = useMemo(() => getStyles(colors, isDark), [colors, isDark]);
+
+  const searchInputRef = useRef<TextInput>(null);
 
   // Estados de la sesión de caja
   const [activeSession, setActiveSession] = useState<CashRegisterRecord | null>(null);
@@ -124,6 +126,12 @@ export function SalesScreen() {
       }
     } catch (err) {
       console.error(err);
+    } finally {
+      if (salesView === "pos" && !checkoutVisible) {
+        setTimeout(() => {
+          searchInputRef.current?.focus();
+        }, 50);
+      }
     }
   };
 
@@ -430,6 +438,7 @@ export function SalesScreen() {
         {/* Barra de Búsqueda y Escaneo */}
         <View style={styles.searchBarContainer}>
           <TextInput
+            ref={searchInputRef}
             value={searchQuery}
             onChangeText={handleSearch}
             onKeyPress={handleKeyPress}
@@ -442,6 +451,7 @@ export function SalesScreen() {
             autoCapitalize="none"
             autoCorrect={false}
             returnKeyType="search"
+            blurOnSubmit={false}
           />
         </View>
 
