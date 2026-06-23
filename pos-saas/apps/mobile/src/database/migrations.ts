@@ -377,7 +377,7 @@ export async function listProducts(db: SQLiteDatabase, tenantId = "local") {
       created_at,
       updated_at
      FROM ${PRODUCTS_TABLE}
-     WHERE tenant_id = $tenant_id
+     WHERE tenant_id = $tenant_id AND is_active = 1
      ORDER BY updated_at DESC`,
     { $tenant_id: tenantId }
   );

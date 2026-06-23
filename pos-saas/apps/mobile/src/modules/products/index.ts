@@ -373,10 +373,46 @@ export async function findProductByBarcode(
       created_at,
       updated_at
      FROM products
-     WHERE tenant_id = $tenant_id AND barcode = $barcode`,
+     WHERE tenant_id = $tenant_id AND barcode = $barcode AND is_active = 1`,
     {
       $tenant_id: tenantId,
       $barcode: normalizedBarcode,
     }
   );
 }
+
+/**
+ * Realiza la eliminación lógica (soft delete) de un producto localmente
+ * y registra la operación en la cola de sincronización.
+ */
+export async function deleteProduct(
+  db: SQLiteDatabase,
+  productId: string,
+  tenantId = "local"
+) {
+  const now = new Date().toISOString();
+
+  await db.runAsync(
+    `UPDATE products
+     SET is_active = 0,
+         updated_at = $updated_at
+     WHERE id = $id AND tenant_id = $tenant_id`,
+    {
+      $id: productId,
+      $tenant_id: tenantId,
+      $updated_at: now,
+    }
+  );
+
+  // Registrar operación de sincronización en la cola offline
+  await enqueueSyncOperation(db, {
+    id: createLocalId("sync"),
+    entityType: "product",
+    entityId: productId,
+    kind: "delete",
+    payload: {
+      id: productId,
+      tenant_id: tenantId,
+    },
+  });
+}

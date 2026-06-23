@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import {
+  Alert,
   Modal,
   Pressable,
   SafeAreaView,
@@ -11,7 +12,7 @@ import {
 } from "react-native";
 import { useSQLiteContext } from "expo-sqlite";
 import type { ProductRecord } from "../database/types";
-import { findProductByBarcode, listProducts } from "../modules/products";
+import { findProductByBarcode, listProducts, deleteProduct } from "../modules/products";
 import { ProductFormScreen } from "./ProductFormScreen";
 import { StockAdjustmentScreen } from "./StockAdjustmentScreen";
 import { radius, spacing, ThemeColors } from "../theme/tokens";
@@ -86,6 +87,33 @@ export function ProductsScreen() {
 
     setSearchMessage(`Encontrado: ${product.name}`);
   }
+
+  const handleDeleteProduct = (product: ProductRecord) => {
+    Alert.alert(
+      "Eliminar Producto",
+      `¿Estás seguro de que deseas eliminar "${product.name}"? Esta acción quitará el producto del catálogo.`,
+      [
+        {
+          text: "Cancelar",
+          style: "cancel",
+        },
+        {
+          text: "Eliminar",
+          style: "destructive",
+          onPress: async () => {
+            try {
+              setActionMenuVisible(false);
+              await deleteProduct(db, product.id);
+              await refreshProducts();
+            } catch (err) {
+              console.error(err);
+              Alert.alert("Error", "No se pudo eliminar el producto.");
+            }
+          },
+        },
+      ]
+    );
+  };
 
   const filteredProducts = products.filter((product) => {
     const query = searchQuery.trim().toLowerCase();
@@ -261,6 +289,18 @@ export function ProductsScreen() {
             >
               <Text style={styles.menuOptionText}>Ajustar Stock / Historial</Text>
               <Text style={styles.menuOptionSub}>Registrar entrada/salida y ver movimientos</Text>
+            </Pressable>
+
+            <Pressable
+              style={[styles.menuOption, styles.menuOptionBorder]}
+              onPress={() => {
+                if (selectedProduct) {
+                  handleDeleteProduct(selectedProduct);
+                }
+              }}
+            >
+              <Text style={[styles.menuOptionText, { color: "#ff4d4d" }]}>Eliminar Producto</Text>
+              <Text style={styles.menuOptionSub}>Quitar el producto del catálogo local y del servidor</Text>
             </Pressable>
 
             <Pressable
