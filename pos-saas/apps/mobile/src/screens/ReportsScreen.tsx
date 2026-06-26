@@ -12,6 +12,7 @@ import {
 import { useSQLiteContext } from "expo-sqlite";
 import { radius, spacing, ThemeColors } from "../theme/tokens";
 import { useTheme } from "../context/ThemeContext";
+import { useAuth } from "../context/AuthContext";
 import {
   getDailySalesSummary,
   getTopSellingProducts,
@@ -34,6 +35,7 @@ type TabKey = "sales" | "cash" | "stock";
 export function ReportsScreen({ onNavigate }: ReportsScreenProps) {
   const db = useSQLiteContext();
   const { colors, isDark } = useTheme();
+  const { user } = useAuth();
   const styles = useMemo(() => getStyles(colors, isDark), [colors, isDark]);
   const [activeTab, setActiveTab] = useState<TabKey>("sales");
   const [loading, setLoading] = useState(true);
@@ -54,6 +56,8 @@ export function ReportsScreen({ onNavigate }: ReportsScreenProps) {
   const [sessionSales, setSessionSales] = useState<Record<string, SaleWithItems[]>>({});
   const [expandedSessions, setExpandedSessions] = useState<Record<string, boolean>>({});
 
+  const tenantId = user?.tenant_id || "local";
+
   async function toggleSessionExpand(sessionId: string) {
     const isExpanded = !!expandedSessions[sessionId];
     if (!isExpanded && !sessionSales[sessionId]) {
@@ -73,10 +77,10 @@ export function ReportsScreen({ onNavigate }: ReportsScreenProps) {
       setErrorMsg(null);
 
       const [nextSummary, nextTopProducts, nextLowStock, nextSessions] = await Promise.all([
-        getDailySalesSummary(db),
-        getTopSellingProducts(db, 5),
-        getLowStockProducts(db, 5), // Umbral de <= 5 unidades
-        getCashRegisterSessions(db, 20),
+        getDailySalesSummary(db, tenantId),
+        getTopSellingProducts(db, 5, tenantId),
+        getLowStockProducts(db, 5, tenantId), // Umbral de <= 5 unidades
+        getCashRegisterSessions(db, 20, tenantId),
       ]);
 
       setSummary(nextSummary);
@@ -93,7 +97,7 @@ export function ReportsScreen({ onNavigate }: ReportsScreenProps) {
 
   useEffect(() => {
     void loadReports();
-  }, [db, activeTab]); // Recarga al cambiar de pestaña para refrescar datos
+  }, [db, activeTab, tenantId]); // Recarga al cambiar de pestaña para refrescar datos
 
   // Determina la cantidad máxima de productos vendidos para la barra de progreso
   const maxSoldQuantity = topProducts.length > 0 ? Math.max(...topProducts.map((p) => p.total_quantity)) : 1;

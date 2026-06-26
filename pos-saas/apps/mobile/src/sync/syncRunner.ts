@@ -68,23 +68,12 @@ export async function runSync(db: SQLiteDatabase): Promise<SyncResult> {
       // Llamamos a la API
       const pushRes = await pushSyncOperations(operationsToSend);
 
-      if (pushRes.success) {
-        pushedCount = pushRes.processed;
-        // Marcamos las operaciones como completadas ('synced') en SQLite
-        await db.withExclusiveTransactionAsync(async (txn) => {
-          for (const op of pendingOps) {
-            await txn.runAsync(
-              `UPDATE sync_operations 
-               SET status = 'synced', updated_at = $now 
-               WHERE id = $id`,
-              { $now: now, $id: op.id }
-            );
-          }
-        });
-      } else {
-        // En caso de fallo parcial/servidor, incrementamos el contador de reintentos
-        await db.withExclusiveTransactionAsync(async (txn) => {
-          for (const op of pendingOps) {
+      const failedIds = pushRes.failedIds || [];
+
+      await db.withExclusiveTransactionAsync(async (txn) => {
+        for (const op of pendingOps) {
+          const didFail = failedIds.includes(op.id) || (!pushRes.success && failedIds.length === 0);
+          if (didFail) {
             const nextRetries = op.retries + 1;
             const nextStatus = nextRetries >= 10 ? "failed" : "pending";
             await txn.runAsync(
@@ -98,9 +87,22 @@ export async function runSync(db: SQLiteDatabase): Promise<SyncResult> {
                 $id: op.id,
               }
             );
+          } else {
+            pushedCount++;
+            await txn.runAsync(
+              `UPDATE sync_operations 
+               SET status = 'synced', updated_at = $now 
+               WHERE id = $id`,
+              { $now: now, $id: op.id }
+            );
           }
-        });
+        }
+      });
+
+      if (!pushRes.success && failedIds.length === 0) {
         throw new Error(pushRes.error ?? "Fallo en el procesamiento de Push");
+      } else if (failedIds.length > 0) {
+        addSyncLog("warning", `PUSH parcial: ${failedIds.length} de ${pendingOps.length} operaciones fallaron.`);
       }
     } else {
       addSyncLog("info", "No hay cambios locales pendientes por subir.");
@@ -168,8 +170,45 @@ export async function runSync(db: SQLiteDatabase): Promise<SyncResult> {
                 { $now: now, $id: change.entity_id }
               );
             }
+          } else if (change.entity_type === "user") {
+            const p = change.payload;
+
+            if (change.operation === "create" || change.operation === "update") {
+              // Hacemos UPSERT del usuario en la base de datos local
+              await txn.runAsync(
+                `INSERT INTO users (
+                  id, tenant_id, name, email, pin, role, is_active, created_at, updated_at
+                ) VALUES (
+                  $id, $tenant_id, $name, $email, $pin, $role, $is_active, $created_at, $updated_at
+                ) ON CONFLICT(id) DO UPDATE SET
+                  name = excluded.name,
+                  email = excluded.email,
+                  pin = excluded.pin,
+                  role = excluded.role,
+                  is_active = excluded.is_active,
+                  updated_at = excluded.updated_at`,
+                {
+                  $id: p.id,
+                  $tenant_id: p.tenant_id ?? "local",
+                  $name: p.name,
+                  $email: p.email,
+                  $pin: p.pin ?? null,
+                  $role: p.role ?? "cashier",
+                  $is_active: p.is_active ? 1 : 0,
+                  $created_at: p.created_at ?? now,
+                  $updated_at: p.updated_at ?? now,
+                }
+              );
+            } else if (change.operation === "delete") {
+              // Eliminación lógica local del usuario
+              await txn.runAsync(
+                `UPDATE users 
+                 SET is_active = 0, updated_at = $now 
+                 WHERE id = $id`,
+                { $now: now, $id: change.entity_id }
+              );
+            }
           }
-          // Nota: Aquí se pueden agregar otros tipos de entidades remotas si el backend las soportara.
         }
 
         // Actualizamos la fecha de última sincronización en device_state

@@ -1,0 +1,6 @@
+packages:
+  - "mobile"
+  - "web"
+allowBuilds:
+  sharp: true
+  unrs-resolver: true

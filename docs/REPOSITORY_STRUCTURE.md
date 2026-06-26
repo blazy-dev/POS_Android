@@ -32,29 +32,26 @@ pos-saas/
 │
 ├── backend/
 │   │
-│   ├── app/
-│   │   ├── api/
-│   │   │   └── v1/
-│   │   │       ├── auth/
-│   │   │       ├── products/
-│   │   │       ├── inventory/
-│   │   │       ├── sales/
-│   │   │       ├── cash_registers/
-│   │   │       ├── sync/
-│   │   │       └── users/
+│   ├── src/                    # Código fuente de NestJS
+│   │   ├── modules/
+│   │   │   ├── auth/
+│   │   │   ├── products/
+│   │   │   ├── inventory/
+│   │   │   ├── sales/
+│   │   │   ├── cash_registers/
+│   │   │   ├── sync/
+│   │   │   └── users/
 │   │   │
-│   │   ├── core/
-│   │   ├── db/
-│   │   ├── models/
-│   │   ├── repositories/
-│   │   ├── schemas/
-│   │   ├── services/
-│   │   ├── workers/
-│   │   └── utils/
+│   │   ├── common/             # Filtros, guards, interceptores globales
+│   │   ├── main.ts             # Punto de entrada de la aplicación NestJS
+│   │   └── app.module.ts       # Módulo raíz
 │   │
-│   ├── alembic/
-│   ├── tests/
-│   ├── pyproject.toml
+│   ├── prisma/                 # Esquema de Prisma ORM y migraciones
+│   │   └── schema.prisma
+│   │
+│   ├── test/                   # Pruebas e2e y unitarias
+│   ├── package.json
+│   ├── tsconfig.json
 │   └── Dockerfile
 │
 ├── packages/

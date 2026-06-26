@@ -16,6 +16,7 @@ import { useBarcodeInput } from "../../hooks/useBarcodeInput";
 import { findProductByBarcode, saveProduct, updateProduct } from "../../modules/products";
 import { radius, spacing, ThemeColors } from "../../theme/tokens";
 import { useTheme } from "../../context/ThemeContext";
+import { useAuth } from "../../context/AuthContext";
 import {
   calculateMargin,
   DEFAULT_PRODUCT_FORM,
@@ -36,8 +37,11 @@ type ProductFormProps = {
 
 export function ProductForm({ db, product, onSaved, onCancel }: ProductFormProps) {
   const { colors, isDark } = useTheme();
+  const { user } = useAuth();
   const styles = useMemo(() => getStyles(colors, isDark), [colors, isDark]);
   const nameInputRef = useRef<TextInput>(null);
+
+  const tenantId = user?.tenant_id || "local";
 
   // Inicializa el estado con los valores del producto si estamos editando, de lo contrario vacío
   const [values, setValues] = useState<ProductFormValues>(() => {
@@ -102,7 +106,7 @@ export function ProductForm({ db, product, onSaved, onCancel }: ProductFormProps
       }
 
       setBarcodeStatus("checking");
-      const existing = await findProductByBarcode(db, trimmed);
+      const existing = await findProductByBarcode(db, trimmed, tenantId);
 
       if (existing) {
         // Si el producto que tiene este código es el mismo que estamos editando, se considera disponible
@@ -139,7 +143,7 @@ export function ProductForm({ db, product, onSaved, onCancel }: ProductFormProps
       });
       return true;
     },
-    [db, product]
+    [db, product, tenantId]
   );
 
   const handleBarcodeScan = useCallback(
@@ -181,10 +185,10 @@ export function ProductForm({ db, product, onSaved, onCancel }: ProductFormProps
       
       if (product) {
         // Modo edición
-        await updateProduct(db, product.id, payload);
+        await updateProduct(db, product.id, { ...payload, tenantId });
       } else {
         // Modo creación
-        await saveProduct(db, payload);
+        await saveProduct(db, { ...payload, tenantId });
       }
       onSaved();
     } catch (error) {

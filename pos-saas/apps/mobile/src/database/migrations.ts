@@ -13,7 +13,7 @@ import type {
 // Nombre del archivo de base de datos local SQLite
 export const DATABASE_NAME = "pos_local.db";
 // Versión actual del esquema de la base de datos
-export const DATABASE_VERSION = 2;
+export const DATABASE_VERSION = 3;
 
 // Nombre de las tablas locales
 const META_TABLE = "app_meta";
@@ -44,6 +44,21 @@ export async function initializeDatabase(db: SQLiteDatabase) {
   // Obtiene la versión actual del esquema en el archivo de base de datos
   const row = await db.getFirstAsync<{ user_version: number }>("PRAGMA user_version");
   const currentVersion = row?.user_version ?? 0;
+
+  if (currentVersion > 0 && currentVersion < 3) {
+    // Reset database for version 3 migration (due to ID format change to standard UUIDs)
+    await db.execAsync(`
+      DROP TABLE IF EXISTS ${SALE_ITEMS_TABLE};
+      DROP TABLE IF EXISTS ${INVENTORY_TABLE};
+      DROP TABLE IF EXISTS ${SALES_TABLE};
+      DROP TABLE IF EXISTS ${PRODUCTS_TABLE};
+      DROP TABLE IF EXISTS ${CASH_REGISTERS_TABLE};
+      DROP TABLE IF EXISTS ${USERS_TABLE};
+      DROP TABLE IF EXISTS ${SYNC_TABLE};
+      DROP TABLE IF EXISTS ${DEVICE_TABLE};
+      DROP TABLE IF EXISTS ${META_TABLE};
+    `);
+  }
 
   // Ejecuta la creación del esquema DDL (Data Definition Language)
   await db.execAsync(`
@@ -190,7 +205,7 @@ export async function initializeDatabase(db: SQLiteDatabase) {
   `);
 
   // Actualiza la versión de usuario en SQLite si es necesario
-  if (currentVersion < 2) {
+  if (currentVersion < 3) {
     await db.execAsync(`PRAGMA user_version = ${DATABASE_VERSION};`);
   }
 

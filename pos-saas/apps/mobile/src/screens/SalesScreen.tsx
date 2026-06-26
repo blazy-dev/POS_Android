@@ -88,12 +88,13 @@ export function SalesScreen() {
   async function checkSession() {
     try {
       setCheckingSession(true);
-      const session = await getActiveSession(db);
+      const tenantId = user?.tenant_id || "local";
+      const session = await getActiveSession(db, tenantId);
       setActiveSession(session);
       if (session) {
         setSalesView("pos");
         // Precargar catálogo de productos para búsqueda rápida
-        const catalog = await listProducts(db);
+        const catalog = await listProducts(db, tenantId);
         setAllProducts(catalog);
       } else {
         setSalesView("open");
@@ -107,7 +108,7 @@ export function SalesScreen() {
 
   useEffect(() => {
     void checkSession();
-  }, [db]);
+  }, [db, user?.tenant_id]);
 
   // Manejador del escaneo de código de barras
   const handleBarcodeScan = async (barcode: string) => {
@@ -115,7 +116,7 @@ export function SalesScreen() {
     if (!trimmed) return;
 
     try {
-      const product = await findProductByBarcode(db, trimmed);
+      const product = await findProductByBarcode(db, trimmed, user?.tenant_id || "local");
       if (product) {
         addToCart(product);
         setSearchQuery("");
@@ -231,7 +232,7 @@ export function SalesScreen() {
 
     try {
       setCheckingSession(true);
-      const sessionId = await openRegister(db, user.id, amount);
+      const sessionId = await openRegister(db, user.id, amount, user.tenant_id);
       await checkSession();
     } catch (err) {
       setErrorMsg(err instanceof Error ? err.message : "Error al abrir la caja.");
@@ -244,7 +245,7 @@ export function SalesScreen() {
     if (!activeSession) return;
     try {
       setCheckingSession(true);
-      const cashSales = await getCashSalesSum(db, activeSession.id);
+      const cashSales = await getCashSalesSum(db, activeSession.id, user?.tenant_id || "local");
       const calculatedExpectedCash = activeSession.opening_amount + cashSales;
       setExpectedCash(calculatedExpectedCash);
       setClosingAmount(calculatedExpectedCash.toString());
@@ -269,7 +270,7 @@ export function SalesScreen() {
 
     try {
       setCheckingSession(true);
-      await closeRegister(db, activeSession.id, amount);
+      await closeRegister(db, activeSession.id, amount, user?.tenant_id || "local");
       setCart([]);
       setSearchQuery("");
       setSearchResults([]);
@@ -301,12 +302,15 @@ export function SalesScreen() {
         quantity: item.quantity,
       }));
 
+      const tenantId = user?.tenant_id || "local";
+
       await createSale(db, {
         paymentMethod,
         items,
         cashRegisterId: activeSession.id,
         userId: user?.id,
         deviceId: "local-device",
+        tenantId,
       });
 
       // Éxito: limpiar carrito y cerrar checkout
@@ -315,7 +319,7 @@ export function SalesScreen() {
       setCashReceived("");
       setChange(null);
       // Refresca catálogo de productos en memoria para actualizar stock
-      const catalog = await listProducts(db);
+      const catalog = await listProducts(db, tenantId);
       setAllProducts(catalog);
     } catch (err) {
       setErrorMsg(err instanceof Error ? err.message : "Error al registrar la venta.");

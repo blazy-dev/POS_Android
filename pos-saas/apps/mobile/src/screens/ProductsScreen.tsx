@@ -17,12 +17,15 @@ import { ProductFormScreen } from "./ProductFormScreen";
 import { StockAdjustmentScreen } from "./StockAdjustmentScreen";
 import { radius, spacing, ThemeColors } from "../theme/tokens";
 import { useTheme } from "../context/ThemeContext";
+import { useAuth } from "../context/AuthContext";
 
 type ProductsView = "list" | "form" | "adjust";
 
 export function ProductsScreen() {
   const db = useSQLiteContext();
   const { colors, isDark } = useTheme();
+  const { user } = useAuth();
+  const isCashier = user?.role === "cashier";
   const styles = useMemo(() => getStyles(colors, isDark), [colors, isDark]);
   const [view, setView] = useState<ProductsView>("list");
   const [products, setProducts] = useState<ProductRecord[]>([]);
@@ -36,8 +39,10 @@ export function ProductsScreen() {
   // Estado para controlar la visibilidad del menú de opciones rápidas
   const [actionMenuVisible, setActionMenuVisible] = useState(false);
 
+  const tenantId = user?.tenant_id || "local";
+
   async function refreshProducts() {
-    const rows = await listProducts(db);
+    const rows = await listProducts(db, tenantId);
     setProducts(rows);
   }
 
@@ -67,7 +72,7 @@ export function ProductsScreen() {
     return () => {
       mounted = false;
     };
-  }, [db]);
+  }, [db, tenantId]);
 
   async function handleBarcodeSearch(barcode: string) {
     const trimmed = barcode.trim();
@@ -78,7 +83,7 @@ export function ProductsScreen() {
       return;
     }
 
-    const product = await findProductByBarcode(db, trimmed);
+    const product = await findProductByBarcode(db, trimmed, tenantId);
 
     if (!product) {
       setSearchMessage(`No se encontró ningún producto con el código ${trimmed}.`);
@@ -103,7 +108,7 @@ export function ProductsScreen() {
           onPress: async () => {
             try {
               setActionMenuVisible(false);
-              await deleteProduct(db, product.id);
+              await deleteProduct(db, product.id, tenantId);
               await refreshProducts();
             } catch (err) {
               console.error(err);
@@ -168,15 +173,17 @@ export function ProductsScreen() {
           Consultá, buscá por código de barras o cargá nuevos productos.
         </Text>
 
-        <Pressable
-          style={styles.primaryButton}
-          onPress={() => {
-            setSelectedProduct(undefined);
-            setView("form");
-          }}
-        >
-          <Text style={styles.primaryButtonText}>+ Nuevo producto</Text>
-        </Pressable>
+        {!isCashier && (
+          <Pressable
+            style={styles.primaryButton}
+            onPress={() => {
+              setSelectedProduct(undefined);
+              setView("form");
+            }}
+          >
+            <Text style={styles.primaryButtonText}>+ Nuevo producto</Text>
+          </Pressable>
+        )}
 
         <View style={styles.searchCard}>
           <Text style={styles.cardTitle}>Buscar por código o nombre</Text>
@@ -227,11 +234,9 @@ export function ProductsScreen() {
             filteredProducts.map((product) => (
               <Pressable
                 key={product.id}
-                style={({ pressed }) => [
-                  styles.productRow,
-                  pressed && styles.productRowPressed,
-                ]}
+                style={styles.productRow}
                 onPress={() => {
+                  if (isCashier) return;
                   setSelectedProduct(product);
                   setActionMenuVisible(true);
                 }}
@@ -239,12 +244,12 @@ export function ProductsScreen() {
                 <View style={styles.productInfo}>
                   <Text style={styles.productName}>{product.name}</Text>
                   <Text style={styles.productMeta}>
-                    {product.barcode ?? "Sin código"} · Stock {product.stock} · {product.unit}
+                    Stock: {product.stock} {product.unit} · {product.barcode || "Sin código"}
                   </Text>
                 </View>
                 <View style={styles.priceContainer}>
                   <Text style={styles.productPrice}>$ {product.sale_price.toFixed(2)}</Text>
-                  <Text style={styles.editIndicator}>Gestionar →</Text>
+                  {!isCashier && <Text style={styles.editIndicator}>Gestionar →</Text>}
                 </View>
               </Pressable>
             ))

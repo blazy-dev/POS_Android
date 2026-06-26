@@ -14,7 +14,7 @@ import { useTheme } from "../context/ThemeContext";
 
 export function LoginScreen() {
   const db = useSQLiteContext();
-  const { login, loading } = useAuth();
+  const { login, loginWithGoogle, loading } = useAuth();
   const { colors, isDark } = useTheme();
   const styles = useMemo(() => getStyles(colors, isDark), [colors, isDark]);
   const [pin, setPin] = useState("");
@@ -158,6 +158,36 @@ export function LoginScreen() {
             </Pressable>
           </View>
         </View>
+
+        {/* Separador y Google Login */}
+        <View style={styles.adminSection}>
+          <View style={styles.divider}>
+            <View style={styles.line} />
+            <Text style={styles.dividerText}>Acceso Propietario</Text>
+            <View style={styles.line} />
+          </View>
+
+          <Pressable
+            style={({ pressed }) => [
+              styles.googleButton,
+              pressed ? styles.googleButtonPressed : null,
+            ]}
+            onPress={async () => {
+              const success = await loginWithGoogle(db);
+              if (!success) {
+                setErrorMsg("Error al iniciar sesión con Google.");
+              }
+            }}
+            disabled={loading}
+          >
+            <View style={styles.googleIconContainer}>
+              <Text style={styles.googleIconText}>G</Text>
+            </View>
+            <Text style={styles.googleButtonText}>
+              {loading ? "Cargando..." : "Ingresar con Google"}
+            </Text>
+          </Pressable>
+        </View>
       </View>
     </SafeAreaView>
   );
@@ -290,5 +320,70 @@ const getStyles = (colors: ThemeColors, isDark: boolean) => StyleSheet.create({
     color: colors.textMuted,
     fontSize: 18,
     fontWeight: "800",
+  },
+  adminSection: {
+    alignItems: "center",
+    width: "100%",
+    marginTop: spacing.md,
+    marginBottom: 10,
+  },
+  divider: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+    width: 280,
+    marginBottom: spacing.sm,
+  },
+  line: {
+    flex: 1,
+    height: 1,
+    backgroundColor: colors.border,
+  },
+  dividerText: {
+    color: colors.textMuted,
+    fontSize: 11,
+    fontWeight: "700",
+    textTransform: "uppercase",
+    letterSpacing: 0.8,
+  },
+  googleButton: {
+    height: 52,
+    borderRadius: radius.md,
+    backgroundColor: isDark ? "rgba(255, 255, 255, 0.05)" : colors.surface,
+    borderWidth: 1,
+    borderColor: colors.border,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 12,
+    width: 280,
+    ...(!isDark && {
+      shadowColor: "#000",
+      shadowOpacity: 0.02,
+      shadowRadius: 3,
+      shadowOffset: { width: 0, height: 1 },
+      elevation: 1,
+    }),
+  },
+  googleButtonPressed: {
+    backgroundColor: isDark ? "rgba(255, 255, 255, 0.12)" : "rgba(0, 0, 0, 0.03)",
+  },
+  googleButtonText: {
+    color: colors.text,
+    fontSize: 14,
+    fontWeight: "700",
+  },
+  googleIconContainer: {
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    backgroundColor: "#EA4335",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  googleIconText: {
+    color: "#FFFFFF",
+    fontSize: 13,
+    fontWeight: "900",
   },
 });

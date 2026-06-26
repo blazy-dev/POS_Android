@@ -1,0 +1,246 @@
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+model Tenant {
+  id        String   @id @default(uuid()) @db.Uuid
+  name      String   @db.VarChar(150)
+  email     String?  @db.VarChar(255)
+  phone     String?  @db.VarChar(30)
+  currency  String   @default("ARS") @db.VarChar(10)
+  timezone  String   @default("America/Argentina/Buenos_Aires") @db.VarChar(50)
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  users              User[]
+  roles              Role[]
+  products           Product[]
+  categories         Category[]
+  customers          Customer[]
+  devices            Device[]
+  cashRegisters      CashRegister[]
+  sales              Sale[]
+  inventoryMovements InventoryMovement[]
+  auditLogs          AuditLog[]
+
+  @@map("tenant")
+}
+
+model Role {
+  id        String   @id @default(uuid()) @db.Uuid
+  tenantId  String   @map("tenant_id") @db.Uuid
+  name      String   @db.VarChar(50)
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  users  User[]
+
+  @@map("role")
+}
+
+model User {
+  id           String    @id @db.Uuid // Coincide con auth.users.id de Supabase
+  tenantId     String    @map("tenant_id") @db.Uuid
+  roleId       String?   @map("role_id") @db.Uuid
+  name         String    @db.VarChar(150)
+  email        String    @unique @db.VarChar(255)
+  pin          String?   @db.VarChar(255)
+  passwordHash String?   @map("password_hash") @db.VarChar(255)
+  isActive     Boolean   @default(true) @map("is_active")
+  lastLoginAt  DateTime? @map("last_login_at")
+  createdAt    DateTime  @default(now()) @map("created_at")
+  updatedAt    DateTime  @updatedAt @map("updated_at")
+
+  tenant             Tenant              @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  role               Role?               @relation(fields: [roleId], references: [id], onDelete: SetNull)
+  cashRegisters      CashRegister[]
+  sales              Sale[]
+  inventoryMovements InventoryMovement[]
+  auditLogs          AuditLog[]
+
+  @@map("user")
+}
+
+model Category {
+  id        String   @id @default(uuid()) @db.Uuid
+  tenantId  String   @map("tenant_id") @db.Uuid
+  name      String   @db.VarChar(100)
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  tenant   Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  products Product[]
+
+  @@map("category")
+}
+
+model Product {
+  id            String   @id @default(uuid()) @db.Uuid
+  tenantId      String   @map("tenant_id") @db.Uuid
+  barcode       String?  @db.VarChar(100)
+  name          String   @db.VarChar(255)
+  description   String?  @db.Text
+  categoryId    String?  @map("category_id") @db.Uuid
+  purchasePrice Decimal  @default(0.0) @map("purchase_price") @db.Decimal(12, 2)
+  salePrice     Decimal  @default(0.0) @map("sale_price") @db.Decimal(12, 2)
+  costPrice     Decimal  @default(0.0) @map("cost_price") @db.Decimal(12, 2)
+  stock         Decimal  @default(0.0) @db.Decimal(12, 3)
+  minimumStock  Decimal  @default(0.0) @map("minimum_stock") @db.Decimal(12, 3)
+  unit          String   @default("unit") @db.VarChar(20)
+  isActive      Boolean  @default(true) @map("is_active")
+  createdAt     DateTime @default(now()) @map("created_at")
+  updatedAt     DateTime @updatedAt @map("updated_at")
+
+  tenant             Tenant              @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  category           Category?           @relation(fields: [categoryId], references: [id], onDelete: SetNull)
+  saleItems          SaleItem[]
+  inventoryMovements InventoryMovement[]
+
+  @@unique([tenantId, barcode], name: "uq_product_tenant_barcode")
+  @@map("product")
+}
+
+model Customer {
+  id        String   @id @default(uuid()) @db.Uuid
+  tenantId  String   @map("tenant_id") @db.Uuid
+  name      String   @db.VarChar(255)
+  phone     String?  @db.VarChar(30)
+  email     String?  @db.VarChar(255)
+  address   String?  @db.Text
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  sales  Sale[]
+
+  @@map("customer")
+}
+
+model CashRegister {
+  id            String    @id @default(uuid()) @db.Uuid
+  tenantId      String    @map("tenant_id") @db.Uuid
+  openedBy      String?   @map("opened_by") @db.Uuid
+  openedAt      DateTime  @map("opened_at")
+  closedAt      DateTime? @map("closed_at")
+  openingAmount Decimal   @map("opening_amount") @db.Decimal(12, 2)
+  closingAmount Decimal?  @map("closing_amount") @db.Decimal(12, 2)
+  status        String    @default("open") @db.VarChar(20)
+  createdAt     DateTime  @default(now()) @map("created_at")
+  updatedAt     DateTime  @updatedAt @map("updated_at")
+
+  tenant Tenant  @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  user   User?   @relation(fields: [openedBy], references: [id], onDelete: SetNull)
+  sales  Sale[]
+
+  @@map("cash_register")
+}
+
+model Sale {
+  id             String    @id @default(uuid()) @db.Uuid
+  tenantId       String    @map("tenant_id") @db.Uuid
+  cashRegisterId String?   @map("cash_register_id") @db.Uuid
+  customerId     String?   @map("customer_id") @db.Uuid
+  userId         String?   @map("user_id") @db.Uuid
+  total          Decimal   @db.Decimal(12, 2)
+  paymentMethod  String    @default("cash") @map("payment_method") @db.VarChar(50)
+  status         String    @default("completed") @db.VarChar(20)
+  deviceId       String?   @map("device_id") @db.Uuid
+  createdAt      DateTime  @default(now()) @map("created_at")
+  updatedAt      DateTime  @updatedAt @map("updated_at")
+
+  tenant       Tenant        @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  cashRegister CashRegister? @relation(fields: [cashRegisterId], references: [id], onDelete: SetNull)
+  customer     Customer?     @relation(fields: [customerId], references: [id], onDelete: SetNull)
+  user         User?         @relation(fields: [userId], references: [id], onDelete: SetNull)
+  items        SaleItem[]
+
+  @@map("sale")
+}
+
+model SaleItem {
+  id        String   @id @default(uuid()) @db.Uuid
+  saleId    String   @map("sale_id") @db.Uuid
+  productId String?  @map("product_id") @db.Uuid
+  quantity  Decimal  @db.Decimal(12, 3)
+  unitPrice Decimal  @map("unit_price") @db.Decimal(12, 2)
+  subtotal  Decimal  @db.Decimal(12, 2)
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  sale    Sale     @relation(fields: [saleId], references: [id], onDelete: Cascade)
+  product Product? @relation(fields: [productId], references: [id], onDelete: SetNull)
+
+  @@map("sale_item")
+}
+
+model InventoryMovement {
+  id            String   @id @default(uuid()) @db.Uuid
+  tenantId      String   @map("tenant_id") @db.Uuid
+  productId     String   @map("product_id") @db.Uuid
+  userId        String?  @map("user_id") @db.Uuid
+  referenceType String?  @map("reference_type") @db.VarChar(50)
+  referenceId   String?  @map("reference_id") @db.Uuid
+  movementType  String   @map("movement_type") @db.VarChar(20)
+  quantity      Decimal  @db.Decimal(12, 3)
+  createdAt     DateTime @default(now()) @map("created_at")
+  updatedAt     DateTime @updatedAt @map("updated_at")
+
+  tenant  Tenant  @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  product Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+  user    User?   @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  @@map("inventory_movement")
+}
+
+model Device {
+  id         String    @id @default(uuid()) @db.Uuid
+  tenantId   String    @map("tenant_id") @db.Uuid
+  name       String    @db.VarChar(100)
+  platform   String    @default("android") @db.VarChar(20)
+  lastSyncAt DateTime? @map("last_sync_at")
+  createdAt  DateTime  @default(now()) @map("created_at")
+  updatedAt  DateTime  @updatedAt @map("updated_at")
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@map("device")
+}
+
+model SyncOperation {
+  id         String   @id @default(uuid()) @db.Uuid
+  deviceId   String   @map("device_id") @db.Uuid
+  entityType String   @map("entity_type") @db.VarChar(50)
+  entityId   String   @map("entity_id") @db.Uuid
+  operation  String   @db.VarChar(20)
+  payload    Json
+  status     String   @default("pending") @db.VarChar(20)
+  retries    Int      @default(0)
+  createdAt  DateTime @default(now()) @map("created_at")
+  updatedAt  DateTime @updatedAt @map("updated_at")
+
+  @@map("sync_operation")
+}
+
+model AuditLog {
+  id           String   @id @default(uuid()) @db.Uuid
+  tenantId     String   @map("tenant_id") @db.Uuid
+  userId       String?  @map("user_id") @db.Uuid
+  deviceId     String?  @map("device_id") @db.Uuid
+  action       String   @db.VarChar(100)
+  entityType   String?  @map("entity_type") @db.VarChar(50)
+  entityId     String?  @map("entity_id") @db.Uuid
+  metadataJson Json?    @map("metadata_json")
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  user   User?  @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  @@map("audit_log")
+}

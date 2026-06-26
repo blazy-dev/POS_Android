@@ -16,16 +16,12 @@ https://api.tudominio.com/api/v1
 
 ## Autenticación
 
-La API utiliza:
-
-* OAuth 2.0 con Google
-* JWT Access Token
-* Refresh Token
+La autenticación está delegada en **Supabase Auth** mediante Google OAuth. El backend NestJS actúa como validador de los tokens JWT emitidos por Supabase.
 
 Todas las solicitudes protegidas deben incluir:
 
 ```http
-Authorization: Bearer <access_token>
+Authorization: Bearer <supabase_jwt_access_token>
 ```
 
 ---
@@ -85,15 +81,15 @@ X-App-Version: 1.0.0
 
 # AUTH
 
-## POST /auth/google
+## POST /auth/register-or-link
 
-Autentica un usuario mediante Google.
+Registra o vincula en el backend NestJS a un usuario que ya se ha autenticado con Google OAuth a través de Supabase. El backend creará el Tenant (empresa) si el usuario es nuevo. La cabecera `Authorization` debe incluir el JWT de Supabase.
 
 ### Request
 
 ```json
 {
-  "id_token": "google_id_token"
+  "tenant_name": "Mi Comercio POS"
 }
 ```
 
@@ -101,10 +97,19 @@ Autentica un usuario mediante Google.
 
 ```json
 {
-  "access_token": "jwt",
-  "refresh_token": "jwt",
-  "user": {},
-  "tenant": {}
+  "success": true,
+  "data": {
+    "user": {
+      "id": "uuid",
+      "email": "usuario@gmail.com",
+      "name": "Juan Pérez",
+      "role": "admin"
+    },
+    "tenant": {
+      "id": "uuid",
+      "name": "Mi Comercio POS"
+    }
+  }
 }
 ```
 

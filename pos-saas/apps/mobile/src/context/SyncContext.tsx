@@ -98,9 +98,26 @@ export function SyncProvider({ children }: { children: React.ReactNode }) {
 
   // Inicialización y carga de valores iniciales
   useEffect(() => {
-    void refreshPendingCount();
-    void refreshLastSyncTime();
-  }, [refreshPendingCount, refreshLastSyncTime]);
+    const initSync = async () => {
+      await refreshPendingCount();
+      await refreshLastSyncTime();
+      try {
+        const row = await db.getFirstAsync<{ last_sync_at: string | null }>(
+          `SELECT last_sync_at FROM device_state WHERE id = 1`
+        );
+        const rowPending = await db.getFirstAsync<{ count: number }>(
+          `SELECT COUNT(*) AS count FROM sync_operations WHERE status = 'pending'`
+        );
+        // Si nunca ha sincronizado o hay operaciones pendientes locales, disparamos sync de inmediato
+        if (!row?.last_sync_at || (rowPending && rowPending.count > 0)) {
+          void triggerSync();
+        }
+      } catch (e) {
+        // Silently ignore init sync check failures (e.g. table not ready yet)
+      }
+    };
+    void initSync();
+  }, [db, triggerSync, refreshPendingCount, refreshLastSyncTime]);
 
   // Polling de 5 segundos para mantener actualizado el contador de pendientes
   useEffect(() => {

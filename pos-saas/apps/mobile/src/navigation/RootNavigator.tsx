@@ -11,6 +11,7 @@ import { ReportsScreen } from "../screens/ReportsScreen";
 import { useAuth } from "../context/AuthContext";
 import { useSync } from "../context/SyncContext";
 import { useTheme } from "../context/ThemeContext";
+import { OnboardingScreen } from "../screens/OnboardingScreen";
 import type { ThemeColors } from "../theme/tokens";
 
 // Definición de las claves de rutas válidas en la aplicación
@@ -58,7 +59,7 @@ function SyncBar() {
 }
 
 export function RootNavigator() {
-  const { user } = useAuth();
+  const { user, onboardingToken } = useAuth();
   // Estado local para saber qué pantalla se encuentra activa
   const [route, setRoute] = useState<RouteKey>("home");
   // Hook para obtener los insets de áreas seguras del dispositivo (notch, barra de navegación, etc.)
@@ -84,6 +85,11 @@ export function RootNavigator() {
         return HomeScreen as any;
     }
   }, [route]);
+
+  // Si hay un token de onboarding activo y no hay sesión de usuario, forzar OnboardingScreen
+  if (onboardingToken && !user) {
+    return <OnboardingScreen />;
+  }
 
   // Si no hay sesión de usuario activa (autenticación por PIN bloqueante), forzar LoginScreen
   if (!user) {

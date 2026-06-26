@@ -8,6 +8,7 @@ import { Section } from "../components/Section";
 import { getProductsCount, getSalesCount, listPendingSyncOperations } from "../database";
 import { radius, spacing, ThemeColors } from "../theme/tokens";
 import { useTheme } from "../context/ThemeContext";
+import { useAuth } from "../context/AuthContext";
 
 interface HomeScreenProps {
   onNavigate: (route: string) => void;
@@ -16,6 +17,8 @@ interface HomeScreenProps {
 export function HomeScreen({ onNavigate }: HomeScreenProps) {
   const db = useSQLiteContext();
   const { colors, isDark } = useTheme();
+  const { user } = useAuth();
+  const isCashier = user?.role === "cashier";
   const styles = useMemo(() => getStyles(colors, isDark), [colors, isDark]);
   const [productsCount, setProductsCount] = useState(0);
   const [salesCount, setSalesCount] = useState(0);
@@ -25,9 +28,10 @@ export function HomeScreen({ onNavigate }: HomeScreenProps) {
     let mounted = true;
 
     async function loadSummary() {
+      const tenantId = user?.tenant_id || "local";
       const [nextProductsCount, nextSalesCount, pendingOperations] = await Promise.all([
-        getProductsCount(db),
-        getSalesCount(db),
+        getProductsCount(db, tenantId),
+        getSalesCount(db, tenantId),
         listPendingSyncOperations(db),
       ]);
 
@@ -51,7 +55,7 @@ export function HomeScreen({ onNavigate }: HomeScreenProps) {
     return () => {
       mounted = false;
     };
-  }, [db]);
+  }, [db, user?.tenant_id]);
 
   return (
     <SafeAreaView style={styles.safeArea}>
@@ -95,15 +99,17 @@ export function HomeScreen({ onNavigate }: HomeScreenProps) {
             onPress={() => onNavigate("sales")}
           />
           <ActionCard
-            label="Nuevo producto"
-            description="Alta manual o por código"
+            label={isCashier ? "Catálogo de Productos" : "Nuevo producto"}
+            description={isCashier ? "Buscar y ver precios y stock" : "Alta manual o por código"}
             onPress={() => onNavigate("products")}
           />
-          <ActionCard
-            label="Reportes y Estadísticas"
-            description="Ventas del día, stock bajo y caja"
-            onPress={() => onNavigate("reports")}
-          />
+          {!isCashier && (
+            <ActionCard
+              label="Reportes y Estadísticas"
+              description="Ventas del día, stock bajo y caja"
+              onPress={() => onNavigate("reports")}
+            />
+          )}
         </Section>
 
         <Section title="Módulos base">

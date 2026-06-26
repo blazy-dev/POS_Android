@@ -91,14 +91,15 @@ Aplicación Android
 Arquitectura extendida:
 
 ```text
-React Native
+React Native (App Móvil)
       │
-      ▼
-   FastAPI
+      ▼ (HTTPS / API REST)
+   NestJS (Backend en Railway)
       │
- ┌────┼─────────┐
- ▼    ▼         ▼
-PostgreSQL   Redis   Almacenamiento de archivos
+      ├──────────────────────┐
+      ▼                      ▼
+  Supabase               Redis (Caché & Colas)
+ (PostgreSQL & Auth)
 ```
 
 ---
@@ -117,23 +118,19 @@ PostgreSQL   Redis   Almacenamiento de archivos
 
 ### Backend
 
-* Python
-* FastAPI
-* SQLAlchemy
-* Alembic
-* Pydantic
+* NestJS (TypeScript / Node.js)
+* Fastify (Adaptador de alto rendimiento para NestJS)
+* Prisma ORM (o TypeORM)
+* `@nestjs/bull` (Colas basadas en Redis)
 
-### Base de datos
+### Base de datos e Infraestructura SaaS
 
-* PostgreSQL
-
-### Infraestructura
-
-* Railway
+* Supabase (PostgreSQL administrado + Autenticación Google OAuth nativa)
+* Railway (Alojamiento del backend en NestJS)
 
 ### Caché y colas
 
-* Redis
+* Redis (Para manejo de colas de sincronización BullMQ y caché de sesión)
 
 ### Monitoreo
 
@@ -184,26 +181,27 @@ El acceso entre empresas está prohibido.
 
 ---
 
-## Autenticación
+## Autenticación y Autorización
 
-La autenticación principal será mediante Google.
+La autenticación principal será mediante Google OAuth delegada en Supabase Auth.
 
 Tecnología:
 
-* OAuth 2.0
-* JWT
-* Refresh tokens
+* Supabase Auth (Servicio de autenticación administrado)
+* JWT de corta duración (emitido por Supabase y validado en NestJS)
+* Refresh Tokens (gestionados por la app móvil y Supabase)
+* Passport JWT en NestJS para protección de rutas
 
-### Flujo de registro
+### Flujo de registro y vinculación
 
-1. El usuario instala la aplicación.
+1. El usuario instala la aplicación móvil.
 2. Selecciona "Continuar con Google".
-3. Autoriza el acceso.
-4. El backend valida el token.
-5. Se crea el usuario.
-6. Se crea la empresa.
-7. Se asigna el rol de administrador.
-8. Se inicia la sincronización inicial.
+3. Autoriza el acceso con su cuenta de Google.
+4. Supabase procesa el OAuth y retorna un JWT y los datos del perfil del usuario a la aplicación móvil.
+5. La aplicación móvil realiza una petición al backend NestJS enviando el JWT de Supabase en la cabecera `Authorization`.
+6. El backend NestJS valida el JWT de forma asíncrona usando la clave pública/secreta de Supabase.
+7. Si el usuario es nuevo, NestJS crea automáticamente el registro del usuario en la base de datos vinculándolo al `auth.users.id` de Supabase, crea el Tenant (empresa), le asigna el rol de administrador y realiza la inicialización.
+8. Comienza el flujo de sincronización inicial en segundo plano.
 
 ---
 

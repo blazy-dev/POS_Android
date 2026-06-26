@@ -51,23 +51,22 @@ Relaciones:
 
 Representa propietarios y empleados.
 
-| Campo         | Tipo              |
-| ------------- | ----------------- |
-| id            | UUID              |
-| tenant_id     | UUID              |
-| role_id       | UUID              |
-| name          | VARCHAR(150)      |
-| email         | VARCHAR(255)      |
-| google_id     | VARCHAR(255) NULL |
-| pin           | VARCHAR(255) NULL |
-| password_hash | VARCHAR(255) NULL |
-| is_active     | BOOLEAN           |
-| last_login_at | TIMESTAMP         |
+| Campo         | Tipo              | Descripción |
+| ------------- | ----------------- | ----------- |
+| id            | UUID              | Clave primaria (coincide con `auth.users.id` de Supabase para usuarios OAuth) |
+| tenant_id     | UUID              | Relación con Tenant |
+| role_id       | UUID              | Relación con Role |
+| name          | VARCHAR(150)      | Nombre completo |
+| email         | VARCHAR(255)      | Correo (único) |
+| pin           | VARCHAR(255) NULL | PIN de acceso rápido para cajeros |
+| password_hash | VARCHAR(255) NULL | Hash de contraseña (usado opcionalmente para acceso tradicional) |
+| is_active     | BOOLEAN           | Estado del usuario |
+| last_login_at | TIMESTAMP         | Último inicio de sesión |
 
 Reglas:
 
-* El propietario usa Google.
-* Los cajeros pueden usar PIN.
+* El propietario y los usuarios principales se registran mediante Supabase Auth (Google OAuth). Su `id` en `public.users` debe ser idéntico al `id` generado en el esquema `auth.users` de Supabase.
+* Los cajeros o supervisores locales creados por el administrador pueden autenticarse con PIN en el dispositivo móvil local, o registrarse en Supabase Auth si requieren credenciales completas de sincronización remota.
 
 ---
 

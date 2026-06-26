@@ -106,7 +106,7 @@ export function StockAdjustmentScreen({ product, onBack, onSaved }: StockAdjustm
 
     try {
       setSaving(true);
-      await adjustStock(db, product.id, adjustmentType, parsedQty, trimmedReason);
+      await adjustStock(db, product.id, adjustmentType, parsedQty, trimmedReason, product.tenant_id);
       onSaved();
     } catch (err) {
       setErrorMsg(err instanceof Error ? err.message : "Ocurrió un error al registrar el ajuste.");

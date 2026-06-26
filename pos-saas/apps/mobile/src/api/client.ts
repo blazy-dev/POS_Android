@@ -1,5 +1,6 @@
 // Cliente de API HTTP con simulador integrado para modo Offline-First.
 // En producción, esto consumirá los endpoints definidos en API_SPEC.md.
+import { supabase } from "./supabase";
 
 export interface SyncOperationPayload {
   id: string;
@@ -13,12 +14,13 @@ export interface PushResponse {
   success: boolean;
   processed: number;
   failed: number;
+  failedIds?: string[];
   error?: string;
 }
 
 export interface PullChange {
   id: string;
-  entity_type: "product" | "sale" | "inventory_movement" | "cash_register";
+  entity_type: "product" | "sale" | "inventory_movement" | "cash_register" | "user";
   entity_id: string;
   operation: "create" | "update" | "delete";
   payload: any;
@@ -36,9 +38,12 @@ export const apiConfig = {
   // 10.0.2.2 es la dirección IP especial de loopback en el Emulador de Android
   // para apuntar a 'localhost' de la máquina host de desarrollo.
   // Modificar a la IP local de tu red si estás probando con un dispositivo móvil físico.
-  baseUrl: "http://10.0.2.2:8000/api/v1",
+  baseUrl: "http://192.168.0.10:3000/api/v1",
   simulateOffline: false,
   simulateServerError: false,
+  // Configuración de Supabase para Auth
+  supabaseUrl: process.env.EXPO_PUBLIC_SUPABASE_URL || "https://dukyedgoyshhtjkuphow.supabase.co",
+  supabaseAnonKey: process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY || "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImR1a3llZGdvb3NoaHRqa3VwaG93Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3MTYxOTIwMDAsImV4cCI6MjAzMTc2ODAwMH0.xxxx_placeholder_key_change_me",
 };
 
 // Logs de eventos de sincronización para visualización en la UI
@@ -88,32 +93,14 @@ let cachedToken: string | null = null;
  * Para desarrollo, realiza un inicio de sesión automático usando el token semilla de pruebas.
  */
 async function getAuthToken(): Promise<string> {
-  if (cachedToken) {
-    return cachedToken;
-  }
-
   try {
-    const response = await fetch(`${apiConfig.baseUrl}/auth/google`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        id_token: "test-token",
-      }),
-    });
-
-    if (!response.ok) {
-      throw new Error(`Código de estado HTTP: ${response.status}`);
+    const { data: { session }, error } = await supabase.auth.getSession();
+    if (error || !session) {
+      return "test-token";
     }
-
-    const data = await response.json();
-    cachedToken = data.access_token;
-    return cachedToken!;
+    return session.access_token;
   } catch (err) {
-    const msg = err instanceof Error ? err.message : "Error de red";
-    addSyncLog("error", `Fallo al autenticar en el backend: ${msg}`);
-    throw new Error("Authentication failed");
+    return "test-token";
   }
 }
 
@@ -137,7 +124,7 @@ export async function checkApiHealth(): Promise<boolean> {
       method: "GET",
       signal: controller.signal,
     });
-    
+
     clearTimeout(timeoutId);
     return response.ok;
   } catch (err) {
@@ -194,11 +181,12 @@ export async function pushSyncOperations(operations: SyncOperationPayload[]): Pr
 
     const data = await response.json();
     addSyncLog("success", `PUSH completado. Procesados: ${data.processed}, Fallados: ${data.failed}`);
-    
+
     return {
       success: data.failed === 0,
       processed: data.processed,
       failed: data.failed,
+      failedIds: data.failedIds,
     };
   } catch (err) {
     const msg = err instanceof Error ? err.message : "Error desconocido";
@@ -247,7 +235,7 @@ export async function pullSyncChanges(lastSyncAt: string | null): Promise<PullRe
 
     const data = await response.json();
     addSyncLog("success", `PULL exitoso: ${data.changes.length} cambios recibidos.`);
-    
+
     return {
       success: true,
       changes: data.changes,

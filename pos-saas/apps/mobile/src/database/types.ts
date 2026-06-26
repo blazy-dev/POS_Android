@@ -105,3 +105,19 @@ export interface SyncOperationRecord {
   created_at: string;
   updated_at: string;
 }
+
+/**
+ * Representa un usuario/empleado en la base de datos local SQLite.
+ * Refleja la tabla 'users'.
+ */
+export interface UserRecord {
+  id: string;             // UUID del usuario (local o Supabase ID)
+  tenant_id: string;      // ID del tenant/empresa
+  name: string;           // Nombre completo del empleado
+  email: string;          // Correo único del empleado
+  pin: string | null;     // PIN de 4 dígitos para acceso rápido
+  role: string;           // Rol del empleado: 'admin', 'supervisor', 'cashier'
+  is_active: number;      // 1 = Activo, 0 = Inactivo/Desactivado
+  created_at: string;     // ISO Timestamp de creación
+  updated_at: string;     // ISO Timestamp de actualización
+}
