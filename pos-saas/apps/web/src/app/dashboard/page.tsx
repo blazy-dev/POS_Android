@@ -20,6 +20,9 @@ import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { Spinner } from "@/components/ui/spinner";
+import { ErrorMessage } from "@/components/ui/error-message";
+import { API_BASE } from "@/lib/api";
 
 interface MetricResponse {
   totalRevenue: number;
@@ -45,12 +48,9 @@ export default function DashboardOverviewPage() {
   const { data: metrics, isLoading, error, refetch, isRefetching } = useQuery<MetricResponse>({
     queryKey: ["metrics"],
     queryFn: async () => {
-      const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3000/api/v1";
-      const token = session?.access_token;
-      
-      const res = await fetch(`${apiUrl}/dashboard/metrics`, {
+      const res = await fetch(`${API_BASE}/dashboard/metrics`, {
         headers: {
-          Authorization: `Bearer ${token}`,
+          Authorization: `Bearer ${session?.access_token}`,
         },
       });
 
@@ -84,7 +84,7 @@ export default function DashboardOverviewPage() {
     return (
       <div className="flex h-[60vh] items-center justify-center">
         <div className="flex flex-col items-center space-y-4">
-          <div className="h-10 w-10 animate-spin rounded-full border-4 border-indigo-500 border-t-transparent"></div>
+          <Spinner size="lg" />
           <p className="text-slate-400 text-sm">Cargando estadísticas de la tienda...</p>
         </div>
       </div>
@@ -93,18 +93,13 @@ export default function DashboardOverviewPage() {
 
   if (error) {
     return (
-      <Card className="p-8 max-w-lg mx-auto text-center border-rose-500/20 bg-slate-900/60">
-        <CardContent className="p-0">
-          <AlertTriangle className="h-12 w-12 text-rose-500 mx-auto mb-4" />
-          <h3 className="text-lg font-bold text-white">Error al cargar datos</h3>
-          <p className="text-sm text-slate-400 mt-2 mb-6">
-            No pudimos conectar con el servidor. Por favor, asegúrate de que el backend esté ejecutándose.
-          </p>
-          <Button onClick={() => refetch()} variant="default">
-            Reintentar conexión
-          </Button>
-        </CardContent>
-      </Card>
+      <div className="max-w-lg mx-auto">
+        <ErrorMessage
+          title="Error al cargar datos"
+          message="No pudimos conectar con el servidor. Por favor, asegúrate de que el backend esté ejecutándose."
+          onRetry={() => refetch()}
+        />
+      </div>
     );
   }
 

@@ -33,6 +33,9 @@ import {
   DialogDescription,
   DialogFooter
 } from "@/components/ui/dialog";
+import { Spinner } from "@/components/ui/spinner";
+import { ErrorMessage } from "@/components/ui/error-message";
+import { API_BASE } from "@/lib/api";
 
 interface Product {
   name: string;
@@ -72,13 +75,11 @@ export default function SalesHistoryPage() {
   const [search, setSearch] = useState("");
   const [selectedSale, setSelectedSale] = useState<Sale | null>(null);
 
-  const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3000/api/v1";
-
   // Queries
   const { data: sales = [], isLoading, error } = useQuery<Sale[]>({
     queryKey: ["sales"],
     queryFn: async () => {
-      const res = await fetch(`${apiUrl}/dashboard/sales`, {
+      const res = await fetch(`${API_BASE}/dashboard/sales`, {
         headers: { Authorization: `Bearer ${session?.access_token}` },
       });
       if (!res.ok) throw new Error("Failed to fetch sales");
@@ -118,12 +119,11 @@ export default function SalesHistoryPage() {
 
   if (error) {
     return (
-      <div className="glass-panel p-8 rounded-2xl max-w-lg mx-auto text-center border-rose-500/20 animate-fade-in">
-        <AlertTriangle className="h-12 w-12 text-rose-500 mx-auto mb-4" />
-        <h3 className="text-lg font-bold text-white">Error al cargar datos</h3>
-        <p className="text-sm text-slate-400 mt-2 mb-6">
-          No pudimos conectar con el servidor. Por favor, asegúrate de que el backend esté ejecutándose.
-        </p>
+      <div className="max-w-lg mx-auto">
+        <ErrorMessage
+          title="Error al cargar datos"
+          message="No pudimos conectar con el servidor. Por favor, asegúrate de que el backend esté ejecutándose."
+        />
       </div>
     );
   }
@@ -159,7 +159,7 @@ export default function SalesHistoryPage() {
       <div className="rounded-2xl border border-slate-800 bg-slate-900/30 overflow-hidden">
         {isLoading ? (
           <div className="flex h-48 items-center justify-center">
-            <div className="h-8 w-8 animate-spin rounded-full border-4 border-indigo-500 border-t-transparent"></div>
+            <Spinner size="lg" />
           </div>
         ) : filteredSales.length > 0 ? (
           <Table>

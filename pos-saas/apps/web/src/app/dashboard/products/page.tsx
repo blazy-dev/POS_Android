@@ -33,6 +33,8 @@ import {
   DialogTitle,
   DialogDescription
 } from "@/components/ui/dialog";
+import { Spinner } from "@/components/ui/spinner";
+import { API_BASE } from "@/lib/api";
 
 interface Category {
   id: string;
@@ -81,13 +83,11 @@ export default function ProductsPage() {
   const [categoryName, setCategoryName] = useState("");
   const [formError, setFormError] = useState("");
 
-  const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3000/api/v1";
-
   // Queries
   const { data: products = [], isLoading: isLoadingProducts } = useQuery<Product[]>({
     queryKey: ["products"],
     queryFn: async () => {
-      const res = await fetch(`${apiUrl}/dashboard/products`, {
+      const res = await fetch(`${API_BASE}/dashboard/products`, {
         headers: { Authorization: `Bearer ${session?.access_token}` },
       });
       if (!res.ok) throw new Error("Failed to fetch products");
@@ -99,7 +99,7 @@ export default function ProductsPage() {
   const { data: categories = [], isLoading: isLoadingCategories } = useQuery<Category[]>({
     queryKey: ["categories"],
     queryFn: async () => {
-      const res = await fetch(`${apiUrl}/dashboard/categories`, {
+      const res = await fetch(`${API_BASE}/dashboard/categories`, {
         headers: { Authorization: `Bearer ${session?.access_token}` },
       });
       if (!res.ok) throw new Error("Failed to fetch categories");
@@ -111,7 +111,7 @@ export default function ProductsPage() {
   // Mutations
   const createProductMutation = useMutation({
     mutationFn: async (newProduct: typeof productForm) => {
-      const res = await fetch(`${apiUrl}/dashboard/products`, {
+      const res = await fetch(`${API_BASE}/dashboard/products`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -138,7 +138,7 @@ export default function ProductsPage() {
 
   const updateProductMutation = useMutation({
     mutationFn: async ({ id, data }: { id: string; data: typeof productForm }) => {
-      const res = await fetch(`${apiUrl}/dashboard/products/${id}`, {
+      const res = await fetch(`${API_BASE}/dashboard/products/${id}`, {
         method: "PUT",
         headers: {
           "Content-Type": "application/json",
@@ -166,7 +166,7 @@ export default function ProductsPage() {
 
   const deleteProductMutation = useMutation({
     mutationFn: async (id: string) => {
-      const res = await fetch(`${apiUrl}/dashboard/products/${id}`, {
+      const res = await fetch(`${API_BASE}/dashboard/products/${id}`, {
         method: "DELETE",
         headers: { Authorization: `Bearer ${session?.access_token}` },
       });
@@ -180,7 +180,7 @@ export default function ProductsPage() {
 
   const createCategoryMutation = useMutation({
     mutationFn: async (name: string) => {
-      const res = await fetch(`${apiUrl}/dashboard/categories`, {
+      const res = await fetch(`${API_BASE}/dashboard/categories`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -329,7 +329,7 @@ export default function ProductsPage() {
       <div className="rounded-2xl border border-slate-800 bg-slate-900/30 overflow-hidden">
         {isLoadingProducts ? (
           <div className="flex h-48 items-center justify-center">
-            <div className="h-8 w-8 animate-spin rounded-full border-4 border-indigo-500 border-t-transparent"></div>
+            <Spinner size="lg" />
           </div>
         ) : filteredProducts.length > 0 ? (
           <Table>
@@ -625,7 +625,7 @@ export default function ProductsPage() {
                 className="flex items-center space-x-2"
               >
                 {(createProductMutation.isPending || updateProductMutation.isPending) ? (
-                  <div className="h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent"></div>
+                  <Spinner size="sm" className="border-white border-t-transparent" />
                 ) : (
                   <Check className="h-4 w-4" />
                 )}

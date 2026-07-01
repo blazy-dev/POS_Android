@@ -72,7 +72,10 @@ pos-saas/
 │   ├── SYNC_STRATEGY.md
 │   ├── HARDWARE.md
 │   ├── REPOSITORY_STRUCTURE.md
-│   └── ROADMAP.md
+│   ├── ROADMAP.md
+│   ├── ROADMAP_FRONTEND.md
+│   ├── CONTROL_CAMBIOS.md
+│   └── CONTROL_CAMBIOS_BACKEND.md
 │
 ├── .github/
 │   └── workflows/

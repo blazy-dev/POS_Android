@@ -32,6 +32,8 @@ import {
   DialogTitle,
   DialogDescription
 } from "@/components/ui/dialog";
+import { Spinner } from "@/components/ui/spinner";
+import { API_BASE } from "@/lib/api";
 
 interface Role {
   id: string;
@@ -66,8 +68,6 @@ export default function EmployeesPage() {
   });
   const [formError, setFormError] = useState("");
 
-  const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3000/api/v1";
-
   // Check admin rights
   const isAdmin = user?.role === "admin";
 
@@ -75,7 +75,7 @@ export default function EmployeesPage() {
   const { data: employees = [], isLoading } = useQuery<Employee[]>({
     queryKey: ["employees"],
     queryFn: async () => {
-      const res = await fetch(`${apiUrl}/dashboard/employees`, {
+      const res = await fetch(`${API_BASE}/dashboard/employees`, {
         headers: { Authorization: `Bearer ${session?.access_token}` },
       });
       if (!res.ok) throw new Error("Failed to fetch employees");
@@ -87,7 +87,7 @@ export default function EmployeesPage() {
   // Mutations
   const createEmployeeMutation = useMutation({
     mutationFn: async (newData: typeof form) => {
-      const res = await fetch(`${apiUrl}/dashboard/employees`, {
+      const res = await fetch(`${API_BASE}/dashboard/employees`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -113,7 +113,7 @@ export default function EmployeesPage() {
 
   const updateEmployeeMutation = useMutation({
     mutationFn: async ({ id, data }: { id: string; data: typeof form }) => {
-      const res = await fetch(`${apiUrl}/dashboard/employees/${id}`, {
+      const res = await fetch(`${API_BASE}/dashboard/employees/${id}`, {
         method: "PUT",
         headers: {
           "Content-Type": "application/json",
@@ -140,7 +140,7 @@ export default function EmployeesPage() {
 
   const toggleStatusMutation = useMutation({
     mutationFn: async ({ id, isActive }: { id: string; isActive: boolean }) => {
-      const res = await fetch(`${apiUrl}/dashboard/employees/${id}`, {
+      const res = await fetch(`${API_BASE}/dashboard/employees/${id}`, {
         method: "PUT",
         headers: {
           "Content-Type": "application/json",
@@ -257,7 +257,7 @@ export default function EmployeesPage() {
       <div className="rounded-2xl border border-slate-800 bg-slate-900/30 overflow-hidden">
         {isLoading ? (
           <div className="flex h-48 items-center justify-center">
-            <div className="h-8 w-8 animate-spin rounded-full border-4 border-indigo-500 border-t-transparent"></div>
+            <Spinner size="lg" />
           </div>
         ) : employees.length > 0 ? (
           <Table>
@@ -477,7 +477,7 @@ export default function EmployeesPage() {
                 disabled={createEmployeeMutation.isPending || updateEmployeeMutation.isPending}
               >
                 {(createEmployeeMutation.isPending || updateEmployeeMutation.isPending) ? (
-                  <div className="h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent"></div>
+                  <Spinner size="sm" className="border-white border-t-transparent" />
                 ) : (
                   <Check className="h-4 w-4" />
                 )}

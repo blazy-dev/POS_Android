@@ -2,6 +2,7 @@
 
 import React, { createContext, useContext, useEffect, useState } from "react";
 import { supabase } from "@/lib/supabase";
+import { apiFetch } from "@/lib/api";
 import { Session } from "@supabase/supabase-js";
 
 export interface UserProfile {
@@ -39,20 +40,18 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   // Sync session and profile with backend
   async function syncProfile(currentSession: Session) {
-    const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001/api/v1";
     const token = currentSession.access_token;
 
     try {
       // 1. Check if user profile is registered in backend
-      const statusRes = await fetch(`${apiUrl}/auth/status`, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-
-      if (!statusRes.ok) {
-        throw new Error(`Auth status API failed: ${statusRes.status}`);
-      }
-
-      const statusData = await statusRes.json();
+      const statusData = await apiFetch<{
+        success: boolean;
+        data: {
+          exists: boolean;
+          user: { id: string; email: string; name: string; role: string };
+          tenant: { id: string; name: string; currency: string; timezone: string };
+        };
+      }>("/auth/status", { token });
 
       if (statusData.success && statusData.data.exists) {
         setUser({
@@ -72,12 +71,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         currentSession.user.email?.split("@")[0] ||
         "My Store";
 
-      const registerRes = await fetch(`${apiUrl}/auth/register-or-link`, {
+      const registerData = await apiFetch<{
+        success: boolean;
+        data: {
+          user: { id: string; email: string; name: string; role: string };
+          tenant: { id: string; name: string; currency?: string; timezone?: string };
+        };
+      }>("/auth/register-or-link", {
+        token,
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
-        },
         body: JSON.stringify({
           tenant_name: `${fullName}'s Store`,
           currency: "ARS",
@@ -85,11 +87,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         }),
       });
 
-      if (!registerRes.ok) {
-        throw new Error(`Register API failed: ${registerRes.status}`);
-      }
-
-      const registerData = await registerRes.json();
       if (registerData.success && registerData.data) {
         const apiData = registerData.data;
         setUser({
