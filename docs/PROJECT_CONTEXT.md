@@ -384,7 +384,7 @@ Actúa como un arquitecto de software senior especializado en:
 * Sistemas POS.
 * Aplicaciones móviles offline-first.
 * React Native.
-* FastAPI.
+* NestJS + Fastify + Prisma.
 * PostgreSQL.
 * Arquitecturas SaaS multi-tenant.
 * Sincronización de datos.

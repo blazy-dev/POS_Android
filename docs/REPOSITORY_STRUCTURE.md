@@ -28,7 +28,7 @@ pos-saas/
 │   │   ├── package.json
 │   │   └── tsconfig.json
 │   │
-│   └── admin-web/              # Futuro panel administrativo
+│   └── web/                    # Dashboard administrativo Next.js 16
 │
 ├── backend/
 │   │
@@ -59,6 +59,10 @@ pos-saas/
 │   ├── api-types/              # Tipos compartidos
 │   ├── eslint-config/
 │   └── typescript-config/
+│
+├── scripts/                 # Scripts de desarrollo (arranque/parada de servicios)
+│   ├── dev-start.ps1
+│   └── dev-stop.ps1
 │
 ├── docs/
 │   ├── PROJECT.md

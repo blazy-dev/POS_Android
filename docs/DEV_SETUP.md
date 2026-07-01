@@ -21,7 +21,10 @@ Cada servicio tiene su propio archivo de entorno. **Nunca subir estos archivos a
 ### Backend — `pos-saas/backend/.env`
 ```env
 PROJECT_NAME="POS SaaS Android-First"
+API_V1_STR="/api/v1"
 ENVIRONMENT="development"
+SECRET_KEY="development_secret_key_change_me_in_production"
+ACCESS_TOKEN_EXPIRE_MINUTES=11520
 DATABASE_URL="postgresql://postgres.<proyecto>:<password>@aws-1-us-west-2.pooler.supabase.com:5432/postgres"
 SUPABASE_JWT_SECRET="<jwt_secret_del_dashboard_de_supabase>"
 ```
@@ -152,9 +155,47 @@ Para que el login con Google funcione en desarrollo local, debés agregar las UR
 
 ---
 
-## 🛑 Cómo detener los servicios
+## 🚀 Scripts de arranque y parada automatica
 
-Para matar un proceso que ocupa un puerto específico:
+Para no tener que abrir 3 terminales manualmente cada vez, usa los scripts incluidos en `scripts/`:
+
+```powershell
+# Arranca los 3 servicios en Windows Terminal (3 pestanas)
+.\scripts\dev-start.ps1
+
+# Arranca solo un servicio especifico
+.\scripts\dev-start.ps1 -Backend
+.\scripts\dev-start.ps1 -Web
+.\scripts\dev-start.ps1 -Mobile
+
+# Detiene los 3 servicios matando los procesos en sus puertos
+.\scripts\dev-stop.ps1
+
+# Detiene solo un servicio
+.\scripts\dev-stop.ps1 -Web
+```
+
+### Comportamiento de los scripts
+
+- `dev-start.ps1` instala automaticamente las dependencias si `node_modules` no existe (solo la primera vez).
+- `dev-start.ps1` abre **Windows Terminal** con una pestana por cada servicio (fallback a ventanas separadas si no esta instalado).
+- Cada ventana muestra los logs de su servicio en tiempo real.
+- `dev-stop.ps1` busca los procesos que ocupan los puertos 3000, 3001 y 8081 y los mata con `taskkill /F`.
+
+### Flujo de trabajo recomendado
+
+Si estas haciendo cambios en el backend y queres verificar que el frontend y mobile no se rompan:
+
+1. Ejecuta `.\scripts\dev-start.ps1` para encender todo en Windows Terminal.
+2. Modifica el codigo del backend — NestJS se reinicia solo con `--watch`.
+3. En las otras pestanas, el frontend (Next.js con Turbopack) y mobile (Expo con Fast Refresh) tambien se recargan automaticamente.
+4. Si necesitas reiniciar solo un servicio: `.\scripts\dev-stop.ps1 -Backend` y despues `.\scripts\dev-start.ps1 -Backend`.
+
+---
+
+## 🛑 Como detener los servicios manualmente
+
+Si preferis hacerlo a mano, podes usar `Ctrl+C` en cada terminal, o matar por puerto:
 
 ```powershell
 # Buscar el PID que usa el puerto (ejemplo: 3001)
@@ -163,8 +204,6 @@ netstat -ano | findstr ":3001"
 # Matar el proceso por PID
 taskkill /PID <PID> /F
 ```
-
-O usar `Ctrl+C` en cada terminal para detenerlos individualmente.
 
 ---
 
