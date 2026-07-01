@@ -161,28 +161,22 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     try {
       setLoading(true);
       const redirectUrl = Linking.createURL("auth-callback");
-      console.log("URL de redirección generada:", redirectUrl);
-      
-      const { data, error } = await supabase.auth.signInWithOAuth({
-        provider: "google",
-        options: {
-          redirectTo: redirectUrl,
-          skipBrowserRedirect: true,
-          queryParams: {
-            prompt: "select_account",
-          },
-        },
-      });
+      console.log("[AUTH] redirectUrl:", redirectUrl);
+      console.log("[AUTH] supabaseUrl:", apiConfig.supabaseUrl);
+      console.log("[AUTH] backendUrl:", apiConfig.baseUrl);
 
-      if (error || !data?.url) {
-        throw new Error(error?.message || "No se obtuvo URL de autenticación");
-      }
+      // Construir URL de OAuth manualmente y abrir navegador directo
+      // EVITAMOS supabase.auth.signInWithOAuth() y supabase.auth.setSession()
+      // porque esos metodos internamente llaman fetch() a Supabase desde el celu,
+      // lo cual falla con "Network request failed" en algunos entornos de red
+      const oauthUrl = `${apiConfig.supabaseUrl}/auth/v1/authorize?provider=google&redirect_to=${encodeURIComponent(redirectUrl)}`;
+      console.log("[AUTH] Abriendo navegador:", oauthUrl);
 
-      // Abre el navegador seguro de Expo
-      const result = await WebBrowser.openAuthSessionAsync(data.url, redirectUrl);
+      const result = await WebBrowser.openAuthSessionAsync(oauthUrl, redirectUrl);
+      console.log("[AUTH] Resultado navegador:", result.type);
 
       if (result.type === "success" && result.url) {
-        // Extrae tokens usando regex sobre el redirect URL
+        console.log("[AUTH] Callback recibida");
         const getParam = (url: string, param: string) => {
           const regex = new RegExp(`[#?&]${param}=([^&#]*)`);
           const results = regex.exec(url);
@@ -190,42 +184,46 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         };
 
         const accessToken = getParam(result.url, "access_token");
-        const refreshToken = getParam(result.url, "refresh_token");
+        console.log("[AUTH] accessToken:", accessToken ? "SI" : "NO");
 
-        if (accessToken) {
-          const { error: sessionErr } = await supabase.auth.setSession({
-            access_token: accessToken,
-            refresh_token: refreshToken,
-          });
+        if (!accessToken) {
+          console.error("[AUTH] No se recibio access_token en el callback");
+          return false;
+        }
 
-          if (sessionErr) throw sessionErr;
+        // NO llamar a supabase.auth.setSession() aqui: internamente hace fetch()
+        // a Supabase y falla con "Network request failed" en el celular.
+        // El backend se encarga de validar el token via JWKS de Supabase.
 
-          // Verificar si el usuario ya existe en el backend
-          const statusRes = await fetch(`${apiConfig.baseUrl}/auth/status`, {
-            method: "GET",
-            headers: {
-              "Authorization": `Bearer ${accessToken}`,
-            },
-          });
+        console.log("[AUTH] Verificando estado en backend...");
+        const statusRes = await fetch(`${apiConfig.baseUrl}/auth/status`, {
+          method: "GET",
+          headers: { Authorization: `Bearer ${accessToken}` },
+        });
+        console.log("[AUTH] Backend status:", statusRes.status);
 
-          if (statusRes.ok) {
-            const statusData = await statusRes.json();
-            if (statusData.data?.exists) {
-              // El usuario ya existe, sincronizamos con el backend para recuperar perfil
-              return await syncWithBackend(db, accessToken);
-            } else {
-              // Es un usuario nuevo, guardamos el token para proceder con el onboarding
-              setOnboardingToken(accessToken);
-              return false;
-            }
-          } else {
-            throw new Error(`Error de servidor al comprobar estado: ${statusRes.status}`);
-          }
+        if (!statusRes.ok) {
+          const errText = await statusRes.text();
+          console.error("[AUTH] Backend error:", statusRes.status, errText.slice(0, 200));
+          throw new Error(`Backend respondio con ${statusRes.status}`);
+        }
+
+        const statusData = await statusRes.json();
+        console.log("[AUTH] Status response:", JSON.stringify(statusData).slice(0, 200));
+
+        if (statusData.data?.exists) {
+          console.log("[AUTH] Usuario existe, sincronizando...");
+          return await syncWithBackend(db, accessToken);
+        } else {
+          console.log("[AUTH] Usuario nuevo, guardando token para onboarding");
+          setOnboardingToken(accessToken);
+          return false;
         }
       }
+      console.log("[AUTH] Navegador cerrado sin exito (type:", result.type, ")");
       return false;
     } catch (err) {
-      console.error("Error al iniciar sesión con Google:", err);
+      console.error("[AUTH] Error al iniciar sesión con Google:", err);
       return false;
     } finally {
       setLoading(false);

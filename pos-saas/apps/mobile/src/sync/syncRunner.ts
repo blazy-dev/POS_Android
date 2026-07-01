@@ -1,5 +1,6 @@
 import type { SQLiteDatabase } from "expo-sqlite";
 import {
+  apiConfig,
   checkApiHealth,
   pushSyncOperations,
   pullSyncChanges,
@@ -20,7 +21,12 @@ export interface SyncResult {
  * con el backend, y descarga los cambios remotos.
  */
 export async function runSync(db: SQLiteDatabase): Promise<SyncResult> {
+  console.log("[SYNC] Iniciando sincronización...");
+  console.log("[SYNC] API URL:", apiConfig.baseUrl);
+
   const isOnline = await checkApiHealth();
+  console.log("[SYNC] Health check:", isOnline ? "OK" : "FAILED");
+
   if (!isOnline) {
     addSyncLog("warning", "Sincronización abortada: Servidor no disponible.");
     return {
@@ -56,6 +62,7 @@ export async function runSync(db: SQLiteDatabase): Promise<SyncResult> {
     );
 
     if (pendingOps.length > 0) {
+      console.log(`[SYNC] PUSH: ${pendingOps.length} operaciones pendientes`);
       // Mapeamos los datos al formato que espera la API
       const operationsToSend: SyncOperationPayload[] = pendingOps.map((op) => ({
         id: op.id,
@@ -118,7 +125,9 @@ export async function runSync(db: SQLiteDatabase): Promise<SyncResult> {
     const lastSyncAt = deviceState?.last_sync_at ?? null;
 
     // Llamamos a la API
+    console.log(`[SYNC] PULL: lastSyncAt=${lastSyncAt}`);
     const pullRes = await pullSyncChanges(lastSyncAt);
+    console.log(`[SYNC] PULL resultado: ${pullRes.changes.length} cambios`);
 
     if (pullRes.success && pullRes.changes.length > 0) {
       pulledCount = pullRes.changes.length;
@@ -229,6 +238,7 @@ export async function runSync(db: SQLiteDatabase): Promise<SyncResult> {
     };
   } catch (error) {
     const errMessage = error instanceof Error ? error.message : "Error desconocido";
+    console.error("[SYNC] Error:", errMessage);
     addSyncLog("error", `Fallo en sincronización: ${errMessage}`);
     return {
       success: false,

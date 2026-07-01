@@ -35,10 +35,10 @@ export interface PullResponse {
 
 // Configuración y variables de conexión
 export const apiConfig = {
-  // 10.0.2.2 es la dirección IP especial de loopback en el Emulador de Android
-  // para apuntar a 'localhost' de la máquina host de desarrollo.
-  // Modificar a la IP local de tu red si estás probando con un dispositivo móvil físico.
-  baseUrl: "http://192.168.0.10:3000/api/v1",
+  // Usar EXPO_PUBLIC_API_URL si está definida, sino fallback a localhost:3001
+  // Para emulador Android: http://10.0.2.2:3001/api/v1
+  // Para dispositivo físico: http://<IP_DE_TU_PC>:3001/api/v1
+  baseUrl: process.env.EXPO_PUBLIC_API_URL || "http://192.168.0.10:3001/api/v1",
   simulateOffline: false,
   simulateServerError: false,
   // Configuración de Supabase para Auth
@@ -117,6 +117,7 @@ export async function checkApiHealth(): Promise<boolean> {
   }
 
   try {
+    console.log("[API] Health check:", `${apiConfig.baseUrl}/health`);
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), 2000); // 2 segundos de timeout
 
@@ -126,8 +127,10 @@ export async function checkApiHealth(): Promise<boolean> {
     });
 
     clearTimeout(timeoutId);
+    console.log("[API] Health check response:", response.status);
     return response.ok;
   } catch (err) {
+    console.error("[API] Health check error:", err);
     return false;
   }
 }
@@ -150,6 +153,7 @@ export async function pushSyncOperations(operations: SyncOperationPayload[]): Pr
 
   try {
     const token = await getAuthToken();
+    console.log("[API] PUSH:", `${apiConfig.baseUrl}/sync/push`, `ops: ${operations.length}`);
     const response = await fetch(`${apiConfig.baseUrl}/sync/push`, {
       method: "POST",
       headers: {
@@ -217,6 +221,7 @@ export async function pullSyncChanges(lastSyncAt: string | null): Promise<PullRe
     if (lastSyncAt) {
       url += `?last_sync_at=${encodeURIComponent(lastSyncAt)}`;
     }
+    console.log("[API] PULL:", url);
 
     const response = await fetch(url, {
       method: "GET",
