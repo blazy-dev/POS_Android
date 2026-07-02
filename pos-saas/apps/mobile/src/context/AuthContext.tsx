@@ -48,6 +48,14 @@ async function migrateLocalUsers(
 
   const now = new Date().toISOString();
   for (const u of migrated) {
+    // Skip if there's already a pending sync operation for this user
+    const existing = await db.getFirstAsync<{ id: string }>(
+      `SELECT id FROM sync_operations
+       WHERE entity_type = 'user' AND entity_id = $entity_id AND status = 'pending'`,
+      { $entity_id: u.id },
+    );
+    if (existing) continue;
+
     await enqueueSyncOperation(db, {
       id: createLocalId('sync'),
       entityType: 'user',

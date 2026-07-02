@@ -19,6 +19,7 @@ import {
   saveEmployee,
   deleteEmployee,
   isPinTaken,
+  isEmailTaken,
   type EmployeeInput,
 } from '../modules/employees';
 import type { UserRecord } from '../database/types';
@@ -168,6 +169,19 @@ export function EmployeeManagementScreen({
 
     try {
       setSaving(true);
+
+      // Verificar unicidad de email
+      const emailTaken = await isEmailTaken(
+        db,
+        email,
+        tenantId,
+        editingEmployee?.id,
+      );
+      if (emailTaken) {
+        setFormError('Este correo ya esta registrado por otro empleado.');
+        setSaving(false);
+        return;
+      }
 
       if (pin) {
         const pinTaken = await isPinTaken(

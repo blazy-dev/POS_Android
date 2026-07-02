@@ -398,3 +398,52 @@ SELECT entity_type, operation, status, retries FROM sync_operations ORDER BY cre
 # Listar productos locales
 SELECT id, name, barcode, stock FROM products WHERE is_active = 1;
 ```
+
+---
+
+## User Sync: Lecciones Aprendidas (2026-07-01)
+
+### Problema: Usuarios del celular no aparecen en la web
+
+**Causa raiz (3 bugs simultaneos):**
+
+1. **Email duplicado en el celular:** El `EmployeeManagementScreen` validaba formato de email pero NO unicidad. Se podian crear 3 empleados con el mismo email (`ventu@ventu.com`) y distintos roles. El backend hace upsert por `email` (unique constraint), asi que los 3 se fusionaban en 1 solo usuario (ultimo rol gana).
+
+2. **Operaciones duplicadas en la cola:** `migrateLocalUsers()` enqueueaba sync operations sin verificar si ya existia una pendiente para el mismo `entity_id`. Esto generaba duplicados.
+
+3. **Web no refrescaba:** La pagina de empleados usaba `fetch` directo sin `staleTime`, cargando datos viejos despues del push.
+
+### Solucion aplicada
+
+| Archivo | Cambio |
+|---------|--------|
+| `modules/employees/index.ts` | Agregado `isEmailTaken()` — valida unicidad de email en SQLite local |
+| `screens/EmployeeManagementScreen.tsx` | Llama `isEmailTaken()` antes de guardar, muestra error si el email ya existe |
+| `context/AuthContext.tsx` | `migrateLocalUsers()` ahora verifica que no haya operacion pendiente para el mismo `entity_id` antes de enqueuear |
+| `web/app/dashboard/employees/page.tsx` | Usa `apiFetch` + `staleTime: 10s` en vez de `fetch` directo |
+| `backend/sync/sync.service.ts` | Logging de PUSH user con email, role y tenantId para debug |
+
+### Regla: Email unico por tenant
+
+```typescript
+// En el celular, antes de guardar un empleado:
+const emailTaken = await isEmailTaken(db, email, tenantId, editingEmployee?.id);
+if (emailTaken) {
+  setFormError('Este correo ya esta registrado por otro empleado.');
+  return;
+}
+```
+
+El backend tiene `email @unique` en el modelo User de Prisma. El upsert por email es correcto (evita duplicados), pero el celular debe prevenir el problema ANTES de encolar.
+
+### Regla: No duplicar operaciones de sync
+
+```typescript
+// Antes de enqueuear, verificar que no exista una pendiente:
+const existing = await db.getFirstAsync(
+  `SELECT id FROM sync_operations
+   WHERE entity_type = 'user' AND entity_id = $entity_id AND status = 'pending'`,
+  { $entity_id: u.id },
+);
+if (existing) continue; // Ya hay una pendiente, no duplicar
+```

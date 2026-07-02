@@ -53,7 +53,27 @@ export async function isPinTaken(
 }
 
 /**
- * Registra o edita un empleado en la base de datos SQLite local y encola una operación de sincronización.
+ * Verifica si un email ya esta registrado en el tenant local.
+ */
+export async function isEmailTaken(
+  db: SQLiteDatabase,
+  email: string,
+  tenantId = 'local',
+  excludeUserId?: string,
+): Promise<boolean> {
+  if (!email) return false;
+  let query = `SELECT id FROM users WHERE tenant_id = $tenantId AND email = $email AND is_active = 1`;
+  const params: Record<string, string> = { $tenantId: tenantId, $email: email };
+  if (excludeUserId) {
+    query += ` AND id != $excludeUserId`;
+    params.$excludeUserId = excludeUserId;
+  }
+  const row = await db.getFirstAsync<{ id: string }>(query, params);
+  return !!row;
+}
+
+/**
+ * Registra o edita un empleado en la base de datos SQLite local y encola una operacion de sincronizacion.
  * Si se proporciona un user id, se actualiza el registro; de lo contrario se inserta uno nuevo.
  */
 export async function saveEmployee(

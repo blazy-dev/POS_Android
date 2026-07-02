@@ -33,7 +33,7 @@ import {
   DialogDescription,
 } from '@/components/ui/dialog';
 import { Spinner } from '@/components/ui/spinner';
-import { API_BASE } from '@/lib/api';
+import { apiFetch } from '@/lib/api';
 
 interface Role {
   id: string;
@@ -74,32 +74,22 @@ export default function EmployeesPage() {
   // Queries
   const { data: employees = [], isLoading } = useQuery<Employee[]>({
     queryKey: ['employees'],
-    queryFn: async () => {
-      const res = await fetch(`${API_BASE}/dashboard/employees`, {
-        headers: { Authorization: `Bearer ${session?.access_token}` },
-      });
-      if (!res.ok) throw new Error('Failed to fetch employees');
-      return res.json();
-    },
+    queryFn: () =>
+      apiFetch<Employee[]>('/dashboard/employees', {
+        token: session?.access_token,
+      }),
     enabled: !!session && isAdmin,
+    staleTime: 10_000,
   });
 
   // Mutations
   const createEmployeeMutation = useMutation({
     mutationFn: async (newData: typeof form) => {
-      const res = await fetch(`${API_BASE}/dashboard/employees`, {
+      return apiFetch('/dashboard/employees', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${session?.access_token}`,
-        },
+        token: session?.access_token,
         body: JSON.stringify(newData),
       });
-      if (!res.ok) {
-        const err = await res.json();
-        throw new Error(err.message || 'Error al crear empleado');
-      }
-      return res.json();
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['employees'] });
@@ -113,19 +103,11 @@ export default function EmployeesPage() {
 
   const updateEmployeeMutation = useMutation({
     mutationFn: async ({ id, data }: { id: string; data: typeof form }) => {
-      const res = await fetch(`${API_BASE}/dashboard/employees/${id}`, {
+      return apiFetch(`/dashboard/employees/${id}`, {
         method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${session?.access_token}`,
-        },
+        token: session?.access_token,
         body: JSON.stringify(data),
       });
-      if (!res.ok) {
-        const err = await res.json();
-        throw new Error(err.message || 'Error al actualizar empleado');
-      }
-      return res.json();
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['employees'] });
@@ -140,16 +122,11 @@ export default function EmployeesPage() {
 
   const toggleStatusMutation = useMutation({
     mutationFn: async ({ id, isActive }: { id: string; isActive: boolean }) => {
-      const res = await fetch(`${API_BASE}/dashboard/employees/${id}`, {
+      return apiFetch(`/dashboard/employees/${id}`, {
         method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${session?.access_token}`,
-        },
+        token: session?.access_token,
         body: JSON.stringify({ isActive }),
       });
-      if (!res.ok) throw new Error('Error al modificar estado del empleado');
-      return res.json();
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['employees'] });
