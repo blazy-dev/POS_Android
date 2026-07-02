@@ -48,7 +48,6 @@ export class DashboardController {
       throw new BadRequestException('Product name is required');
     }
 
-    // Check if barcode is already taken in this tenant
     if (body.barcode) {
       const existing = await this.prisma.product.findFirst({
         where: {
@@ -62,13 +61,16 @@ export class DashboardController {
       }
     }
 
+    // Self-healing: resolve categoryId from name if not a valid UUID
+    const categoryId = await this.resolveCategoryId(user.tenantId, body.categoryId);
+
     return this.prisma.product.create({
       data: {
         tenantId: user.tenantId,
         barcode: body.barcode?.trim() || null,
         name: body.name,
         description: body.description || null,
-        categoryId: body.categoryId || null,
+        categoryId,
         purchasePrice: Number(body.purchasePrice) || 0,
         salePrice: Number(body.salePrice) || 0,
         costPrice: Number(body.costPrice) || 0,
@@ -108,13 +110,18 @@ export class DashboardController {
       }
     }
 
+    const categoryId =
+      body.categoryId !== undefined
+        ? await this.resolveCategoryId(user.tenantId, body.categoryId)
+        : product.categoryId;
+
     return this.prisma.product.update({
       where: { id },
       data: {
         barcode: body.barcode !== undefined ? body.barcode : product.barcode,
         name: body.name !== undefined ? body.name : product.name,
         description: body.description !== undefined ? body.description : product.description,
-        categoryId: body.categoryId !== undefined ? body.categoryId : product.categoryId,
+        categoryId,
         purchasePrice: body.purchasePrice !== undefined ? body.purchasePrice : product.purchasePrice,
         salePrice: body.salePrice !== undefined ? body.salePrice : product.salePrice,
         costPrice: body.costPrice !== undefined ? body.costPrice : product.costPrice,
@@ -398,5 +405,36 @@ export class DashboardController {
         createdAt: s.createdAt,
       })),
     };
+  }
+
+  /**
+   * Resuelve un categoryId a un UUID valido.
+   * Si el valor no es un UUID (ej: "Bebidas"), busca o crea la categoria por nombre.
+   */
+  private async resolveCategoryId(
+    tenantId: string,
+    categoryId: string | undefined | null,
+  ): Promise<string | null> {
+    if (!categoryId) return null;
+
+    const uuidRegex =
+      /^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$/;
+
+    if (uuidRegex.test(categoryId)) {
+      return categoryId;
+    }
+
+    // No es UUID -> es un nombre de categoria. Buscar o crear.
+    const existing = await this.prisma.category.findFirst({
+      where: { tenantId, name: categoryId },
+    });
+
+    if (existing) return existing.id;
+
+    const created = await this.prisma.category.create({
+      data: { tenantId, name: categoryId },
+    });
+
+    return created.id;
   }
 }
