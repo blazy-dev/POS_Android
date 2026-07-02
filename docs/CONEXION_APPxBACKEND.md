@@ -270,6 +270,16 @@ Si carga el bundle de Expo (puerto 8081) pero NO responde el backend (puerto 300
 2. Correr migraciones: cd backend && pnpm prisma migrate deploy
 3. Verificar logs del backend para el error especifico
 
+### 6.5 Seccion de gestion de empleados no aparece en la app movil
+
+**Causa:** Al skippear `supabase.auth.setSession()` (ver seccion 3.2), `supabase.auth.getSession()` devuelve `null`. La `SettingsScreen` usaba `getSession()` para obtener el token y cargar los datos del comercio. Sin token, `tenantInfo` quedaba vacio y todo el bloque que contiene el boton "Gestionar Empleados" no se renderizaba.
+
+**Solucion aplicada (2026-07-01):**
+1. `SettingsScreen.tsx` ahora usa `getCachedToken()` en vez de `supabase.auth.getSession()` para todas las llamadas al backend (`/auth/tenant` GET y PUT)
+2. El boton "Gestionar Empleados" se movio a su propia tarjeta, fuera del bloque condicional de `tenantInfo`, para que siempre sea visible para admins aunque el tenant info no cargue
+
+**Leccion:** Cualquier pantalla del movil que necesite el token debe usar `getCachedToken()`, NO `supabase.auth.getSession()`. Este patron se repite en toda la app por el skip de `setSession()`.
+
 ---
 
 ## 7. ARQUITECTURA DEL CODIGO (archivos clave)
@@ -280,7 +290,8 @@ Si carga el bundle de Expo (puerto 8081) pero NO responde el backend (puerto 300
 |---------|----------------|
 | apps/mobile/src/context/AuthContext.tsx | Flujo completo de auth: login Google, login PIN, onboarding, logout |
 | apps/mobile/src/api/supabase.ts | Inicializa el cliente Supabase con SecureStore adapter |
-| apps/mobile/src/api/client.ts | Configuracion de URLs (baseUrl, supabaseUrl, supabaseAnonKey) |
+| apps/mobile/src/api/client.ts | URLs + setCachedToken/getCachedToken + getAuthToken (cachedToken > session > test-token) |
+| apps/mobile/src/screens/SettingsScreen.tsx | Usar getCachedToken() NO supabase.auth.getSession() — setSession() fue skippeado |
 | apps/mobile/.env | Variables EXPO_PUBLIC_* (inyectadas en build time) |
 
 ### 7.2 Backend NestJS

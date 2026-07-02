@@ -13,7 +13,7 @@ import { useAuth } from '../context/AuthContext';
 import { radius, spacing, ThemeColors } from '../theme/tokens';
 import { useTheme } from '../context/ThemeContext';
 import { supabase } from '../api/supabase';
-import { apiConfig } from '../api/client';
+import { apiConfig, getCachedToken } from '../api/client';
 import { FormField } from '../components/form/FormField';
 import { EmployeeManagementScreen } from './EmployeeManagementScreen';
 import { useSQLiteContext } from 'expo-sqlite';
@@ -73,15 +73,13 @@ export function SettingsScreen() {
     if (!isOnlineUser) return;
     try {
       setLoadingTenant(true);
-      const {
-        data: { session },
-      } = await supabase.auth.getSession();
-      if (!session) return;
+      const token = getCachedToken();
+      if (!token) return;
 
       const response = await fetch(`${apiConfig.baseUrl}/auth/tenant`, {
         method: 'GET',
         headers: {
-          Authorization: `Bearer ${session.access_token}`,
+          Authorization: `Bearer ${token}`,
         },
       });
 
@@ -138,16 +136,14 @@ export function SettingsScreen() {
 
     try {
       setLoadingTenant(true);
-      const {
-        data: { session },
-      } = await supabase.auth.getSession();
-      if (!session) return;
+      const token = getCachedToken();
+      if (!token) return;
 
       const response = await fetch(`${apiConfig.baseUrl}/auth/tenant`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
-          Authorization: `Bearer ${session.access_token}`,
+          Authorization: `Bearer ${token}`,
         },
         body: JSON.stringify({
           name: editName.trim(),
@@ -359,21 +355,29 @@ export function SettingsScreen() {
                   <Text style={styles.detailLabel}>Zona Horaria:</Text>
                   <Text style={styles.detailValue}>{tenantInfo.timezone}</Text>
                 </View>
-
-                {isAdmin && (
-                  <Pressable
-                    style={styles.manageEmployeesButton}
-                    onPress={() => setShowEmployees(true)}
-                  >
-                    <Text style={styles.manageEmployeesButtonText}>
-                      👥 Gestionar Empleados
-                    </Text>
-                  </Pressable>
-                )}
               </View>
             )}
           </View>
         ) : null}
+
+        {/* Sección Gestion de Empleados (siempre visible para admin) */}
+        {isAdmin && (
+          <View style={styles.card}>
+            <Text style={styles.cardTitle}>Gestión de Personal</Text>
+            <Text style={styles.cardText}>
+              Administrá cajeros, supervisores y sus credenciales de acceso
+              local.
+            </Text>
+            <Pressable
+              style={styles.manageEmployeesButton}
+              onPress={() => setShowEmployees(true)}
+            >
+              <Text style={styles.manageEmployeesButtonText}>
+                👥 Gestionar Empleados
+              </Text>
+            </Pressable>
+          </View>
+        )}
 
         {/* Sección Apariencia */}
         <View style={styles.card}>
