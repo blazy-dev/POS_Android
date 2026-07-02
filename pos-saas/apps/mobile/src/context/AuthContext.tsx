@@ -11,6 +11,7 @@ import * as Linking from 'expo-linking';
 import { supabase } from '../api/supabase';
 import { apiConfig, setCachedToken } from '../api/client';
 import { setAppMeta } from '../database';
+import { runSync } from '../sync';
 
 WebBrowser.maybeCompleteAuthSession();
 
@@ -214,6 +215,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         // (en vez de caer en test-token que apunta a otro tenant)
         setCachedToken(accessToken);
 
+        // Resetear lastSyncAt para que el proximo pull descargue TODO
+        // (evita que sync anterior con test-token/otro tenant deje un timestamp que filtre los productos nuevos)
+        await db.runAsync(
+          `UPDATE device_state SET last_sync_at = NULL, updated_at = $now WHERE id = 1`,
+          { $now: new Date().toISOString() },
+        );
+
         // NO llamar a supabase.auth.setSession() aqui: internamente hace fetch()
         // a Supabase y falla con "Network request failed" en el celular.
         // El backend se encarga de validar el token via JWKS de Supabase.
@@ -242,8 +250,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         );
 
         if (statusData.data?.exists) {
-          console.log('[AUTH] Usuario existe, sincronizando...');
-          return await syncWithBackend(db, accessToken);
+          console.log('[AUTH] Usuario existe, sincronizando perfil...');
+          const synced = await syncWithBackend(db, accessToken);
+          if (synced) {
+            // Disparar sync de productos/categorias etc inmediatamente
+            void runSync(db).then((result) => {
+              console.log('[AUTH] Sync post-login:', result.pulledCount, 'productos descargados');
+            });
+          }
+          return synced;
         } else {
           console.log('[AUTH] Usuario nuevo, guardando token para onboarding');
           setOnboardingToken(accessToken);
@@ -279,6 +294,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     try {
       setLoading(true);
       setCachedToken(onboardingToken);
+
+      await db.runAsync(
+        `UPDATE device_state SET last_sync_at = NULL, updated_at = $now WHERE id = 1`,
+        { $now: new Date().toISOString() },
+      );
+
       const response = await fetch(
         `${apiConfig.baseUrl}/auth/register-or-link`,
         {
@@ -340,6 +361,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
       setUser(userProfile);
       setOnboardingToken(null);
+
+      void runSync(db).then((result) => {
+        console.log('[AUTH] Sync post-onboarding:', result.pulledCount, 'productos descargados');
+      });
+
       return true;
     } catch (e) {
       console.error('Error al completar el onboarding:', e);
@@ -362,6 +388,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
     setUser(null);
     setOnboardingToken(null);
+
+    // Resetear lastSyncAt para que el proximo login haga pull completo
+    try {
+      await db.runAsync(
+        `UPDATE device_state SET last_sync_at = NULL, updated_at = $now WHERE id = 1`,
+        { $now: new Date().toISOString() },
+      );
+    } catch (_) {
+      /* ignorar */
+    }
   }
 
   return (
