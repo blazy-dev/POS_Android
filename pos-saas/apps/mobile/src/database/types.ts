@@ -1,32 +1,44 @@
 // Tipos de operaciones de sincronización que se pueden poner en cola
 export type SyncOperationKind = 'create' | 'update' | 'delete';
 
-// Estado de procesamiento en el que se encuentra una operación de sincronización
 export type SyncOperationStatus = 'pending' | 'syncing' | 'synced' | 'failed';
 
-// Tipo para almacenar configuraciones clave-valor genéricas en app_meta
 export type AppMetaValue = string | number | boolean | null;
 
-// Alias de tipo para representar valores monetarios de forma explícita
 export type MoneyValue = number;
 
-/**
- * Representa un producto en la base de datos local SQLite.
- * Refleja la tabla 'products'.
- */
 export interface ProductRecord {
-  id: string; // UUID identificador único del producto
-  tenant_id: string; // ID de la empresa dueña (multi-tenant)
-  barcode: string | null; // Código de barras para lector HID (único por tenant)
-  name: string; // Nombre descriptivo del producto
-  category_id: string | null; // Categoría asociada
-  purchase_price: number; // Precio de compra (costo)
-  sale_price: number; // Precio de venta al público
-  stock: number; // Stock actual local (flotante para soportar unidades fraccionables)
-  unit: string; // Unidad de medida: 'unit' (unidad), 'kg' (kilogramos), etc.
-  is_active: number; // Flag booleano (0 o 1) para productos activos
-  created_at: string; // ISO Timestamp de creación
-  updated_at: string; // ISO Timestamp de última actualización
+  id: string;
+  tenant_id: string;
+  barcode: string | null;
+  name: string;
+  category_id: string | null;
+  purchase_price: number;
+  sale_price: number;
+  stock: number;
+  unit: string;
+  is_active: number;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface CategoryRecord {
+  id: string;
+  tenant_id: string;
+  name: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface CustomerRecord {
+  id: string;
+  tenant_id: string;
+  name: string;
+  phone: string | null;
+  email: string | null;
+  address: string | null;
+  created_at: string;
+  updated_at: string;
 }
 
 /**

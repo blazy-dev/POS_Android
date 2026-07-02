@@ -420,6 +420,7 @@ export class SyncService {
         operation: 'update',
         payload: {
           id: category.id,
+          tenant_id: category.tenantId,
           name: category.name,
           created_at: category.createdAt.toISOString(),
           updated_at: category.updatedAt.toISOString(),
@@ -438,6 +439,7 @@ export class SyncService {
         operation: product.isActive ? 'update' : 'delete',
         payload: {
           id: product.id,
+          tenant_id: product.tenantId,
           barcode: product.barcode,
           name: product.name,
           description: product.description,
@@ -466,6 +468,7 @@ export class SyncService {
         operation: 'update',
         payload: {
           id: customer.id,
+          tenant_id: customer.tenantId,
           name: customer.name,
           phone: customer.phone,
           email: customer.email,
@@ -487,6 +490,7 @@ export class SyncService {
         operation: 'update',
         payload: {
           id: register.id,
+          tenant_id: register.tenantId,
           opened_by: register.openedBy,
           opened_at: register.openedAt.toISOString(),
           closed_at: register.closedAt?.toISOString() || null,
@@ -513,6 +517,7 @@ export class SyncService {
         operation: 'update',
         payload: {
           id: sale.id,
+          tenant_id: sale.tenantId,
           cash_register_id: sale.cashRegisterId,
           customer_id: sale.customerId,
           user_id: sale.userId,
@@ -547,6 +552,7 @@ export class SyncService {
         operation: 'update',
         payload: {
           id: movement.id,
+          tenant_id: movement.tenantId,
           product_id: movement.productId,
           user_id: movement.userId,
           reference_type: movement.referenceType,
@@ -573,6 +579,7 @@ export class SyncService {
         operation: u.isActive ? 'update' : 'delete',
         payload: {
           id: u.id,
+          tenant_id: u.tenantId,
           name: u.name,
           email: u.email,
           pin: u.pin,

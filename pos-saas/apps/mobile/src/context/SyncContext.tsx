@@ -110,25 +110,12 @@ export function SyncProvider({ children }: { children: React.ReactNode }) {
     [triggerSync],
   );
 
-  // Inicialización y carga de valores iniciales
+  // Inicializacion: sync al arranque siempre (pull de cambios web + push pendientes)
   useEffect(() => {
     const initSync = async () => {
       await refreshPendingCount();
       await refreshLastSyncTime();
-      try {
-        const row = await db.getFirstAsync<{ last_sync_at: string | null }>(
-          `SELECT last_sync_at FROM device_state WHERE id = 1`,
-        );
-        const rowPending = await db.getFirstAsync<{ count: number }>(
-          `SELECT COUNT(*) AS count FROM sync_operations WHERE status = 'pending'`,
-        );
-        // Si nunca ha sincronizado o hay operaciones pendientes locales, disparamos sync de inmediato
-        if (!row?.last_sync_at || (rowPending && rowPending.count > 0)) {
-          void triggerSync();
-        }
-      } catch (e) {
-        // Silently ignore init sync check failures (e.g. table not ready yet)
-      }
+      void triggerSync();
     };
     void initSync();
   }, [db, triggerSync, refreshPendingCount, refreshLastSyncTime]);
@@ -141,24 +128,15 @@ export function SyncProvider({ children }: { children: React.ReactNode }) {
     return () => clearInterval(timer);
   }, [refreshPendingCount]);
 
-  // Polling de 30 segundos para auto-sincronizar si hay pendientes y estamos online
+  // Polling de 60 segundos para auto-sincronizar: siempre pull + push si hay pendientes
   useEffect(() => {
     const timer = setInterval(() => {
       if (!apiConfig.simulateOffline) {
-        // Consultamos la cola y disparamos sync si hay elementos pendientes
-        void db
-          .getFirstAsync<{ count: number }>(
-            `SELECT COUNT(*) AS count FROM sync_operations WHERE status = 'pending'`,
-          )
-          .then((row) => {
-            if (row && row.count > 0) {
-              void triggerSync();
-            }
-          });
+        void triggerSync();
       }
-    }, 30000);
+    }, 60000);
     return () => clearInterval(timer);
-  }, [db, triggerSync]);
+  }, [triggerSync]);
 
   return (
     <SyncContext.Provider

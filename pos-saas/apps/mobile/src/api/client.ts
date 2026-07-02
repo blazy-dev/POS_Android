@@ -21,7 +21,13 @@ export interface PushResponse {
 export interface PullChange {
   id: string;
   entity_type:
-    'product' | 'sale' | 'inventory_movement' | 'cash_register' | 'user';
+    | 'product'
+    | 'category'
+    | 'customer'
+    | 'sale'
+    | 'inventory_movement'
+    | 'cash_register'
+    | 'user';
   entity_id: string;
   operation: 'create' | 'update' | 'delete';
   payload: any;

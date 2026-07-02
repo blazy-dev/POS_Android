@@ -2,6 +2,8 @@ import type { SQLiteDatabase } from 'expo-sqlite';
 import type {
   AppMetaRecord,
   AppMetaValue,
+  CategoryRecord,
+  CustomerRecord,
   InventoryMovementRecord,
   ProductRecord,
   SaleItemRecord,
@@ -10,16 +12,15 @@ import type {
   SyncOperationStatus,
 } from './types';
 
-// Nombre del archivo de base de datos local SQLite
 export const DATABASE_NAME = 'pos_local.db';
-// Versión actual del esquema de la base de datos
-export const DATABASE_VERSION = 3;
+export const DATABASE_VERSION = 4;
 
-// Nombre de las tablas locales
 const META_TABLE = 'app_meta';
 const SYNC_TABLE = 'sync_operations';
 const DEVICE_TABLE = 'device_state';
 const PRODUCTS_TABLE = 'products';
+const CATEGORIES_TABLE = 'categories';
+const CUSTOMERS_TABLE = 'customers';
 const SALES_TABLE = 'sales';
 const SALE_ITEMS_TABLE = 'sale_items';
 const INVENTORY_TABLE = 'inventory_movements';
@@ -204,10 +205,31 @@ export async function initializeDatabase(db: SQLiteDatabase) {
 
     CREATE INDEX IF NOT EXISTS idx_inventory_product_created_at
       ON ${INVENTORY_TABLE} (product_id, created_at DESC);
+
+    -- Tabla de categorias de productos (sincronizada desde el backend)
+    CREATE TABLE IF NOT EXISTS ${CATEGORIES_TABLE} (
+      id TEXT PRIMARY KEY NOT NULL,
+      tenant_id TEXT NOT NULL,
+      name TEXT NOT NULL,
+      created_at TEXT NOT NULL,
+      updated_at TEXT NOT NULL
+    );
+
+    -- Tabla de clientes (sincronizada desde el backend)
+    CREATE TABLE IF NOT EXISTS ${CUSTOMERS_TABLE} (
+      id TEXT PRIMARY KEY NOT NULL,
+      tenant_id TEXT NOT NULL,
+      name TEXT NOT NULL,
+      phone TEXT,
+      email TEXT,
+      address TEXT,
+      created_at TEXT NOT NULL,
+      updated_at TEXT NOT NULL
+    );
   `);
 
-  // Actualiza la versión de usuario en SQLite si es necesario
-  if (currentVersion < 3) {
+  // Actualiza la version de usuario en SQLite si es necesario
+  if (currentVersion < DATABASE_VERSION) {
     await db.execAsync(`PRAGMA user_version = ${DATABASE_VERSION};`);
   }
 
@@ -451,6 +473,32 @@ export async function listSaleItems(db: SQLiteDatabase, saleId: string) {
      WHERE sale_id = $sale_id
      ORDER BY created_at ASC`,
     { $sale_id: saleId },
+  );
+}
+
+/**
+ * Devuelve la lista de categorias locales.
+ */
+export async function listCategories(db: SQLiteDatabase, tenantId = 'local') {
+  return db.getAllAsync<CategoryRecord>(
+    `SELECT id, tenant_id, name, created_at, updated_at
+     FROM ${CATEGORIES_TABLE}
+     WHERE tenant_id = $tenant_id
+     ORDER BY name ASC`,
+    { $tenant_id: tenantId },
+  );
+}
+
+/**
+ * Devuelve la lista de clientes locales.
+ */
+export async function listCustomers(db: SQLiteDatabase, tenantId = 'local') {
+  return db.getAllAsync<CustomerRecord>(
+    `SELECT id, tenant_id, name, phone, email, address, created_at, updated_at
+     FROM ${CUSTOMERS_TABLE}
+     WHERE tenant_id = $tenant_id
+     ORDER BY name ASC`,
+    { $tenant_id: tenantId },
   );
 }
 

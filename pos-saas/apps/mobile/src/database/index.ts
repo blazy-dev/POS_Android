@@ -6,6 +6,8 @@ export {
   getSalesCount,
   getAppMeta,
   initializeDatabase,
+  listCategories,
+  listCustomers,
   listInventoryMovements,
   listPendingSyncOperations,
   listProducts,
@@ -13,4 +15,11 @@ export {
   listSaleItems,
   setAppMeta,
 } from './migrations';
-export type { SyncOperationKind, SyncOperationStatus } from './types';
+export type {
+  CategoryRecord,
+  CustomerRecord,
+  ProductRecord,
+  SaleRecord,
+  SyncOperationKind,
+  SyncOperationStatus,
+} from './types';
