@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import { useAuth } from '@/context/AuthContext';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import {
@@ -14,6 +14,9 @@ import {
   X,
   Check,
   Barcode,
+  TrendingUp,
+  TrendingDown,
+  Package,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -56,34 +59,50 @@ interface Product {
   unit: string;
 }
 
+const CATEGORY_PRESETS = [
+  'Bebidas',
+  'Almacen',
+  'Lacteos',
+  'Fiambres',
+  'Limpieza',
+  'Otros',
+];
+
+const UNIT_OPTIONS = [
+  { value: 'unit', label: 'Unidad (un)' },
+  { value: 'kg', label: 'Kilogramo (kg)' },
+  { value: 'pack', label: 'Pack / Caja' },
+  { value: 'liter', label: 'Litro (L)' },
+  { value: 'meter', label: 'Metro (m)' },
+  { value: 'gram', label: 'Gramo (g)' },
+];
+
 export default function ProductsPage() {
   const { session, tenant } = useAuth();
   const queryClient = useQueryClient();
   const [search, setSearch] = useState('');
 
-  // Modal states
   const [isProductModalOpen, setIsProductModalOpen] = useState(false);
   const [isCategoryModalOpen, setIsCategoryModalOpen] = useState(false);
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
 
-  // Form states
   const [productForm, setProductForm] = useState({
     barcode: '',
     name: '',
     description: '',
     categoryId: '',
-    purchasePrice: 0,
-    salePrice: 0,
-    costPrice: 0,
-    stock: 0,
-    minimumStock: 0,
+    categoryName: '',
+    purchasePrice: '',
+    salePrice: '',
+    costPrice: '',
+    stock: '',
+    minimumStock: '',
     unit: 'unit',
   });
 
   const [categoryName, setCategoryName] = useState('');
   const [formError, setFormError] = useState('');
 
-  // Queries
   const { data: products = [], isLoading: isLoadingProducts } = useQuery<
     Product[]
   >({
@@ -98,9 +117,7 @@ export default function ProductsPage() {
     enabled: !!session,
   });
 
-  const { data: categories = [], isLoading: isLoadingCategories } = useQuery<
-    Category[]
-  >({
+  const { data: categories = [] } = useQuery<Category[]>({
     queryKey: ['categories'],
     queryFn: async () => {
       const res = await fetch(`${API_BASE}/dashboard/categories`, {
@@ -112,16 +129,43 @@ export default function ProductsPage() {
     enabled: !!session,
   });
 
-  // Mutations
+  const categoryOptions = useMemo(() => {
+    const merged = [...categories.map((c) => ({ id: c.id, name: c.name }))];
+    for (const preset of CATEGORY_PRESETS) {
+      if (!merged.find((c) => c.name === preset)) {
+        merged.push({ id: preset, name: preset });
+      }
+    }
+    return merged;
+  }, [categories]);
+
+  const margin = useMemo(() => {
+    const purchase = parseFloat(productForm.purchasePrice) || 0;
+    const sale = parseFloat(productForm.salePrice) || 0;
+    if (!purchase || !sale) return null;
+    return ((sale - purchase) / purchase) * 100;
+  }, [productForm.purchasePrice, productForm.salePrice]);
+
   const createProductMutation = useMutation({
-    mutationFn: async (newProduct: typeof productForm) => {
+    mutationFn: async (data: typeof productForm) => {
       const res = await fetch(`${API_BASE}/dashboard/products`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
           Authorization: `Bearer ${session?.access_token}`,
         },
-        body: JSON.stringify(newProduct),
+        body: JSON.stringify({
+          barcode: data.barcode.trim() || undefined,
+          name: data.name,
+          description: data.description || undefined,
+          categoryId: data.categoryId || undefined,
+          purchasePrice: parseFloat(data.purchasePrice) || 0,
+          salePrice: parseFloat(data.salePrice) || 0,
+          costPrice: parseFloat(data.costPrice) || 0,
+          stock: parseFloat(data.stock) || 0,
+          minimumStock: parseFloat(data.minimumStock) || 0,
+          unit: data.unit,
+        }),
       });
       if (!res.ok) {
         const err = await res.json();
@@ -154,7 +198,18 @@ export default function ProductsPage() {
           'Content-Type': 'application/json',
           Authorization: `Bearer ${session?.access_token}`,
         },
-        body: JSON.stringify(data),
+        body: JSON.stringify({
+          barcode: data.barcode.trim() || undefined,
+          name: data.name,
+          description: data.description || undefined,
+          categoryId: data.categoryId || undefined,
+          purchasePrice: parseFloat(data.purchasePrice) || 0,
+          salePrice: parseFloat(data.salePrice) || 0,
+          costPrice: parseFloat(data.costPrice) || 0,
+          stock: parseFloat(data.stock) || 0,
+          minimumStock: parseFloat(data.minimumStock) || 0,
+          unit: data.unit,
+        }),
       });
       if (!res.ok) {
         const err = await res.json();
@@ -198,7 +253,7 @@ export default function ProductsPage() {
         },
         body: JSON.stringify({ name }),
       });
-      if (!res.ok) throw new Error('Error al crear categoría');
+      if (!res.ok) throw new Error('Error al crear categoria');
       return res.json();
     },
     onSuccess: () => {
@@ -208,18 +263,18 @@ export default function ProductsPage() {
     },
   });
 
-  // Helpers
   const resetProductForm = () => {
     setProductForm({
       barcode: '',
       name: '',
       description: '',
       categoryId: '',
-      purchasePrice: 0,
-      salePrice: 0,
-      costPrice: 0,
-      stock: 0,
-      minimumStock: 0,
+      categoryName: '',
+      purchasePrice: '',
+      salePrice: '',
+      costPrice: '',
+      stock: '',
+      minimumStock: '',
       unit: 'unit',
     });
     setFormError('');
@@ -238,11 +293,12 @@ export default function ProductsPage() {
       name: product.name,
       description: product.description || '',
       categoryId: product.categoryId || '',
-      purchasePrice: Number(product.purchasePrice) || 0,
-      salePrice: Number(product.salePrice) || 0,
-      costPrice: Number(product.costPrice) || 0,
-      stock: Number(product.stock) || 0,
-      minimumStock: Number(product.minimumStock) || 0,
+      categoryName: product.category?.name || '',
+      purchasePrice: String(product.purchasePrice || ''),
+      salePrice: String(product.salePrice || ''),
+      costPrice: String(product.costPrice || ''),
+      stock: String(product.stock || ''),
+      minimumStock: String(product.minimumStock || ''),
       unit: product.unit || 'unit',
     });
     setFormError('');
@@ -253,23 +309,26 @@ export default function ProductsPage() {
     e.preventDefault();
     setFormError('');
 
-    if (!productForm.name) {
-      setFormError('El nombre es requerido');
+    if (!productForm.name.trim()) {
+      setFormError('El nombre del producto es requerido');
+      return;
+    }
+
+    const salePrice = parseFloat(productForm.salePrice) || 0;
+    if (salePrice <= 0) {
+      setFormError('El precio de venta debe ser mayor a 0');
       return;
     }
 
     if (editingProduct) {
-      updateProductMutation.mutate({
-        id: editingProduct.id,
-        data: productForm,
-      });
+      updateProductMutation.mutate({ id: editingProduct.id, data: productForm });
     } else {
       createProductMutation.mutate(productForm);
     }
   };
 
   const handleDeleteProduct = (id: string) => {
-    if (confirm('¿Estás seguro de que quieres eliminar este producto?')) {
+    if (confirm('Eliminar este producto?')) {
       deleteProductMutation.mutate(id);
     }
   };
@@ -278,7 +337,7 @@ export default function ProductsPage() {
     const currency = tenant?.currency || 'ARS';
     return new Intl.NumberFormat('es-AR', {
       style: 'currency',
-      currency: currency,
+      currency,
     }).format(amount);
   };
 
@@ -290,48 +349,38 @@ export default function ProductsPage() {
 
   return (
     <div className="space-y-6 animate-fade-in">
-      {/* Title / Action bar */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
           <h1 className="text-2xl font-bold tracking-tight text-white">
-            Catálogo de Productos
+            Catalogo de Productos
           </h1>
           <p className="text-sm text-slate-400 mt-1">
-            Administra tus artículos de stock, precios y códigos de barra.
+            Administra tus articulos de stock, precios y codigos de barra.
           </p>
         </div>
-
         <div className="flex items-center space-x-3">
           <Button
             onClick={() => setIsCategoryModalOpen(true)}
             variant="outline"
             size="sm"
-            className="flex items-center space-x-2"
           >
-            <FolderPlus className="h-4.5 w-4.5" />
-            <span>Crear Categoría</span>
+            <FolderPlus className="h-4 w-4 mr-2" />
+            Nueva Categoria
           </Button>
-
-          <Button
-            onClick={handleOpenCreateModal}
-            variant="default"
-            size="sm"
-            className="flex items-center space-x-2"
-          >
-            <Plus className="h-4.5 w-4.5" />
-            <span>Agregar Producto</span>
+          <Button onClick={handleOpenCreateModal} variant="default" size="sm">
+            <Plus className="h-4 w-4 mr-2" />
+            Nuevo Producto
           </Button>
         </div>
       </div>
 
-      {/* Filter and Search */}
       <div className="flex items-center bg-slate-900/40 backdrop-blur-md rounded-xl px-4 py-1.5 max-w-md border border-slate-800 focus-within:border-indigo-500/80 focus-within:ring-2 focus-within:ring-indigo-500/10 transition-all">
         <Search className="h-4 w-4 text-slate-500 mr-3" />
         <input
           type="text"
           value={search}
           onChange={(e) => setSearch(e.target.value)}
-          placeholder="Buscar por nombre o código..."
+          placeholder="Buscar por nombre o codigo..."
           className="bg-transparent border-none outline-none text-slate-200 text-sm w-full placeholder-slate-500 py-1"
         />
         {search && (
@@ -344,7 +393,6 @@ export default function ProductsPage() {
         )}
       </div>
 
-      {/* Products Table */}
       <div className="rounded-2xl border border-slate-800 bg-slate-900/30 overflow-hidden">
         {isLoadingProducts ? (
           <div className="flex h-48 items-center justify-center">
@@ -355,7 +403,7 @@ export default function ProductsPage() {
             <TableHeader>
               <TableRow>
                 <TableHead>Producto</TableHead>
-                <TableHead>Categoría</TableHead>
+                <TableHead>Categoria</TableHead>
                 <TableHead className="text-right">Costo / Venta</TableHead>
                 <TableHead className="text-center">Stock</TableHead>
                 <TableHead className="text-center">Unidad</TableHead>
@@ -377,7 +425,7 @@ export default function ProductsPage() {
                         </p>
                         {product.barcode && (
                           <p className="text-[10px] text-slate-500 flex items-center space-x-1 mt-1 font-mono">
-                            <Barcode className="h-3 w-3 text-slate-650" />
+                            <Barcode className="h-3 w-3" />
                             <span>{product.barcode}</span>
                           </p>
                         )}
@@ -393,7 +441,7 @@ export default function ProductsPage() {
                         </Badge>
                       ) : (
                         <span className="text-slate-600 text-xs italic">
-                          Sin categoría
+                          Sin categoria
                         </span>
                       )}
                     </TableCell>
@@ -420,22 +468,16 @@ export default function ProductsPage() {
                         >
                           {Number(product.stock)}
                         </span>
-                        {isOutOfStock ? (
+                        {(isOutOfStock || isLowStock) && (
                           <Badge
-                            variant="destructive"
-                            className="mt-1 text-[9px] px-1 py-0 border-rose-500/10"
+                            variant={
+                              isOutOfStock ? 'destructive' : 'secondary'
+                            }
+                            className="mt-1 text-[9px] px-1 py-0"
                           >
-                            Agotado
+                            {isOutOfStock ? 'Agotado' : 'Minimo'}
                           </Badge>
-                        ) : isLowStock ? (
-                          <Badge
-                            variant="warning"
-                            className="mt-1 text-[9px] px-1 py-0 flex items-center gap-0.5 border-amber-500/10"
-                          >
-                            <AlertTriangle className="h-2 w-2" />
-                            <span>Mínimo</span>
-                          </Badge>
-                        ) : null}
+                        )}
                       </div>
                     </TableCell>
                     <TableCell className="text-center text-slate-400 capitalize">
@@ -447,7 +489,6 @@ export default function ProductsPage() {
                           onClick={() => handleOpenEditModal(product)}
                           variant="outline"
                           size="icon"
-                          title="Editar"
                         >
                           <Edit2 className="h-3.5 w-3.5" />
                         </Button>
@@ -455,8 +496,7 @@ export default function ProductsPage() {
                           onClick={() => handleDeleteProduct(product.id)}
                           variant="ghost"
                           size="icon"
-                          className="text-rose-400 hover:text-rose-350 hover:bg-rose-500/10 border border-transparent hover:border-rose-500/20"
-                          title="Eliminar"
+                          className="text-rose-400 hover:text-rose-350 hover:bg-rose-500/10"
                         >
                           <Trash2 className="h-3.5 w-3.5" />
                         </Button>
@@ -470,25 +510,25 @@ export default function ProductsPage() {
         ) : (
           <div className="flex flex-col items-center justify-center py-20 text-slate-500 text-center">
             <ShoppingBag className="h-12 w-12 text-slate-700 mb-3" />
-            <h3 className="text-slate-300 font-bold">Catálogo vacío</h3>
+            <h3 className="text-slate-300 font-bold">Catalogo vacio</h3>
             <p className="text-sm mt-1 max-w-xs">
-              No hay productos que coincidan con la búsqueda o cargados en el
-              inventario.
+              No hay productos. Crea el primero con el boton de arriba.
             </p>
           </div>
         )}
       </div>
 
-      {/* Product Form Modal */}
+      {/* ============================================================
+          FORMULARIO DE PRODUCTO (estilo mobile - secciones + chips)
+          ============================================================ */}
       <Dialog open={isProductModalOpen} onOpenChange={setIsProductModalOpen}>
-        <DialogContent className="max-w-xl">
+        <DialogContent className="max-w-xl max-h-[85vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>
               {editingProduct ? 'Editar Producto' : 'Nuevo Producto'}
             </DialogTitle>
             <DialogDescription>
-              Introduce los datos del artículo para guardarlo en la base de
-              datos de tu tienda.
+              Completa los datos del articulo para guardarlo en el inventario.
             </DialogDescription>
           </DialogHeader>
 
@@ -500,31 +540,33 @@ export default function ProductsPage() {
               </div>
             )}
 
-            <div className="grid grid-cols-2 gap-4">
-              {/* Barcode */}
-              <div className="col-span-2">
+            {/* ── Seccion: Identificacion ── */}
+            <div className="rounded-xl border border-slate-800 bg-slate-950/40 p-5 space-y-4">
+              <div className="flex items-center gap-2">
+                <Barcode className="h-4 w-4 text-indigo-400" />
+                <h3 className="text-sm font-bold text-slate-200">
+                  Identificacion
+                </h3>
+              </div>
+              <p className="text-xs text-slate-500 -mt-2">
+                Escanea el codigo de barras o ingresa los datos manualmente.
+              </p>
+
+              <div>
                 <label className="block text-xs font-semibold text-slate-400 mb-1.5 uppercase tracking-wide">
-                  Código de Barras (Opcional)
+                  Codigo de Barras
                 </label>
-                <div className="relative">
-                  <Barcode className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-500" />
-                  <Input
-                    type="text"
-                    value={productForm.barcode}
-                    onChange={(e) =>
-                      setProductForm({
-                        ...productForm,
-                        barcode: e.target.value,
-                      })
-                    }
-                    placeholder="Escribe o escanea el código..."
-                    className="pl-10"
-                  />
-                </div>
+                <Input
+                  type="text"
+                  value={productForm.barcode}
+                  onChange={(e) =>
+                    setProductForm({ ...productForm, barcode: e.target.value })
+                  }
+                  placeholder="Ej: 7791234567890"
+                />
               </div>
 
-              {/* Name */}
-              <div className="col-span-2">
+              <div>
                 <label className="block text-xs font-semibold text-slate-400 mb-1.5 uppercase tracking-wide">
                   Nombre del Producto *
                 </label>
@@ -539,10 +581,209 @@ export default function ProductsPage() {
                 />
               </div>
 
-              {/* Description */}
-              <div className="col-span-2">
+              <div>
                 <label className="block text-xs font-semibold text-slate-400 mb-1.5 uppercase tracking-wide">
-                  Descripción (Opcional)
+                  Categoria
+                </label>
+                <input
+                  type="text"
+                  value={productForm.categoryName}
+                  onChange={(e) =>
+                    setProductForm({
+                      ...productForm,
+                      categoryName: e.target.value,
+                      categoryId: e.target.value, // use name as ID for presets
+                    })
+                  }
+                  placeholder="Elegi o escribi una categoria..."
+                  className="flex h-10 w-full rounded-xl border border-slate-800 bg-slate-950/60 px-4 py-2 text-sm text-slate-200 placeholder:text-slate-600 focus-visible:outline-none focus-visible:border-indigo-500/80 focus-visible:ring-2 focus-visible:ring-indigo-500/15"
+                />
+
+                <div className="flex flex-wrap gap-2 mt-3">
+                  {categoryOptions.map((cat) => {
+                    const active = productForm.categoryId === cat.id;
+                    return (
+                      <button
+                        key={cat.id}
+                        type="button"
+                        onClick={() =>
+                          setProductForm({
+                            ...productForm,
+                            categoryId: cat.id,
+                            categoryName: cat.name,
+                          })
+                        }
+                        className={`px-3 py-1.5 rounded-lg text-xs font-bold border transition-all ${
+                          active
+                            ? 'bg-indigo-500/15 border-indigo-500/40 text-indigo-300'
+                            : 'bg-slate-900/50 border-slate-800 text-slate-500 hover:border-slate-700 hover:text-slate-400'
+                        }`}
+                      >
+                        {cat.name}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            </div>
+
+            {/* ── Seccion: Precios ── */}
+            <div className="rounded-xl border border-slate-800 bg-slate-950/40 p-5 space-y-4">
+              <div className="flex items-center gap-2">
+                <TrendingUp className="h-4 w-4 text-emerald-400" />
+                <h3 className="text-sm font-bold text-slate-200">Precios</h3>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs font-semibold text-slate-400 mb-1.5 uppercase tracking-wide">
+                    Precio de Compra
+                  </label>
+                  <Input
+                    type="number"
+                    step="0.01"
+                    min="0"
+                    value={productForm.purchasePrice}
+                    onChange={(e) =>
+                      setProductForm({
+                        ...productForm,
+                        purchasePrice: e.target.value,
+                      })
+                    }
+                    placeholder="0"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-semibold text-slate-400 mb-1.5 uppercase tracking-wide">
+                    Precio de Venta *
+                  </label>
+                  <Input
+                    type="number"
+                    step="0.01"
+                    min="0"
+                    value={productForm.salePrice}
+                    onChange={(e) =>
+                      setProductForm({
+                        ...productForm,
+                        salePrice: e.target.value,
+                      })
+                    }
+                    placeholder="0"
+                  />
+                </div>
+              </div>
+
+              {margin !== null && (
+                <div
+                  className={`flex items-center justify-between px-4 py-3 rounded-xl border ${
+                    margin >= 0
+                      ? 'bg-emerald-500/5 border-emerald-500/15'
+                      : 'bg-rose-500/5 border-rose-500/15'
+                  }`}
+                >
+                  <span className="text-xs font-bold text-slate-400">
+                    Margen estimado
+                  </span>
+                  <div className="flex items-center gap-1.5">
+                    {margin >= 0 ? (
+                      <TrendingUp className="h-4 w-4 text-emerald-400" />
+                    ) : (
+                      <TrendingDown className="h-4 w-4 text-rose-400" />
+                    )}
+                    <span
+                      className={`text-lg font-extrabold ${
+                        margin >= 0 ? 'text-emerald-400' : 'text-rose-400'
+                      }`}
+                    >
+                      {margin.toFixed(1)}%
+                    </span>
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* ── Seccion: Inventario ── */}
+            <div className="rounded-xl border border-slate-800 bg-slate-950/40 p-5 space-y-4">
+              <div className="flex items-center gap-2">
+                <Package className="h-4 w-4 text-amber-400" />
+                <h3 className="text-sm font-bold text-slate-200">
+                  Inventario
+                </h3>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs font-semibold text-slate-400 mb-1.5 uppercase tracking-wide">
+                    Stock {editingProduct ? 'Actual' : 'Inicial'}
+                  </label>
+                  <Input
+                    type="number"
+                    step="0.001"
+                    value={productForm.stock}
+                    onChange={(e) =>
+                      setProductForm({
+                        ...productForm,
+                        stock: e.target.value,
+                      })
+                    }
+                    disabled={!!editingProduct}
+                    placeholder="0"
+                  />
+                  {editingProduct && (
+                    <p className="text-[10px] text-slate-600 mt-1">
+                      Usa ajustes de inventario para modificar
+                    </p>
+                  )}
+                </div>
+                <div>
+                  <label className="block text-xs font-semibold text-slate-400 mb-1.5 uppercase tracking-wide">
+                    Stock Minimo
+                  </label>
+                  <Input
+                    type="number"
+                    step="0.001"
+                    value={productForm.minimumStock}
+                    onChange={(e) =>
+                      setProductForm({
+                        ...productForm,
+                        minimumStock: e.target.value,
+                      })
+                    }
+                    placeholder="0"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-slate-400 mb-1.5 uppercase tracking-wide">
+                  Unidad de Medida
+                </label>
+                <div className="flex flex-wrap gap-2">
+                  {UNIT_OPTIONS.map((opt) => {
+                    const active = productForm.unit === opt.value;
+                    return (
+                      <button
+                        key={opt.value}
+                        type="button"
+                        onClick={() =>
+                          setProductForm({ ...productForm, unit: opt.value })
+                        }
+                        className={`px-3 py-1.5 rounded-lg text-xs font-bold border transition-all ${
+                          active
+                            ? 'bg-indigo-500/15 border-indigo-500/40 text-indigo-300'
+                            : 'bg-slate-900/50 border-slate-800 text-slate-500 hover:border-slate-700 hover:text-slate-400'
+                        }`}
+                      >
+                        {opt.label}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-slate-400 mb-1.5 uppercase tracking-wide">
+                  Descripcion
                 </label>
                 <textarea
                   rows={2}
@@ -553,130 +794,12 @@ export default function ProductsPage() {
                       description: e.target.value,
                     })
                   }
-                  placeholder="Detalles sobre el producto..."
-                  className="flex w-full rounded-xl border border-slate-800 bg-slate-950/60 px-4.5 py-2 text-sm text-slate-200 shadow-sm transition-all placeholder:text-slate-600 focus-visible:outline-none focus-visible:border-indigo-500/80 focus-visible:ring-3 focus-visible:ring-indigo-500/15 resize-none"
-                />
-              </div>
-
-              {/* Category select */}
-              <div>
-                <label className="block text-xs font-semibold text-slate-400 mb-1.5 uppercase tracking-wide">
-                  Categoría
-                </label>
-                <select
-                  value={productForm.categoryId}
-                  onChange={(e) =>
-                    setProductForm({
-                      ...productForm,
-                      categoryId: e.target.value,
-                    })
-                  }
-                  className="flex h-10 w-full rounded-xl border border-slate-800 bg-slate-950/60 px-4 py-2 text-sm text-slate-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-950 bg-slate-900"
-                >
-                  <option value="">Seleccionar...</option>
-                  {categories.map((c) => (
-                    <option key={c.id} value={c.id}>
-                      {c.name}
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              {/* Unit type */}
-              <div>
-                <label className="block text-xs font-semibold text-slate-400 mb-1.5 uppercase tracking-wide">
-                  Unidad de Medida
-                </label>
-                <select
-                  value={productForm.unit}
-                  onChange={(e) =>
-                    setProductForm({ ...productForm, unit: e.target.value })
-                  }
-                  className="flex h-10 w-full rounded-xl border border-slate-800 bg-slate-950/60 px-4 py-2 text-sm text-slate-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-950 bg-slate-900"
-                >
-                  <option value="unit">Unidad (un)</option>
-                  <option value="kg">Kilogramo (kg)</option>
-                  <option value="pack">Pack / Caja</option>
-                  <option value="liter">Litro (L)</option>
-                </select>
-              </div>
-
-              {/* Cost Price */}
-              <div>
-                <label className="block text-xs font-semibold text-slate-400 mb-1.5 uppercase tracking-wide">
-                  Precio de Costo
-                </label>
-                <Input
-                  type="number"
-                  step="0.01"
-                  min="0"
-                  value={productForm.purchasePrice}
-                  onChange={(e) =>
-                    setProductForm({
-                      ...productForm,
-                      purchasePrice: parseFloat(e.target.value) || 0,
-                    })
-                  }
-                />
-              </div>
-
-              {/* Sale Price */}
-              <div>
-                <label className="block text-xs font-semibold text-slate-400 mb-1.5 uppercase tracking-wide">
-                  Precio de Venta
-                </label>
-                <Input
-                  type="number"
-                  step="0.01"
-                  min="0"
-                  value={productForm.salePrice}
-                  onChange={(e) =>
-                    setProductForm({
-                      ...productForm,
-                      salePrice: parseFloat(e.target.value) || 0,
-                    })
-                  }
-                />
-              </div>
-
-              {/* Stock */}
-              <div>
-                <label className="block text-xs font-semibold text-slate-400 mb-1.5 uppercase tracking-wide">
-                  Stock Actual
-                </label>
-                <Input
-                  type="number"
-                  step="0.001"
-                  value={productForm.stock}
-                  onChange={(e) =>
-                    setProductForm({
-                      ...productForm,
-                      stock: parseFloat(e.target.value) || 0,
-                    })
-                  }
-                />
-              </div>
-
-              {/* Minimum Stock */}
-              <div>
-                <label className="block text-xs font-semibold text-slate-400 mb-1.5 uppercase tracking-wide">
-                  Stock Mínimo
-                </label>
-                <Input
-                  type="number"
-                  step="0.001"
-                  value={productForm.minimumStock}
-                  onChange={(e) =>
-                    setProductForm({
-                      ...productForm,
-                      minimumStock: parseFloat(e.target.value) || 0,
-                    })
-                  }
+                  placeholder="Detalles adicionales del producto..."
+                  className="flex w-full rounded-xl border border-slate-800 bg-slate-950/60 px-4 py-2 text-sm text-slate-200 placeholder:text-slate-600 focus-visible:outline-none focus-visible:border-indigo-500/80 focus-visible:ring-2 focus-visible:ring-indigo-500/15 resize-none"
                 />
               </div>
             </div>
 
-            {/* Action Buttons */}
             <div className="pt-4 border-t border-slate-800 flex items-center justify-end space-x-3">
               <Button
                 type="button"
@@ -693,15 +816,11 @@ export default function ProductsPage() {
                 }
                 className="flex items-center space-x-2"
               >
-                {createProductMutation.isPending ||
-                updateProductMutation.isPending ? (
-                  <Spinner
-                    size="sm"
-                    className="border-white border-t-transparent"
-                  />
-                ) : (
-                  <Check className="h-4 w-4" />
+                {(createProductMutation.isPending ||
+                  updateProductMutation.isPending) && (
+                  <Spinner size="sm" />
                 )}
+                <Check className="h-4 w-4" />
                 <span>
                   {editingProduct ? 'Guardar Cambios' : 'Crear Producto'}
                 </span>
@@ -711,31 +830,31 @@ export default function ProductsPage() {
         </DialogContent>
       </Dialog>
 
-      {/* Category Creation Modal */}
+      {/* ── Modal de Categoria ── */}
       <Dialog open={isCategoryModalOpen} onOpenChange={setIsCategoryModalOpen}>
         <DialogContent className="max-w-sm">
           <DialogHeader>
-            <DialogTitle>Crear Categoría</DialogTitle>
+            <DialogTitle>Nueva Categoria</DialogTitle>
             <DialogDescription>
-              Define una nueva categoría para agrupar tus artículos.
+              Crea una categoria para agrupar tus productos.
             </DialogDescription>
           </DialogHeader>
 
           <div className="space-y-4">
             <div>
               <label className="block text-xs font-semibold text-slate-400 mb-1.5 uppercase tracking-wide">
-                Nombre de la Categoría
+                Nombre
               </label>
               <Input
                 type="text"
                 required
                 value={categoryName}
                 onChange={(e) => setCategoryName(e.target.value)}
-                placeholder="Ej: Bebidas, Lácteos"
+                placeholder="Ej: Bebidas, Lacteos..."
               />
             </div>
 
-            <div className="flex justify-end space-x-2 pt-2 border-t border-slate-850">
+            <div className="flex justify-end space-x-2 pt-2">
               <Button
                 type="button"
                 onClick={() => setIsCategoryModalOpen(false)}
@@ -752,9 +871,11 @@ export default function ProductsPage() {
                   }
                 }}
                 disabled={createCategoryMutation.isPending}
-                variant="default"
                 size="sm"
               >
+                {createCategoryMutation.isPending ? (
+                  <Spinner size="sm" />
+                ) : null}
                 Crear
               </Button>
             </div>
