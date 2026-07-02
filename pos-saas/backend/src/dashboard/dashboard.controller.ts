@@ -49,25 +49,28 @@ export class DashboardController {
     }
 
     if (body.barcode) {
+      const trimmedBarcode = body.barcode.trim();
       const existing = await this.prisma.product.findFirst({
         where: {
           tenantId: user.tenantId,
-          barcode: body.barcode,
-          isActive: true,
+          barcode: trimmedBarcode,
         },
       });
       if (existing) {
-        throw new BadRequestException('A product with this barcode already exists');
+        throw new BadRequestException(
+          `A product with barcode "${trimmedBarcode}" already exists (id: ${existing.id}). Delete or rename the existing barcode first.`,
+        );
       }
     }
 
     // Self-healing: resolve categoryId from name if not a valid UUID
     const categoryId = await this.resolveCategoryId(user.tenantId, body.categoryId);
+    const barcode = body.barcode?.trim() || undefined;
 
     return this.prisma.product.create({
       data: {
         tenantId: user.tenantId,
-        barcode: body.barcode?.trim() || null,
+        barcode,
         name: body.name,
         description: body.description || null,
         categoryId,
