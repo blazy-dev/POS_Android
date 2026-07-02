@@ -10,10 +10,64 @@ import * as WebBrowser from 'expo-web-browser';
 import * as Linking from 'expo-linking';
 import { supabase } from '../api/supabase';
 import { apiConfig, setCachedToken } from '../api/client';
-import { setAppMeta } from '../database';
+import { setAppMeta, enqueueSyncOperation } from '../database';
+import { createLocalId } from '../utils/ids';
 import { runSync } from '../sync';
 
 WebBrowser.maybeCompleteAuthSession();
+
+/**
+ * Migrates local-only users (tenant_id='local') to the real tenant_id
+ * and enqueues sync operations to push them to the backend.
+ * Seed users (email ending in @pos.local) are skipped.
+ */
+async function migrateLocalUsers(
+  db: SQLiteDatabase,
+  realTenantId: string,
+  currentUserEmail: string,
+) {
+  // Re-tag all non-seed local users with the real tenant_id
+  await db.runAsync(
+    `UPDATE users SET tenant_id = $real_tenant_id
+     WHERE tenant_id = 'local' AND email NOT LIKE '%@pos.local'`,
+    { $real_tenant_id: realTenantId },
+  );
+
+  // Enqueue sync for migrated users (so backend gets them)
+  const migrated = await db.getAllAsync<{
+    id: string;
+    name: string;
+    email: string;
+    pin: string | null;
+    role: string;
+  }>(
+    `SELECT id, name, email, pin, role FROM users
+     WHERE tenant_id = $tenant_id AND is_active = 1 AND email != $current_email`,
+    { $tenant_id: realTenantId, $current_email: currentUserEmail },
+  );
+
+  const now = new Date().toISOString();
+  for (const u of migrated) {
+    await enqueueSyncOperation(db, {
+      id: createLocalId('sync'),
+      entityType: 'user',
+      entityId: u.id,
+      kind: 'create',
+      payload: {
+        id: u.id,
+        tenant_id: realTenantId,
+        name: u.name,
+        email: u.email,
+        pin: u.pin,
+        role: u.role,
+        is_active: 1,
+        created_at: now,
+        updated_at: now,
+      },
+    });
+  }
+  console.log(`[AUTH] Migrados ${migrated.length} usuarios locales al tenant real`);
+}
 
 export interface User {
   id: string;
@@ -253,9 +307,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           console.log('[AUTH] Usuario existe, sincronizando perfil...');
           const synced = await syncWithBackend(db, accessToken);
           if (synced) {
-            // Disparar sync de productos/categorias etc inmediatamente
+            // Migrar usuarios locales al tenant real y encolarlos para sync
+            try {
+              await migrateLocalUsers(
+                db,
+                statusData.data.tenant.id,
+                statusData.data.user.email,
+              );
+            } catch (e) {
+              console.error('[AUTH] Error migrando usuarios locales:', e);
+            }
+
+            // Disparar sync inmediato (productos, categorias, usuarios, etc)
             void runSync(db).then((result) => {
-              console.log('[AUTH] Sync post-login:', result.pulledCount, 'productos descargados');
+              console.log('[AUTH] Sync post-login:', result.pushedCount, 'subidos,', result.pulledCount, 'descargados');
             });
           }
           return synced;
@@ -362,8 +427,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setUser(userProfile);
       setOnboardingToken(null);
 
+      // Migrar usuarios locales al tenant real
+      try {
+        await migrateLocalUsers(db, userProfile.tenant_id, userProfile.email);
+      } catch (e) {
+        console.error('[AUTH] Error migrando usuarios locales:', e);
+      }
+
       void runSync(db).then((result) => {
-        console.log('[AUTH] Sync post-onboarding:', result.pulledCount, 'productos descargados');
+        console.log('[AUTH] Sync post-onboarding:', result.pushedCount, 'subidos,', result.pulledCount, 'descargados');
       });
 
       return true;

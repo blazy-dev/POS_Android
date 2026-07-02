@@ -21,7 +21,8 @@ export async function listEmployees(
   return db.getAllAsync<UserRecord>(
     `SELECT id, tenant_id, name, email, pin, role, is_active, created_at, updated_at
      FROM users
-     WHERE tenant_id = $tenantId AND is_active = 1
+     WHERE (tenant_id = $tenantId OR tenant_id = 'local')
+       AND is_active = 1
      ORDER BY name ASC`,
     { $tenantId: tenantId },
   );
