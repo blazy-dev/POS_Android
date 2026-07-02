@@ -98,15 +98,22 @@ export function clearSyncLogs() {
   syncLogs = [];
   if (onLogsChange) onLogsChange([]);
 }
-
-// Token JWT cacheado en memoria para la sesión activa de sincronización
+// Token JWT cacheado en memoria para la sesion activa de sincronizacion
 let cachedToken: string | null = null;
 
-/**
- * Obtiene el token de autenticación del backend.
- * Para desarrollo, realiza un inicio de sesión automático usando el token semilla de pruebas.
- */
+export function setCachedToken(token: string | null) {
+  cachedToken = token;
+}
+
+export function getCachedToken(): string | null {
+  return cachedToken;
+}
+
 async function getAuthToken(): Promise<string> {
+  if (cachedToken) {
+    return cachedToken;
+  }
+
   try {
     const {
       data: { session },

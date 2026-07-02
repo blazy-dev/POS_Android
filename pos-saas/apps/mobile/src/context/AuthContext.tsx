@@ -9,7 +9,7 @@ import { type SQLiteDatabase, useSQLiteContext } from 'expo-sqlite';
 import * as WebBrowser from 'expo-web-browser';
 import * as Linking from 'expo-linking';
 import { supabase } from '../api/supabase';
-import { apiConfig } from '../api/client';
+import { apiConfig, setCachedToken } from '../api/client';
 import { setAppMeta } from '../database';
 
 WebBrowser.maybeCompleteAuthSession();
@@ -210,6 +210,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           return false;
         }
 
+        // Cachear el token real para que la sincronizacion lo use
+        // (en vez de caer en test-token que apunta a otro tenant)
+        setCachedToken(accessToken);
+
         // NO llamar a supabase.auth.setSession() aqui: internamente hace fetch()
         // a Supabase y falla con "Network request failed" en el celular.
         // El backend se encarga de validar el token via JWKS de Supabase.
@@ -274,6 +278,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     try {
       setLoading(true);
+      setCachedToken(onboardingToken);
       const response = await fetch(
         `${apiConfig.baseUrl}/auth/register-or-link`,
         {
@@ -349,10 +354,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }
 
   async function logout() {
+    setCachedToken(null);
     try {
       await supabase.auth.signOut();
     } catch (e) {
-      // ignorar error de desconexión
+      // ignorar error de desconexion
     }
     setUser(null);
     setOnboardingToken(null);
