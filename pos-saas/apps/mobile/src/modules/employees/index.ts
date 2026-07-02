@@ -91,14 +91,16 @@ export async function saveEmployee(
 
   if (employeeId) {
     // Actualizar usuario existente
+    // Nota: no filtrar por tenant_id en el WHERE, igual que deleteEmployee
     await db.runAsync(
       `UPDATE users
        SET name = $name,
            email = $email,
            pin = $pin,
            role = $role,
+           tenant_id = $tenantId,
            updated_at = $updated_at
-       WHERE id = $id AND tenant_id = $tenantId`,
+       WHERE id = $id`,
       {
         $id: id,
         $tenantId: tenantId,
@@ -197,14 +199,16 @@ export async function deleteEmployee(
 ): Promise<void> {
   const now = new Date().toISOString();
 
+  // Nota: no filtrar por tenant_id aqui. El listado muestra empleados
+  // de AMBOS tenants (real + 'local') pero el WHERE con tenant_id
+  // fallaria si el empleado tiene tenant_id='local' y tenantId es el real.
   await db.runAsync(
     `UPDATE users
      SET is_active = 0,
          updated_at = $updated_at
-     WHERE id = $id AND tenant_id = $tenantId`,
+     WHERE id = $id`,
     {
       $id: employeeId,
-      $tenantId: tenantId,
       $updated_at: now,
     },
   );
