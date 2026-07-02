@@ -1,10 +1,16 @@
-import { createContext, useContext, useState, ReactNode, useEffect } from "react";
-import { type SQLiteDatabase, useSQLiteContext } from "expo-sqlite";
-import * as WebBrowser from "expo-web-browser";
-import * as Linking from "expo-linking";
-import { supabase } from "../api/supabase";
-import { apiConfig } from "../api/client";
-import { setAppMeta } from "../database";
+import {
+  createContext,
+  useContext,
+  useState,
+  ReactNode,
+  useEffect,
+} from 'react';
+import { type SQLiteDatabase, useSQLiteContext } from 'expo-sqlite';
+import * as WebBrowser from 'expo-web-browser';
+import * as Linking from 'expo-linking';
+import { supabase } from '../api/supabase';
+import { apiConfig } from '../api/client';
+import { setAppMeta } from '../database';
 
 WebBrowser.maybeCompleteAuthSession();
 
@@ -13,7 +19,7 @@ export interface User {
   tenant_id: string;
   name: string;
   email: string;
-  role: "admin" | "cashier" | "supervisor";
+  role: 'admin' | 'cashier' | 'supervisor';
 }
 
 type AuthContextType = {
@@ -27,7 +33,7 @@ type AuthContextType = {
     db: SQLiteDatabase,
     tenantName: string,
     currency: string,
-    timezone: string
+    timezone: string,
   ) => Promise<boolean>;
   cancelOnboarding: () => void;
 };
@@ -41,18 +47,24 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [onboardingToken, setOnboardingToken] = useState<string | null>(null);
 
   // Sincroniza el usuario autenticado por Supabase con el backend NestJS
-  async function syncWithBackend(db: SQLiteDatabase, token: string): Promise<boolean> {
+  async function syncWithBackend(
+    db: SQLiteDatabase,
+    token: string,
+  ): Promise<boolean> {
     try {
-      const response = await fetch(`${apiConfig.baseUrl}/auth/register-or-link`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "Authorization": `Bearer ${token}`,
+      const response = await fetch(
+        `${apiConfig.baseUrl}/auth/register-or-link`,
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${token}`,
+          },
+          body: JSON.stringify({
+            tenant_name: 'Mi Comercio POS',
+          }),
         },
-        body: JSON.stringify({
-          tenant_name: "Mi Comercio POS",
-        }),
-      });
+      );
 
       if (!response.ok) {
         throw new Error(`Error en el servidor: ${response.status}`);
@@ -62,9 +74,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const apiData = resData.data;
 
       if (!apiData || !apiData.user || !apiData.tenant) {
-        throw new Error("Respuesta de autenticación del backend inválida o incompleta");
+        throw new Error(
+          'Respuesta de autenticación del backend inválida o incompleta',
+        );
       }
-      
+
       const userProfile: User = {
         id: apiData.user.id,
         tenant_id: apiData.tenant.id,
@@ -90,7 +104,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           $email: userProfile.email,
           $role: userProfile.role,
           $now: new Date().toISOString(),
-        }
+        },
       );
 
       await setAppMeta(db, `tenant_${apiData.tenant.id}`, apiData.tenant.name);
@@ -98,7 +112,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setUser(userProfile);
       return true;
     } catch (e) {
-      console.error("Error al sincronizar perfil con el backend:", e);
+      console.error('Error al sincronizar perfil con el backend:', e);
       return false;
     }
   }
@@ -107,13 +121,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     async function restoreSession() {
       try {
-        const { data: { session } } = await supabase.auth.getSession();
+        const {
+          data: { session },
+        } = await supabase.auth.getSession();
         if (session && session.user) {
           const localUser = await db.getFirstAsync<User>(
             `SELECT id, tenant_id, name, email, role
              FROM users
              WHERE id = $id AND is_active = 1`,
-            { $id: session.user.id }
+            { $id: session.user.id },
           );
 
           if (localUser) {
@@ -124,7 +140,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           }
         }
       } catch (err) {
-        console.error("Error al restaurar sesión:", err);
+        console.error('Error al restaurar sesión:', err);
       }
     }
     // Para que funcione, el hook requiere que tengamos la instancia de db abierta y lista
@@ -140,7 +156,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         `SELECT id, tenant_id, name, email, role
          FROM users
          WHERE pin = $pin AND is_active = 1`,
-        { $pin: pin }
+        { $pin: pin },
       );
 
       if (row) {
@@ -149,7 +165,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
       return false;
     } catch (err) {
-      console.error("Error al iniciar sesión con PIN:", err);
+      console.error('Error al iniciar sesión con PIN:', err);
       return false;
     } finally {
       setLoading(false);
@@ -160,34 +176,37 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   async function loginWithGoogle(db: SQLiteDatabase): Promise<boolean> {
     try {
       setLoading(true);
-      const redirectUrl = Linking.createURL("auth-callback");
-      console.log("[AUTH] redirectUrl:", redirectUrl);
-      console.log("[AUTH] supabaseUrl:", apiConfig.supabaseUrl);
-      console.log("[AUTH] backendUrl:", apiConfig.baseUrl);
+      const redirectUrl = Linking.createURL('auth-callback');
+      console.log('[AUTH] redirectUrl:', redirectUrl);
+      console.log('[AUTH] supabaseUrl:', apiConfig.supabaseUrl);
+      console.log('[AUTH] backendUrl:', apiConfig.baseUrl);
 
       // Construir URL de OAuth manualmente y abrir navegador directo
       // EVITAMOS supabase.auth.signInWithOAuth() y supabase.auth.setSession()
       // porque esos metodos internamente llaman fetch() a Supabase desde el celu,
       // lo cual falla con "Network request failed" en algunos entornos de red
       const oauthUrl = `${apiConfig.supabaseUrl}/auth/v1/authorize?provider=google&redirect_to=${encodeURIComponent(redirectUrl)}`;
-      console.log("[AUTH] Abriendo navegador:", oauthUrl);
+      console.log('[AUTH] Abriendo navegador:', oauthUrl);
 
-      const result = await WebBrowser.openAuthSessionAsync(oauthUrl, redirectUrl);
-      console.log("[AUTH] Resultado navegador:", result.type);
+      const result = await WebBrowser.openAuthSessionAsync(
+        oauthUrl,
+        redirectUrl,
+      );
+      console.log('[AUTH] Resultado navegador:', result.type);
 
-      if (result.type === "success" && result.url) {
-        console.log("[AUTH] Callback recibida");
+      if (result.type === 'success' && result.url) {
+        console.log('[AUTH] Callback recibida');
         const getParam = (url: string, param: string) => {
           const regex = new RegExp(`[#?&]${param}=([^&#]*)`);
           const results = regex.exec(url);
-          return results ? decodeURIComponent(results[1]) : "";
+          return results ? decodeURIComponent(results[1]) : '';
         };
 
-        const accessToken = getParam(result.url, "access_token");
-        console.log("[AUTH] accessToken:", accessToken ? "SI" : "NO");
+        const accessToken = getParam(result.url, 'access_token');
+        console.log('[AUTH] accessToken:', accessToken ? 'SI' : 'NO');
 
         if (!accessToken) {
-          console.error("[AUTH] No se recibio access_token en el callback");
+          console.error('[AUTH] No se recibio access_token en el callback');
           return false;
         }
 
@@ -195,35 +214,46 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         // a Supabase y falla con "Network request failed" en el celular.
         // El backend se encarga de validar el token via JWKS de Supabase.
 
-        console.log("[AUTH] Verificando estado en backend...");
+        console.log('[AUTH] Verificando estado en backend...');
         const statusRes = await fetch(`${apiConfig.baseUrl}/auth/status`, {
-          method: "GET",
+          method: 'GET',
           headers: { Authorization: `Bearer ${accessToken}` },
         });
-        console.log("[AUTH] Backend status:", statusRes.status);
+        console.log('[AUTH] Backend status:', statusRes.status);
 
         if (!statusRes.ok) {
           const errText = await statusRes.text();
-          console.error("[AUTH] Backend error:", statusRes.status, errText.slice(0, 200));
+          console.error(
+            '[AUTH] Backend error:',
+            statusRes.status,
+            errText.slice(0, 200),
+          );
           throw new Error(`Backend respondio con ${statusRes.status}`);
         }
 
         const statusData = await statusRes.json();
-        console.log("[AUTH] Status response:", JSON.stringify(statusData).slice(0, 200));
+        console.log(
+          '[AUTH] Status response:',
+          JSON.stringify(statusData).slice(0, 200),
+        );
 
         if (statusData.data?.exists) {
-          console.log("[AUTH] Usuario existe, sincronizando...");
+          console.log('[AUTH] Usuario existe, sincronizando...');
           return await syncWithBackend(db, accessToken);
         } else {
-          console.log("[AUTH] Usuario nuevo, guardando token para onboarding");
+          console.log('[AUTH] Usuario nuevo, guardando token para onboarding');
           setOnboardingToken(accessToken);
           return false;
         }
       }
-      console.log("[AUTH] Navegador cerrado sin exito (type:", result.type, ")");
+      console.log(
+        '[AUTH] Navegador cerrado sin exito (type:',
+        result.type,
+        ')',
+      );
       return false;
     } catch (err) {
-      console.error("[AUTH] Error al iniciar sesión con Google:", err);
+      console.error('[AUTH] Error al iniciar sesión con Google:', err);
       return false;
     } finally {
       setLoading(false);
@@ -235,27 +265,30 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     db: SQLiteDatabase,
     tenantName: string,
     currency: string,
-    timezone: string
+    timezone: string,
   ): Promise<boolean> {
     if (!onboardingToken) {
-      console.error("No hay token de onboarding disponible.");
+      console.error('No hay token de onboarding disponible.');
       return false;
     }
 
     try {
       setLoading(true);
-      const response = await fetch(`${apiConfig.baseUrl}/auth/register-or-link`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "Authorization": `Bearer ${onboardingToken}`,
+      const response = await fetch(
+        `${apiConfig.baseUrl}/auth/register-or-link`,
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${onboardingToken}`,
+          },
+          body: JSON.stringify({
+            tenant_name: tenantName,
+            currency,
+            timezone,
+          }),
         },
-        body: JSON.stringify({
-          tenant_name: tenantName,
-          currency,
-          timezone,
-        }),
-      });
+      );
 
       if (!response.ok) {
         throw new Error(`Error en el servidor: ${response.status}`);
@@ -265,7 +298,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const apiData = resData.data;
 
       if (!apiData || !apiData.user || !apiData.tenant) {
-        throw new Error("Respuesta de onboarding del backend inválida o incompleta");
+        throw new Error(
+          'Respuesta de onboarding del backend inválida o incompleta',
+        );
       }
 
       const userProfile: User = {
@@ -293,7 +328,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           $email: userProfile.email,
           $role: userProfile.role,
           $now: new Date().toISOString(),
-        }
+        },
       );
 
       await setAppMeta(db, `tenant_${apiData.tenant.id}`, apiData.tenant.name);
@@ -302,7 +337,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setOnboardingToken(null);
       return true;
     } catch (e) {
-      console.error("Error al completar el onboarding:", e);
+      console.error('Error al completar el onboarding:', e);
       return false;
     } finally {
       setLoading(false);
@@ -344,7 +379,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 export function useAuth() {
   const context = useContext(AuthContext);
   if (context === undefined) {
-    throw new Error("useAuth debe ser usado dentro de un AuthProvider");
+    throw new Error('useAuth debe ser usado dentro de un AuthProvider');
   }
   return context;
 }

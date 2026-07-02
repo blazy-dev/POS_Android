@@ -1,8 +1,8 @@
-"use client";
+'use client';
 
-import React from "react";
-import { useAuth } from "@/context/AuthContext";
-import { useQuery } from "@tanstack/react-query";
+import React from 'react';
+import { useAuth } from '@/context/AuthContext';
+import { useQuery } from '@tanstack/react-query';
 import {
   DollarSign,
   TrendingUp,
@@ -14,15 +14,21 @@ import {
   History,
   RefreshCw,
   ShoppingBag,
-  Users
-} from "lucide-react";
-import Link from "next/link";
-import { Button } from "@/components/ui/button";
-import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
-import { Spinner } from "@/components/ui/spinner";
-import { ErrorMessage } from "@/components/ui/error-message";
-import { API_BASE } from "@/lib/api";
+  Users,
+} from 'lucide-react';
+import Link from 'next/link';
+import { Button } from '@/components/ui/button';
+import {
+  Card,
+  CardHeader,
+  CardTitle,
+  CardDescription,
+  CardContent,
+} from '@/components/ui/card';
+import { Badge } from '@/components/ui/badge';
+import { Spinner } from '@/components/ui/spinner';
+import { ErrorMessage } from '@/components/ui/error-message';
+import { API_BASE } from '@/lib/api';
 
 interface MetricResponse {
   totalRevenue: number;
@@ -45,8 +51,14 @@ interface MetricResponse {
 export default function DashboardOverviewPage() {
   const { session, tenant } = useAuth();
 
-  const { data: metrics, isLoading, error, refetch, isRefetching } = useQuery<MetricResponse>({
-    queryKey: ["metrics"],
+  const {
+    data: metrics,
+    isLoading,
+    error,
+    refetch,
+    isRefetching,
+  } = useQuery<MetricResponse>({
+    queryKey: ['metrics'],
     queryFn: async () => {
       const res = await fetch(`${API_BASE}/dashboard/metrics`, {
         headers: {
@@ -64,19 +76,19 @@ export default function DashboardOverviewPage() {
   });
 
   const formatCurrency = (amount: number) => {
-    const currency = tenant?.currency || "ARS";
-    return new Intl.NumberFormat("es-AR", {
-      style: "currency",
+    const currency = tenant?.currency || 'ARS';
+    return new Intl.NumberFormat('es-AR', {
+      style: 'currency',
       currency: currency,
     }).format(amount);
   };
 
   const formatDate = (dateStr: string) => {
-    return new Date(dateStr).toLocaleString("es-AR", {
-      hour: "2-digit",
-      minute: "2-digit",
-      day: "2-digit",
-      month: "2-digit",
+    return new Date(dateStr).toLocaleString('es-AR', {
+      hour: '2-digit',
+      minute: '2-digit',
+      day: '2-digit',
+      month: '2-digit',
     });
   };
 
@@ -85,7 +97,9 @@ export default function DashboardOverviewPage() {
       <div className="flex h-[60vh] items-center justify-center">
         <div className="flex flex-col items-center space-y-4">
           <Spinner size="lg" />
-          <p className="text-slate-400 text-sm">Cargando estadísticas de la tienda...</p>
+          <p className="text-slate-400 text-sm">
+            Cargando estadísticas de la tienda...
+          </p>
         </div>
       </div>
     );
@@ -111,7 +125,9 @@ export default function DashboardOverviewPage() {
       {/* Title section */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight text-white">Panel de Resumen</h1>
+          <h1 className="text-2xl font-bold tracking-tight text-white">
+            Panel de Resumen
+          </h1>
           <p className="text-sm text-slate-400 mt-1">
             Revisa el rendimiento comercial de {tenant?.name} hoy.
           </p>
@@ -123,7 +139,9 @@ export default function DashboardOverviewPage() {
           size="sm"
           className="flex items-center space-x-2 text-xs"
         >
-          <RefreshCw className={`h-4 w-4 ${isRefetching ? "animate-spin" : ""}`} />
+          <RefreshCw
+            className={`h-4 w-4 ${isRefetching ? 'animate-spin' : ''}`}
+          />
           <span>Actualizar</span>
         </Button>
       </div>
@@ -139,7 +157,10 @@ export default function DashboardOverviewPage() {
             <div className="p-3 bg-indigo-500/10 text-indigo-400 rounded-xl">
               <DollarSign className="h-6 w-6" />
             </div>
-            <Badge variant="success" className="bg-emerald-500/10 text-emerald-450 font-semibold border-emerald-500/20">
+            <Badge
+              variant="success"
+              className="bg-emerald-500/10 text-emerald-450 font-semibold border-emerald-500/20"
+            >
               Hoy
             </Badge>
           </div>
@@ -160,7 +181,10 @@ export default function DashboardOverviewPage() {
             <div className="p-3 bg-purple-500/10 text-purple-400 rounded-xl">
               <TrendingUp className="h-6 w-6" />
             </div>
-            <Badge variant="secondary" className="bg-purple-500/10 text-purple-450 border-purple-500/20">
+            <Badge
+              variant="secondary"
+              className="bg-purple-500/10 text-purple-450 border-purple-500/20"
+            >
               Historial
             </Badge>
           </div>
@@ -173,16 +197,23 @@ export default function DashboardOverviewPage() {
         </Card>
 
         {/* Low Stock Warning */}
-        <Card className={`p-6 relative overflow-hidden group hover:scale-[1.01] transition-all duration-200 bg-slate-900/40 border-slate-800 border-l-4 ${lowStock > 0 ? "border-l-amber-500" : "border-l-slate-800"}`}>
+        <Card
+          className={`p-6 relative overflow-hidden group hover:scale-[1.01] transition-all duration-200 bg-slate-900/40 border-slate-800 border-l-4 ${lowStock > 0 ? 'border-l-amber-500' : 'border-l-slate-800'}`}
+        >
           <div className="absolute -right-4 -bottom-4 opacity-5 text-amber-400 group-hover:scale-105 transition-transform">
             <AlertTriangle className="h-32 w-32" />
           </div>
           <div className="flex justify-between items-start">
-            <div className={`p-3 rounded-xl ${lowStock > 0 ? "bg-amber-500/10 text-amber-400" : "bg-slate-800/80 text-slate-400"}`}>
+            <div
+              className={`p-3 rounded-xl ${lowStock > 0 ? 'bg-amber-500/10 text-amber-400' : 'bg-slate-800/80 text-slate-400'}`}
+            >
               <AlertTriangle className="h-6 w-6" />
             </div>
             {lowStock > 0 && (
-              <Badge variant="warning" className="bg-amber-500/10 text-amber-450 border-amber-500/20">
+              <Badge
+                variant="warning"
+                className="bg-amber-500/10 text-amber-450 border-amber-500/20"
+              >
                 Alerta
               </Badge>
             )}
@@ -194,16 +225,23 @@ export default function DashboardOverviewPage() {
         </Card>
 
         {/* Out of Stock Danger */}
-        <Card className={`p-6 relative overflow-hidden group hover:scale-[1.01] transition-all duration-200 bg-slate-900/40 border-slate-800 border-l-4 ${outOfStock > 0 ? "border-l-rose-500" : "border-l-slate-800"}`}>
+        <Card
+          className={`p-6 relative overflow-hidden group hover:scale-[1.01] transition-all duration-200 bg-slate-900/40 border-slate-800 border-l-4 ${outOfStock > 0 ? 'border-l-rose-500' : 'border-l-slate-800'}`}
+        >
           <div className="absolute -right-4 -bottom-4 opacity-5 text-rose-400 group-hover:scale-105 transition-transform">
             <PackageOpen className="h-32 w-32" />
           </div>
           <div className="flex justify-between items-start">
-            <div className={`p-3 rounded-xl ${outOfStock > 0 ? "bg-rose-500/10 text-rose-400" : "bg-slate-800/80 text-slate-400"}`}>
+            <div
+              className={`p-3 rounded-xl ${outOfStock > 0 ? 'bg-rose-500/10 text-rose-400' : 'bg-slate-800/80 text-slate-400'}`}
+            >
               <PackageOpen className="h-6 w-6" />
             </div>
             {outOfStock > 0 && (
-              <Badge variant="destructive" className="bg-rose-500/10 text-rose-450 border-rose-500/20">
+              <Badge
+                variant="destructive"
+                className="bg-rose-500/10 text-rose-450 border-rose-500/20"
+              >
                 Crítico
               </Badge>
             )}
@@ -225,10 +263,15 @@ export default function DashboardOverviewPage() {
                 <History className="h-5 w-5 text-indigo-400" />
                 <span>Últimas Ventas</span>
               </CardTitle>
-              <CardDescription>Visualiza las últimas transacciones emitidas.</CardDescription>
+              <CardDescription>
+                Visualiza las últimas transacciones emitidas.
+              </CardDescription>
             </div>
             <Button variant="link" size="sm" asChild className="p-0">
-              <Link href="/dashboard/sales" className="text-indigo-400 hover:text-indigo-350 flex items-center space-x-1">
+              <Link
+                href="/dashboard/sales"
+                className="text-indigo-400 hover:text-indigo-350 flex items-center space-x-1"
+              >
                 <span>Ver todo</span>
                 <ArrowRight className="h-3.5 w-3.5" />
               </Link>
@@ -239,10 +282,15 @@ export default function DashboardOverviewPage() {
             {metrics?.recentSales && metrics.recentSales.length > 0 ? (
               <div className="divide-y divide-slate-850">
                 {metrics.recentSales.map((sale) => (
-                  <div key={sale.id} className="py-4 flex justify-between items-center group">
+                  <div
+                    key={sale.id}
+                    className="py-4 flex justify-between items-center group"
+                  >
                     <div className="flex items-center space-x-3">
-                      <div className={`p-2 rounded-lg ${sale.paymentMethod === "card" ? "bg-purple-500/10 text-purple-400" : "bg-emerald-500/10 text-emerald-400"}`}>
-                        {sale.paymentMethod === "card" ? (
+                      <div
+                        className={`p-2 rounded-lg ${sale.paymentMethod === 'card' ? 'bg-purple-500/10 text-purple-400' : 'bg-emerald-500/10 text-emerald-400'}`}
+                      >
+                        {sale.paymentMethod === 'card' ? (
                           <CreditCard className="h-4.5 w-4.5" />
                         ) : (
                           <Coins className="h-4.5 w-4.5" />
@@ -250,10 +298,16 @@ export default function DashboardOverviewPage() {
                       </div>
                       <div>
                         <p className="text-sm font-semibold text-slate-200">
-                          {sale.paymentMethod === "card" ? "Tarjeta de Débito/Crédito" : "Efectivo"}
+                          {sale.paymentMethod === 'card'
+                            ? 'Tarjeta de Débito/Crédito'
+                            : 'Efectivo'}
                         </p>
                         <p className="text-xs text-slate-500 mt-0.5">
-                          Por: <span className="font-medium text-slate-455">{sale.cashier}</span> • {formatDate(sale.createdAt)}
+                          Por:{' '}
+                          <span className="font-medium text-slate-455">
+                            {sale.cashier}
+                          </span>{' '}
+                          • {formatDate(sale.createdAt)}
                         </p>
                       </div>
                     </div>
@@ -261,7 +315,10 @@ export default function DashboardOverviewPage() {
                       <p className="text-sm font-bold text-white group-hover:text-indigo-400 transition-colors">
                         {formatCurrency(sale.total)}
                       </p>
-                      <Badge variant="success" className="bg-emerald-500/10 text-emerald-450 border-emerald-500/10 mt-1">
+                      <Badge
+                        variant="success"
+                        className="bg-emerald-500/10 text-emerald-450 border-emerald-500/10 mt-1"
+                      >
                         Completado
                       </Badge>
                     </div>
@@ -283,9 +340,11 @@ export default function DashboardOverviewPage() {
           <Card className="flex-1 flex flex-col bg-slate-900/40 border-slate-800">
             <CardHeader className="pb-4">
               <CardTitle>Distribución de Pagos</CardTitle>
-              <CardDescription>Volumen monetario según forma de cobro.</CardDescription>
+              <CardDescription>
+                Volumen monetario según forma de cobro.
+              </CardDescription>
             </CardHeader>
-            
+
             <CardContent className="flex-1 flex flex-col justify-center space-y-6">
               {/* Cash Progress */}
               <div>
@@ -295,7 +354,9 @@ export default function DashboardOverviewPage() {
                     <span>Efectivo</span>
                   </span>
                   <span className="font-bold text-white">
-                    {formatCurrency(metrics?.paymentMethods?.revenue?.cash || 0)}
+                    {formatCurrency(
+                      metrics?.paymentMethods?.revenue?.cash || 0,
+                    )}
                   </span>
                 </div>
                 <div className="w-full bg-slate-950 rounded-full h-2 border border-slate-900">
@@ -304,7 +365,9 @@ export default function DashboardOverviewPage() {
                     style={{
                       width: `${
                         metrics?.totalRevenue
-                          ? ((metrics.paymentMethods.revenue.cash || 0) / metrics.totalRevenue) * 100
+                          ? ((metrics.paymentMethods.revenue.cash || 0) /
+                              metrics.totalRevenue) *
+                            100
                           : 0
                       }%`,
                     }}
@@ -320,7 +383,9 @@ export default function DashboardOverviewPage() {
                     <span>Tarjeta</span>
                   </span>
                   <span className="font-bold text-white">
-                    {formatCurrency(metrics?.paymentMethods?.revenue?.card || 0)}
+                    {formatCurrency(
+                      metrics?.paymentMethods?.revenue?.card || 0,
+                    )}
                   </span>
                 </div>
                 <div className="w-full bg-slate-950 rounded-full h-2 border border-slate-900">
@@ -329,7 +394,9 @@ export default function DashboardOverviewPage() {
                     style={{
                       width: `${
                         metrics?.totalRevenue
-                          ? ((metrics.paymentMethods.revenue.card || 0) / metrics.totalRevenue) * 100
+                          ? ((metrics.paymentMethods.revenue.card || 0) /
+                              metrics.totalRevenue) *
+                            100
                           : 0
                       }%`,
                     }}
@@ -346,13 +413,19 @@ export default function DashboardOverviewPage() {
             </CardHeader>
             <CardContent className="p-4 pt-0 grid grid-cols-2 gap-3">
               <Link href="/dashboard/products" className="w-full">
-                <Button variant="outline" className="w-full flex flex-col h-20 rounded-xl justify-center items-center gap-1">
+                <Button
+                  variant="outline"
+                  className="w-full flex flex-col h-20 rounded-xl justify-center items-center gap-1"
+                >
                   <ShoppingBag className="h-5 w-5 text-indigo-400" />
                   <span>Inventario</span>
                 </Button>
               </Link>
               <Link href="/dashboard/employees" className="w-full">
-                <Button variant="outline" className="w-full flex flex-col h-20 rounded-xl justify-center items-center gap-1">
+                <Button
+                  variant="outline"
+                  className="w-full flex flex-col h-20 rounded-xl justify-center items-center gap-1"
+                >
                   <Users className="h-5 w-5 text-purple-400" />
                   <span>Personal</span>
                 </Button>

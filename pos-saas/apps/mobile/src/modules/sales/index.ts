@@ -1,10 +1,10 @@
-import type { SQLiteDatabase } from "expo-sqlite";
+import type { SQLiteDatabase } from 'expo-sqlite';
 import {
   enqueueSyncOperation,
   listRecentSales as listRecentSalesQuery,
-} from "../../database";
-import { createLocalId } from "../../utils/ids";
-import { findProductByBarcode } from "../products";
+} from '../../database';
+import { createLocalId } from '../../utils/ids';
+import { findProductByBarcode } from '../products';
 
 export interface SaleLineInput {
   productId: string;
@@ -21,18 +21,18 @@ export interface CreateSaleInput {
   items: SaleLineInput[];
 }
 
-export async function listRecentSales(db: SQLiteDatabase, tenantId = "local") {
+export async function listRecentSales(db: SQLiteDatabase, tenantId = 'local') {
   return listRecentSalesQuery(db, tenantId);
 }
 
 export async function createSale(db: SQLiteDatabase, input: CreateSaleInput) {
-  const tenantId = input.tenantId ?? "local";
-  const saleId = createLocalId("sale");
-  const deviceId = input.deviceId ?? "local-device";
+  const tenantId = input.tenantId ?? 'local';
+  const saleId = createLocalId('sale');
+  const deviceId = input.deviceId ?? 'local-device';
   const now = new Date().toISOString();
 
   if (input.items.length === 0) {
-    throw new Error("La venta debe incluir al menos un producto.");
+    throw new Error('La venta debe incluir al menos un producto.');
   }
 
   await db.withExclusiveTransactionAsync(async (txn) => {
@@ -48,7 +48,7 @@ export async function createSale(db: SQLiteDatabase, input: CreateSaleInput) {
         `SELECT id, sale_price, stock, name
          FROM products
          WHERE id = $product_id AND tenant_id = $tenant_id AND is_active = 1`,
-        { $product_id: item.productId, $tenant_id: tenantId }
+        { $product_id: item.productId, $tenant_id: tenantId },
       );
 
       if (!product) {
@@ -63,7 +63,7 @@ export async function createSale(db: SQLiteDatabase, input: CreateSaleInput) {
       const subtotal = product.sale_price * item.quantity;
       total += subtotal;
 
-      const saleItemId = createLocalId("sale_item");
+      const saleItemId = createLocalId('sale_item');
       // Registra el detalle del producto vendido en la tabla 'sale_items'
       await txn.runAsync(
         `INSERT INTO sale_items (
@@ -97,7 +97,7 @@ export async function createSale(db: SQLiteDatabase, input: CreateSaleInput) {
           $subtotal: subtotal, // Corrección: mapeo de clave sqlite $subtotal a la variable local subtotal
           $created_at: now,
           $updated_at: now,
-        }
+        },
       );
 
       await txn.runAsync(
@@ -110,10 +110,10 @@ export async function createSale(db: SQLiteDatabase, input: CreateSaleInput) {
           $updated_at: now,
           $product_id: item.productId,
           $tenant_id: tenantId,
-        }
+        },
       );
 
-      const movementId = createLocalId("movement");
+      const movementId = createLocalId('movement');
       await txn.runAsync(
         `INSERT INTO inventory_movements (
           id,
@@ -147,7 +147,7 @@ export async function createSale(db: SQLiteDatabase, input: CreateSaleInput) {
           $quantity: item.quantity,
           $created_at: now,
           $updated_at: now,
-        }
+        },
       );
     }
 
@@ -186,19 +186,19 @@ export async function createSale(db: SQLiteDatabase, input: CreateSaleInput) {
         $user_id: input.userId ?? null,
         $total: total, // Corrección: mapeo de la clave sqlite $total a la variable local total
         $payment_method: input.paymentMethod,
-        $status: "completed",
+        $status: 'completed',
         $device_id: deviceId,
         $created_at: now,
         $updated_at: now,
-      }
+      },
     );
   });
 
   await enqueueSyncOperation(db, {
-    id: createLocalId("sync"),
-    entityType: "sale",
+    id: createLocalId('sync'),
+    entityType: 'sale',
     entityId: saleId,
-    kind: "create",
+    kind: 'create',
     payload: {
       id: saleId,
       tenant_id: tenantId,
@@ -214,19 +214,19 @@ export async function createSale(db: SQLiteDatabase, input: CreateSaleInput) {
   return saleId;
 }
 
-export async function createDemoSale(db: SQLiteDatabase, tenantId = "local") {
+export async function createDemoSale(db: SQLiteDatabase, tenantId = 'local') {
   const product = await db.getFirstAsync<{ id: string }>(
     `SELECT id FROM products WHERE tenant_id = $tenant_id AND stock > 0 ORDER BY updated_at DESC LIMIT 1`,
-    { $tenant_id: tenantId }
+    { $tenant_id: tenantId },
   );
 
   if (!product) {
-    throw new Error("No hay productos con stock para crear una venta demo.");
+    throw new Error('No hay productos con stock para crear una venta demo.');
   }
 
   return createSale(db, {
     tenantId,
-    paymentMethod: "cash",
+    paymentMethod: 'cash',
     items: [{ productId: product.id, quantity: 1 }],
   });
 }

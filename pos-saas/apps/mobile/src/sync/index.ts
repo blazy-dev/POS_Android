@@ -1,1 +1,1 @@
-export * from "./syncRunner";
+export * from './syncRunner';

@@ -1,21 +1,21 @@
-import { cn } from "@/lib/utils";
+import { cn } from '@/lib/utils';
 
 interface SpinnerProps {
   className?: string;
-  size?: "sm" | "md" | "lg";
+  size?: 'sm' | 'md' | 'lg';
 }
 
 const sizeClasses = {
-  sm: "h-4 w-4 border-2",
-  md: "h-6 w-6 border-2",
-  lg: "h-8 w-8 border-[3px]",
+  sm: 'h-4 w-4 border-2',
+  md: 'h-6 w-6 border-2',
+  lg: 'h-8 w-8 border-[3px]',
 };
 
-export function Spinner({ className, size = "md" }: SpinnerProps) {
+export function Spinner({ className, size = 'md' }: SpinnerProps) {
   return (
     <div
       className={cn(
-        "animate-spin rounded-full border-indigo-500 border-t-transparent",
+        'animate-spin rounded-full border-indigo-500 border-t-transparent',
         sizeClasses[size],
         className,
       )}

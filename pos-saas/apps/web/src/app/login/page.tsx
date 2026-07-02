@@ -1,11 +1,11 @@
-"use client";
+'use client';
 
-import React, { useEffect } from "react";
-import { useAuth } from "@/context/AuthContext";
-import { useRouter } from "next/navigation";
-import { ShoppingBag, ShieldCheck, BarChart3, Users } from "lucide-react";
-import { Button } from "@/components/ui/button";
-import { Card, CardContent } from "@/components/ui/card";
+import React, { useEffect } from 'react';
+import { useAuth } from '@/context/AuthContext';
+import { useRouter } from 'next/navigation';
+import { ShoppingBag, ShieldCheck, BarChart3, Users } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { Card, CardContent } from '@/components/ui/card';
 
 export default function LoginPage() {
   const { user, loginWithGoogle, loading } = useAuth();
@@ -13,7 +13,7 @@ export default function LoginPage() {
 
   useEffect(() => {
     if (user) {
-      router.push("/dashboard");
+      router.push('/dashboard');
     }
   }, [user, router]);
 
@@ -22,7 +22,9 @@ export default function LoginPage() {
       <div className="flex min-h-screen items-center justify-center bg-slate-950">
         <div className="flex flex-col items-center space-y-4">
           <div className="h-12 w-12 animate-spin rounded-full border-4 border-indigo-500 border-t-transparent"></div>
-          <p className="text-slate-400 animate-pulse text-sm">Cargando sistema...</p>
+          <p className="text-slate-400 animate-pulse text-sm">
+            Cargando sistema...
+          </p>
         </div>
       </div>
     );
@@ -46,7 +48,8 @@ export default function LoginPage() {
               Gestiona tu negocio de forma inteligente
             </h1>
             <p className="mt-3 text-lg text-slate-400">
-              La plataforma administrativa que te permite centralizar el control de ventas, catálogo y personal desde cualquier lugar.
+              La plataforma administrativa que te permite centralizar el control
+              de ventas, catálogo y personal desde cualquier lugar.
             </p>
           </div>
 
@@ -57,7 +60,9 @@ export default function LoginPage() {
               </div>
               <div>
                 <h3 className="font-semibold text-sm">Catálogo Central</h3>
-                <p className="text-xs text-slate-400 mt-1">Sincronización instantánea con dispositivos móviles.</p>
+                <p className="text-xs text-slate-400 mt-1">
+                  Sincronización instantánea con dispositivos móviles.
+                </p>
               </div>
             </Card>
 
@@ -67,7 +72,9 @@ export default function LoginPage() {
               </div>
               <div>
                 <h3 className="font-semibold text-sm">Control de Personal</h3>
-                <p className="text-xs text-slate-400 mt-1">Gestión de PINs de cajeros, roles y permisos.</p>
+                <p className="text-xs text-slate-400 mt-1">
+                  Gestión de PINs de cajeros, roles y permisos.
+                </p>
               </div>
             </Card>
 
@@ -76,8 +83,13 @@ export default function LoginPage() {
                 <BarChart3 className="h-5 w-5" />
               </div>
               <div>
-                <h3 className="font-semibold text-sm">Métricas de Rendimiento</h3>
-                <p className="text-xs text-slate-400 mt-1">Visualiza los ingresos, stock mínimo y métodos de pago más utilizados.</p>
+                <h3 className="font-semibold text-sm">
+                  Métricas de Rendimiento
+                </h3>
+                <p className="text-xs text-slate-400 mt-1">
+                  Visualiza los ingresos, stock mínimo y métodos de pago más
+                  utilizados.
+                </p>
               </div>
             </Card>
           </div>
@@ -96,9 +108,12 @@ export default function LoginPage() {
                 <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-gradient-to-tr from-indigo-500 to-purple-600 text-white shadow-lg shadow-indigo-500/30">
                   <ShoppingBag className="h-6 w-6" />
                 </div>
-                <h2 className="mt-4 text-2xl font-bold tracking-tight text-white">Iniciar Sesión</h2>
+                <h2 className="mt-4 text-2xl font-bold tracking-tight text-white">
+                  Iniciar Sesión
+                </h2>
                 <p className="mt-1.5 text-sm text-slate-400 text-center">
-                  Ingresa con tu cuenta de administrador de Google para gestionar tu tienda.
+                  Ingresa con tu cuenta de administrador de Google para
+                  gestionar tu tienda.
                 </p>
               </div>
 
@@ -109,7 +124,12 @@ export default function LoginPage() {
                   className="flex w-full items-center justify-center space-x-3 rounded-xl bg-white text-slate-900 hover:bg-slate-50 border-transparent h-12 py-3 px-4 font-semibold shadow-sm transition-all"
                 >
                   {/* Google Icon SVG */}
-                  <svg className="h-5 w-5" viewBox="0 0 24 24" width="24" height="24">
+                  <svg
+                    className="h-5 w-5"
+                    viewBox="0 0 24 24"
+                    width="24"
+                    height="24"
+                  >
                     <g transform="matrix(1, 0, 0, 1, 0, 0)">
                       <path
                         d="M21.35,11.1H12v2.7h5.38c-0.24,1.28 -0.96,2.37 -2.04,3.1v2.58h3.3c1.93,-1.78 3.04,-4.4 3.04,-7.4C21.68,11.77 21.56,11.4 21.35,11.1z"
@@ -135,7 +155,8 @@ export default function LoginPage() {
 
               <div className="mt-8 border-t border-slate-800 pt-6 text-center">
                 <p className="text-xs text-slate-500">
-                  Al iniciar sesión, aceptas nuestros Términos de Servicio y Políticas de Privacidad.
+                  Al iniciar sesión, aceptas nuestros Términos de Servicio y
+                  Políticas de Privacidad.
                 </p>
               </div>
             </CardContent>

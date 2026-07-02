@@ -1,6 +1,6 @@
-import { createClient } from "@supabase/supabase-js";
-import * as SecureStore from "expo-secure-store";
-import { apiConfig } from "./client";
+import { createClient } from '@supabase/supabase-js';
+import * as SecureStore from 'expo-secure-store';
+import { apiConfig } from './client';
 
 // Adaptador de almacenamiento seguro para Supabase usando Expo SecureStore
 const SecureStoreAdapter = {
@@ -27,11 +27,15 @@ const SecureStoreAdapter = {
   },
 };
 
-export const supabase = createClient(apiConfig.supabaseUrl, apiConfig.supabaseAnonKey, {
-  auth: {
-    storage: SecureStoreAdapter,
-    autoRefreshToken: true,
-    persistSession: true,
-    detectSessionInUrl: false,
+export const supabase = createClient(
+  apiConfig.supabaseUrl,
+  apiConfig.supabaseAnonKey,
+  {
+    auth: {
+      storage: SecureStoreAdapter,
+      autoRefreshToken: true,
+      persistSession: true,
+      detectSessionInUrl: false,
+    },
   },
-});
+);

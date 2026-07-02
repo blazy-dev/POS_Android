@@ -1,4 +1,4 @@
-import type { SQLiteDatabase } from "expo-sqlite";
+import type { SQLiteDatabase } from 'expo-sqlite';
 import type {
   AppMetaRecord,
   AppMetaValue,
@@ -8,28 +8,28 @@ import type {
   SaleRecord,
   SyncOperationRecord,
   SyncOperationStatus,
-} from "./types";
+} from './types';
 
 // Nombre del archivo de base de datos local SQLite
-export const DATABASE_NAME = "pos_local.db";
+export const DATABASE_NAME = 'pos_local.db';
 // Versión actual del esquema de la base de datos
 export const DATABASE_VERSION = 3;
 
 // Nombre de las tablas locales
-const META_TABLE = "app_meta";
-const SYNC_TABLE = "sync_operations";
-const DEVICE_TABLE = "device_state";
-const PRODUCTS_TABLE = "products";
-const SALES_TABLE = "sales";
-const SALE_ITEMS_TABLE = "sale_items";
-const INVENTORY_TABLE = "inventory_movements";
-const USERS_TABLE = "users";
-const CASH_REGISTERS_TABLE = "cash_registers";
+const META_TABLE = 'app_meta';
+const SYNC_TABLE = 'sync_operations';
+const DEVICE_TABLE = 'device_state';
+const PRODUCTS_TABLE = 'products';
+const SALES_TABLE = 'sales';
+const SALE_ITEMS_TABLE = 'sale_items';
+const INVENTORY_TABLE = 'inventory_movements';
+const USERS_TABLE = 'users';
+const CASH_REGISTERS_TABLE = 'cash_registers';
 
 /**
  * Inicializa la base de datos local, aplicando configuraciones de PRAGMA y
  * creando el esquema de tablas si no existen.
- * 
+ *
  * @param db Instancia de la base de datos SQLite proporcionada por expo-sqlite
  */
 export async function initializeDatabase(db: SQLiteDatabase) {
@@ -42,7 +42,9 @@ export async function initializeDatabase(db: SQLiteDatabase) {
   `);
 
   // Obtiene la versión actual del esquema en el archivo de base de datos
-  const row = await db.getFirstAsync<{ user_version: number }>("PRAGMA user_version");
+  const row = await db.getFirstAsync<{ user_version: number }>(
+    'PRAGMA user_version',
+  );
   const currentVersion = row?.user_version ?? 0;
 
   if (currentVersion > 0 && currentVersion < 3) {
@@ -215,11 +217,11 @@ export async function initializeDatabase(db: SQLiteDatabase) {
     `INSERT OR IGNORE INTO ${DEVICE_TABLE} (id, device_id, app_version, last_sync_at, created_at, updated_at)
      VALUES (1, $device_id, $app_version, NULL, $created_at, $updated_at)`,
     {
-      $device_id: `device-${createdAt.replace(/[:.]/g, "-")}`,
-      $app_version: "1.0.0",
+      $device_id: `device-${createdAt.replace(/[:.]/g, '-')}`,
+      $app_version: '1.0.0',
       $created_at: createdAt,
       $updated_at: createdAt,
-    }
+    },
   );
 
   // Sembrar usuarios por defecto para pruebas offline (Admin: 1234, Cajero: 4321)
@@ -227,25 +229,29 @@ export async function initializeDatabase(db: SQLiteDatabase) {
     `INSERT OR IGNORE INTO ${USERS_TABLE} (id, tenant_id, name, email, pin, role, is_active, created_at, updated_at)
      VALUES ($admin_id, 'local', 'Administrador', 'admin@pos.local', '1234', 'admin', 1, $now, $now)`,
     {
-      $admin_id: "user-admin-uuid-000000000001",
+      $admin_id: 'user-admin-uuid-000000000001',
       $now: createdAt,
-    }
+    },
   );
 
   await db.runAsync(
     `INSERT OR IGNORE INTO ${USERS_TABLE} (id, tenant_id, name, email, pin, role, is_active, created_at, updated_at)
      VALUES ($cashier_id, 'local', 'Cajero de Prueba', 'cajero@pos.local', '4321', 'cashier', 1, $now, $now)`,
     {
-      $cashier_id: "user-cashier-uuid-000000000002",
+      $cashier_id: 'user-cashier-uuid-000000000002',
       $now: createdAt,
-    }
+    },
   );
 }
 
 /**
  * Guarda o actualiza un valor de metadatos en la base de datos (clave-valor).
  */
-export async function setAppMeta(db: SQLiteDatabase, key: string, value: AppMetaValue) {
+export async function setAppMeta(
+  db: SQLiteDatabase,
+  key: string,
+  value: AppMetaValue,
+) {
   const now = new Date().toISOString();
   await db.runAsync(
     `INSERT INTO ${META_TABLE} (key, value, updated_at)
@@ -257,17 +263,20 @@ export async function setAppMeta(db: SQLiteDatabase, key: string, value: AppMeta
       $key: key,
       $value: JSON.stringify(value),
       $updated_at: now,
-    }
+    },
   );
 }
 
 /**
  * Recupera un metadato de la tabla local 'app_meta' y lo parsea a su tipo correspondiente.
  */
-export async function getAppMeta<T extends AppMetaValue>(db: SQLiteDatabase, key: string) {
+export async function getAppMeta<T extends AppMetaValue>(
+  db: SQLiteDatabase,
+  key: string,
+) {
   const row = await db.getFirstAsync<AppMetaRecord>(
     `SELECT key, value, updated_at FROM ${META_TABLE} WHERE key = $key`,
-    { $key: key }
+    { $key: key },
   );
 
   if (!row) {
@@ -286,9 +295,9 @@ export async function enqueueSyncOperation(
     id: string;
     entityType: string;
     entityId: string;
-    kind: SyncOperationRecord["operation"];
+    kind: SyncOperationRecord['operation'];
     payload: unknown;
-  }
+  },
 ) {
   const now = new Date().toISOString();
   await db.runAsync(
@@ -319,11 +328,11 @@ export async function enqueueSyncOperation(
       $entity_id: operation.entityId,
       $operation: operation.kind,
       $payload: JSON.stringify(operation.payload),
-      $status: "pending" satisfies SyncOperationStatus,
+      $status: 'pending' satisfies SyncOperationStatus,
       $retries: 0,
       $created_at: now,
       $updated_at: now,
-    }
+    },
   );
 }
 
@@ -345,17 +354,17 @@ export async function listPendingSyncOperations(db: SQLiteDatabase) {
      FROM ${SYNC_TABLE}
      WHERE status = $status
      ORDER BY created_at ASC`,
-    { $status: "pending" }
+    { $status: 'pending' },
   );
 }
 
 /**
  * Devuelve la cantidad de productos creados localmente para un tenant específico.
  */
-export async function getProductsCount(db: SQLiteDatabase, tenantId = "local") {
+export async function getProductsCount(db: SQLiteDatabase, tenantId = 'local') {
   const row = await db.getFirstAsync<{ count: number }>(
     `SELECT COUNT(*) AS count FROM ${PRODUCTS_TABLE} WHERE tenant_id = $tenant_id`,
-    { $tenant_id: tenantId }
+    { $tenant_id: tenantId },
   );
 
   return row?.count ?? 0;
@@ -364,10 +373,10 @@ export async function getProductsCount(db: SQLiteDatabase, tenantId = "local") {
 /**
  * Devuelve la cantidad total de ventas registradas localmente para un tenant.
  */
-export async function getSalesCount(db: SQLiteDatabase, tenantId = "local") {
+export async function getSalesCount(db: SQLiteDatabase, tenantId = 'local') {
   const row = await db.getFirstAsync<{ count: number }>(
     `SELECT COUNT(*) AS count FROM ${SALES_TABLE} WHERE tenant_id = $tenant_id`,
-    { $tenant_id: tenantId }
+    { $tenant_id: tenantId },
   );
 
   return row?.count ?? 0;
@@ -376,7 +385,7 @@ export async function getSalesCount(db: SQLiteDatabase, tenantId = "local") {
 /**
  * Obtiene la lista completa de productos locales, ordenados por última actualización.
  */
-export async function listProducts(db: SQLiteDatabase, tenantId = "local") {
+export async function listProducts(db: SQLiteDatabase, tenantId = 'local') {
   return db.getAllAsync<ProductRecord>(
     `SELECT
       id,
@@ -394,14 +403,14 @@ export async function listProducts(db: SQLiteDatabase, tenantId = "local") {
      FROM ${PRODUCTS_TABLE}
      WHERE tenant_id = $tenant_id AND is_active = 1
      ORDER BY updated_at DESC`,
-    { $tenant_id: tenantId }
+    { $tenant_id: tenantId },
   );
 }
 
 /**
  * Obtiene las últimas 20 ventas registradas localmente, ordenadas de más reciente a más antigua.
  */
-export async function listRecentSales(db: SQLiteDatabase, tenantId = "local") {
+export async function listRecentSales(db: SQLiteDatabase, tenantId = 'local') {
   return db.getAllAsync<SaleRecord>(
     `SELECT
       id,
@@ -419,7 +428,7 @@ export async function listRecentSales(db: SQLiteDatabase, tenantId = "local") {
      WHERE tenant_id = $tenant_id
      ORDER BY created_at DESC
      LIMIT 20`,
-    { $tenant_id: tenantId }
+    { $tenant_id: tenantId },
   );
 }
 
@@ -441,14 +450,17 @@ export async function listSaleItems(db: SQLiteDatabase, saleId: string) {
      FROM ${SALE_ITEMS_TABLE}
      WHERE sale_id = $sale_id
      ORDER BY created_at ASC`,
-    { $sale_id: saleId }
+    { $sale_id: saleId },
   );
 }
 
 /**
  * Obtiene el historial completo de movimientos de stock para un producto en particular.
  */
-export async function listInventoryMovements(db: SQLiteDatabase, productId: string) {
+export async function listInventoryMovements(
+  db: SQLiteDatabase,
+  productId: string,
+) {
   return db.getAllAsync<InventoryMovementRecord>(
     `SELECT
       id,
@@ -464,6 +476,6 @@ export async function listInventoryMovements(db: SQLiteDatabase, productId: stri
      FROM ${INVENTORY_TABLE}
      WHERE product_id = $product_id
      ORDER BY created_at DESC`,
-    { $product_id: productId }
+    { $product_id: productId },
   );
 }

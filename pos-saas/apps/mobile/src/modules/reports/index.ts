@@ -1,4 +1,4 @@
-import type { SQLiteDatabase } from "expo-sqlite";
+import type { SQLiteDatabase } from 'expo-sqlite';
 
 export interface DailySalesSummary {
   transaction_count: number;
@@ -39,7 +39,7 @@ export interface CashRegisterSessionRecord {
  */
 export async function getDailySalesSummary(
   db: SQLiteDatabase,
-  tenantId = "local"
+  tenantId = 'local',
 ): Promise<DailySalesSummary> {
   const row = await db.getFirstAsync<DailySalesSummary>(
     `SELECT 
@@ -51,7 +51,7 @@ export async function getDailySalesSummary(
      WHERE date(created_at, 'localtime') = date('now', 'localtime')
        AND status = 'completed'
        AND tenant_id = $tenant_id`,
-    { $tenant_id: tenantId }
+    { $tenant_id: tenantId },
   );
 
   return (
@@ -70,7 +70,7 @@ export async function getDailySalesSummary(
 export async function getTopSellingProducts(
   db: SQLiteDatabase,
   limit = 5,
-  tenantId = "local"
+  tenantId = 'local',
 ): Promise<TopProductRecord[]> {
   return db.getAllAsync<TopProductRecord>(
     `SELECT 
@@ -88,7 +88,7 @@ export async function getTopSellingProducts(
      GROUP BY p.id
      ORDER BY total_quantity DESC
      LIMIT $limit`,
-    { $tenant_id: tenantId, $limit: limit }
+    { $tenant_id: tenantId, $limit: limit },
   );
 }
 
@@ -98,7 +98,7 @@ export async function getTopSellingProducts(
 export async function getLowStockProducts(
   db: SQLiteDatabase,
   threshold = 5,
-  tenantId = "local"
+  tenantId = 'local',
 ): Promise<LowStockProductRecord[]> {
   return db.getAllAsync<LowStockProductRecord>(
     `SELECT id, name, stock, unit, sale_price
@@ -107,7 +107,7 @@ export async function getLowStockProducts(
        AND is_active = 1
        AND tenant_id = $tenant_id
      ORDER BY stock ASC`,
-    { $tenant_id: tenantId, $threshold: threshold }
+    { $tenant_id: tenantId, $threshold: threshold },
   );
 }
 
@@ -117,7 +117,7 @@ export async function getLowStockProducts(
 export async function getCashRegisterSessions(
   db: SQLiteDatabase,
   limit = 20,
-  tenantId = "local"
+  tenantId = 'local',
 ): Promise<CashRegisterSessionRecord[]> {
   return db.getAllAsync<CashRegisterSessionRecord>(
     `SELECT 
@@ -133,7 +133,7 @@ export async function getCashRegisterSessions(
      WHERE cr.tenant_id = $tenant_id
      ORDER BY cr.opened_at DESC
      LIMIT $limit`,
-    { $tenant_id: tenantId, $limit: limit }
+    { $tenant_id: tenantId, $limit: limit },
   );
 }
 
@@ -157,7 +157,7 @@ export interface SaleWithItems {
  */
 export async function getSessionSalesWithItems(
   db: SQLiteDatabase,
-  registerId: string
+  registerId: string,
 ): Promise<SaleWithItems[]> {
   // 1. Obtener todas las ventas registradas para este turno
   const sales = await db.getAllAsync<{
@@ -171,7 +171,7 @@ export async function getSessionSalesWithItems(
      FROM sales 
      WHERE cash_register_id = $registerId 
      ORDER BY created_at DESC`,
-    { $registerId: registerId }
+    { $registerId: registerId },
   );
 
   if (sales.length === 0) return [];
@@ -197,7 +197,7 @@ export async function getSessionSalesWithItems(
      JOIN sales s ON si.sale_id = s.id
      WHERE s.cash_register_id = $registerId
      ORDER BY si.created_at ASC`,
-    { $registerId: registerId }
+    { $registerId: registerId },
   );
 
   // 3. Agrupar ítems por venta en memoria

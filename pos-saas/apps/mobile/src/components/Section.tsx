@@ -1,9 +1,12 @@
-import { PropsWithChildren, useMemo } from "react";
-import { StyleSheet, Text, View } from "react-native";
-import { useTheme } from "../context/ThemeContext";
-import type { ThemeColors } from "../theme/tokens";
+import { PropsWithChildren, useMemo } from 'react';
+import { StyleSheet, Text, View } from 'react-native';
+import { useTheme } from '../context/ThemeContext';
+import type { ThemeColors } from '../theme/tokens';
 
-export function Section({ title, children }: PropsWithChildren<{ title: string }>) {
+export function Section({
+  title,
+  children,
+}: PropsWithChildren<{ title: string }>) {
   const { colors } = useTheme();
   const styles = useMemo(() => getStyles(colors), [colors]);
 
@@ -15,16 +18,17 @@ export function Section({ title, children }: PropsWithChildren<{ title: string }
   );
 }
 
-const getStyles = (colors: ThemeColors) => StyleSheet.create({
-  section: {
-    gap: 12,
-  },
-  title: {
-    color: colors.text,
-    fontSize: 16,
-    fontWeight: "800",
-  },
-  content: {
-    gap: 12,
-  },
-});
+const getStyles = (colors: ThemeColors) =>
+  StyleSheet.create({
+    section: {
+      gap: 12,
+    },
+    title: {
+      color: colors.text,
+      fontSize: 16,
+      fontWeight: '800',
+    },
+    content: {
+      gap: 12,
+    },
+  });

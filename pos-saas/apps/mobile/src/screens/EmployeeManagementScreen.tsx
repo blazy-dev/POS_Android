@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
@@ -8,38 +8,52 @@ import {
   StyleSheet,
   Text,
   View,
-} from "react-native";
-import { useSQLiteContext } from "expo-sqlite";
-import { useAuth } from "../context/AuthContext";
-import { useTheme } from "../context/ThemeContext";
-import { FormField } from "../components/form/FormField";
-import { radius, spacing, ThemeColors } from "../theme/tokens";
+} from 'react-native';
+import { useSQLiteContext } from 'expo-sqlite';
+import { useAuth } from '../context/AuthContext';
+import { useTheme } from '../context/ThemeContext';
+import { FormField } from '../components/form/FormField';
+import { radius, spacing, ThemeColors } from '../theme/tokens';
 import {
   listEmployees,
   saveEmployee,
   deleteEmployee,
   isPinTaken,
   type EmployeeInput,
-} from "../modules/employees";
-import type { UserRecord } from "../database/types";
+} from '../modules/employees';
+import type { UserRecord } from '../database/types';
 
 const ROLE_PRESETS = [
-  { value: "cashier", label: "Cajero", desc: "Registra ventas y abre/cierra caja." },
-  { value: "supervisor", label: "Supervisor", desc: "Gestión de stock e inventario." },
-  { value: "admin", label: "Administrador", desc: "Acceso total y configuración." },
+  {
+    value: 'cashier',
+    label: 'Cajero',
+    desc: 'Registra ventas y abre/cierra caja.',
+  },
+  {
+    value: 'supervisor',
+    label: 'Supervisor',
+    desc: 'Gestión de stock e inventario.',
+  },
+  {
+    value: 'admin',
+    label: 'Administrador',
+    desc: 'Acceso total y configuración.',
+  },
 ];
 
 type EmployeeManagementScreenProps = {
   onBack: () => void;
 };
 
-export function EmployeeManagementScreen({ onBack }: EmployeeManagementScreenProps) {
+export function EmployeeManagementScreen({
+  onBack,
+}: EmployeeManagementScreenProps) {
   const db = useSQLiteContext();
   const { user } = useAuth();
   const { colors, isDark } = useTheme();
   const styles = useMemo(() => getStyles(colors, isDark), [colors, isDark]);
 
-  const tenantId = user?.tenant_id || "local";
+  const tenantId = user?.tenant_id || 'local';
 
   // Estados del listado
   const [employees, setEmployees] = useState<UserRecord[]>([]);
@@ -47,11 +61,13 @@ export function EmployeeManagementScreen({ onBack }: EmployeeManagementScreenPro
 
   // Estados del formulario
   const [showForm, setShowForm] = useState(false);
-  const [editingEmployee, setEditingEmployee] = useState<UserRecord | null>(null);
-  const [formName, setFormName] = useState("");
-  const [formEmail, setFormEmail] = useState("");
-  const [formPin, setFormPin] = useState("");
-  const [formRole, setFormRole] = useState("cashier");
+  const [editingEmployee, setEditingEmployee] = useState<UserRecord | null>(
+    null,
+  );
+  const [formName, setFormName] = useState('');
+  const [formEmail, setFormEmail] = useState('');
+  const [formPin, setFormPin] = useState('');
+  const [formRole, setFormRole] = useState('cashier');
   const [saving, setSaving] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
 
@@ -62,8 +78,8 @@ export function EmployeeManagementScreen({ onBack }: EmployeeManagementScreenPro
       const list = await listEmployees(db, tenantId);
       setEmployees(list);
     } catch (err) {
-      console.error("Error al listar empleados:", err);
-      Alert.alert("Error", "No se pudieron obtener los empleados locales.");
+      console.error('Error al listar empleados:', err);
+      Alert.alert('Error', 'No se pudieron obtener los empleados locales.');
     } finally {
       setLoadingList(false);
     }
@@ -76,10 +92,10 @@ export function EmployeeManagementScreen({ onBack }: EmployeeManagementScreenPro
   // Abrir formulario para agregar nuevo
   const handleNewEmployee = () => {
     setEditingEmployee(null);
-    setFormName("");
-    setFormEmail("");
-    setFormPin("");
-    setFormRole("cashier");
+    setFormName('');
+    setFormEmail('');
+    setFormPin('');
+    setFormRole('cashier');
     setFormError(null);
     setShowForm(true);
   };
@@ -89,7 +105,7 @@ export function EmployeeManagementScreen({ onBack }: EmployeeManagementScreenPro
     setEditingEmployee(emp);
     setFormName(emp.name);
     setFormEmail(emp.email);
-    setFormPin(emp.pin ?? "");
+    setFormPin(emp.pin ?? '');
     setFormRole(emp.role);
     setFormError(null);
     setShowForm(true);
@@ -98,24 +114,24 @@ export function EmployeeManagementScreen({ onBack }: EmployeeManagementScreenPro
   // Eliminar/desactivar empleado
   const handleDeleteEmployee = (emp: UserRecord) => {
     Alert.alert(
-      "Confirmar baja",
+      'Confirmar baja',
       `¿Estás seguro de que querés dar de baja a ${emp.name}? Ya no podrá iniciar sesión.`,
       [
-        { text: "Cancelar", style: "cancel" },
+        { text: 'Cancelar', style: 'cancel' },
         {
-          text: "Dar de baja",
-          style: "destructive",
+          text: 'Dar de baja',
+          style: 'destructive',
           onPress: async () => {
             try {
               await deleteEmployee(db, emp.id, tenantId);
               await fetchEmployees();
             } catch (err) {
-              console.error("Error al eliminar empleado:", err);
-              Alert.alert("Error", "No se pudo realizar la baja del empleado.");
+              console.error('Error al eliminar empleado:', err);
+              Alert.alert('Error', 'No se pudo realizar la baja del empleado.');
             }
           },
         },
-      ]
+      ],
     );
   };
 
@@ -128,23 +144,25 @@ export function EmployeeManagementScreen({ onBack }: EmployeeManagementScreenPro
     const pin = formPin.trim();
 
     if (!name) {
-      setFormError("El nombre completo es obligatorio.");
+      setFormError('El nombre completo es obligatorio.');
       return;
     }
 
     if (!email) {
-      setFormError("El correo electrónico es obligatorio.");
+      setFormError('El correo electrónico es obligatorio.');
       return;
     }
 
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     if (!emailRegex.test(email)) {
-      setFormError("Ingresá un correo electrónico válido.");
+      setFormError('Ingresá un correo electrónico válido.');
       return;
     }
 
     if (pin && (pin.length !== 4 || isNaN(Number(pin)))) {
-      setFormError("El PIN debe ser un código numérico de exactamente 4 dígitos.");
+      setFormError(
+        'El PIN debe ser un código numérico de exactamente 4 dígitos.',
+      );
       return;
     }
 
@@ -152,9 +170,16 @@ export function EmployeeManagementScreen({ onBack }: EmployeeManagementScreenPro
       setSaving(true);
 
       if (pin) {
-        const pinTaken = await isPinTaken(db, pin, tenantId, editingEmployee?.id);
+        const pinTaken = await isPinTaken(
+          db,
+          pin,
+          tenantId,
+          editingEmployee?.id,
+        );
         if (pinTaken) {
-          setFormError("Este PIN ya está siendo utilizado por otro empleado activo.");
+          setFormError(
+            'Este PIN ya está siendo utilizado por otro empleado activo.',
+          );
           setSaving(false);
           return;
         }
@@ -172,8 +197,10 @@ export function EmployeeManagementScreen({ onBack }: EmployeeManagementScreenPro
       setShowForm(false);
       await fetchEmployees();
     } catch (err) {
-      console.error("Error al guardar empleado:", err);
-      setFormError(err instanceof Error ? err.message : "Error al guardar el empleado.");
+      console.error('Error al guardar empleado:', err);
+      setFormError(
+        err instanceof Error ? err.message : 'Error al guardar el empleado.',
+      );
     } finally {
       setSaving(false);
     }
@@ -184,20 +211,26 @@ export function EmployeeManagementScreen({ onBack }: EmployeeManagementScreenPro
     return (
       <SafeAreaView style={styles.safeArea}>
         <View style={styles.header}>
-          <Pressable onPress={() => setShowForm(false)} style={styles.backButton}>
+          <Pressable
+            onPress={() => setShowForm(false)}
+            style={styles.backButton}
+          >
             <Text style={styles.backButtonText}>← Cancelar</Text>
           </Pressable>
           <Text style={styles.title}>
-            {editingEmployee ? "Editar Empleado" : "Nuevo Empleado"}
+            {editingEmployee ? 'Editar Empleado' : 'Nuevo Empleado'}
           </Text>
           <Text style={styles.subtitle}>
             {editingEmployee
-              ? "Modificá los datos del miembro del equipo."
-              : "Registrá un nuevo usuario para operar en el dispositivo."}
+              ? 'Modificá los datos del miembro del equipo.'
+              : 'Registrá un nuevo usuario para operar en el dispositivo.'}
           </Text>
         </View>
 
-        <ScrollView contentContainerStyle={styles.formContainer} keyboardShouldPersistTaps="handled">
+        <ScrollView
+          contentContainerStyle={styles.formContainer}
+          keyboardShouldPersistTaps="handled"
+        >
           <View style={styles.card}>
             <FormField
               label="Nombre completo *"
@@ -240,7 +273,12 @@ export function EmployeeManagementScreen({ onBack }: EmployeeManagementScreenPro
                       style={[styles.roleCard, active && styles.roleCardActive]}
                       onPress={() => setFormRole(role.value)}
                     >
-                      <Text style={[styles.roleLabel, active && styles.roleLabelActive]}>
+                      <Text
+                        style={[
+                          styles.roleLabel,
+                          active && styles.roleLabelActive,
+                        ]}
+                      >
                         {role.label}
                       </Text>
                       <Text style={styles.roleDesc}>{role.desc}</Text>
@@ -250,7 +288,9 @@ export function EmployeeManagementScreen({ onBack }: EmployeeManagementScreenPro
               </View>
             </View>
 
-            {formError ? <Text style={styles.errorText}>{formError}</Text> : null}
+            {formError ? (
+              <Text style={styles.errorText}>{formError}</Text>
+            ) : null}
 
             <View style={styles.formActions}>
               <Pressable
@@ -282,7 +322,8 @@ export function EmployeeManagementScreen({ onBack }: EmployeeManagementScreenPro
           <View style={{ flex: 1 }}>
             <Text style={styles.title}>Gestión de Empleados</Text>
             <Text style={styles.subtitle}>
-              Administrá los cajeros, supervisores y sus credenciales de acceso local.
+              Administrá los cajeros, supervisores y sus credenciales de acceso
+              local.
             </Text>
           </View>
           <Pressable style={styles.newButton} onPress={handleNewEmployee}>
@@ -297,9 +338,16 @@ export function EmployeeManagementScreen({ onBack }: EmployeeManagementScreenPro
         </View>
       ) : employees.length === 0 ? (
         <View style={styles.centered}>
-          <Text style={styles.emptyText}>No hay empleados registrados además de tu cuenta principal.</Text>
-          <Pressable style={styles.newButtonOutline} onPress={handleNewEmployee}>
-            <Text style={styles.newButtonOutlineText}>Registrar primer empleado</Text>
+          <Text style={styles.emptyText}>
+            No hay empleados registrados además de tu cuenta principal.
+          </Text>
+          <Pressable
+            style={styles.newButtonOutline}
+            onPress={handleNewEmployee}
+          >
+            <Text style={styles.newButtonOutlineText}>
+              Registrar primer empleado
+            </Text>
           </Pressable>
         </View>
       ) : (
@@ -311,17 +359,18 @@ export function EmployeeManagementScreen({ onBack }: EmployeeManagementScreenPro
               <View key={emp.id} style={styles.employeeCard}>
                 <View style={styles.empInfo}>
                   <Text style={styles.empName}>
-                    {emp.name} {isSelf && <Text style={styles.selfTag}>(Tú)</Text>}
+                    {emp.name}{' '}
+                    {isSelf && <Text style={styles.selfTag}>(Tú)</Text>}
                   </Text>
                   <Text style={styles.empEmail}>{emp.email}</Text>
                   <View style={styles.tagsRow}>
                     <View style={styles.roleTag}>
                       <Text style={styles.roleTagText}>
-                        {emp.role === "admin"
-                          ? "Administrador"
-                          : emp.role === "supervisor"
-                          ? "Supervisor"
-                          : "Cajero"}
+                        {emp.role === 'admin'
+                          ? 'Administrador'
+                          : emp.role === 'supervisor'
+                            ? 'Supervisor'
+                            : 'Cajero'}
                       </Text>
                     </View>
                     {emp.pin ? (
@@ -338,10 +387,16 @@ export function EmployeeManagementScreen({ onBack }: EmployeeManagementScreenPro
 
                 {!isSelf && (
                   <View style={styles.empActions}>
-                    <Pressable style={styles.editButton} onPress={() => handleEditEmployee(emp)}>
+                    <Pressable
+                      style={styles.editButton}
+                      onPress={() => handleEditEmployee(emp)}
+                    >
                       <Text style={styles.editButtonText}>Editar</Text>
                     </Pressable>
-                    <Pressable style={styles.deleteButton} onPress={() => handleDeleteEmployee(emp)}>
+                    <Pressable
+                      style={styles.deleteButton}
+                      onPress={() => handleDeleteEmployee(emp)}
+                    >
                       <Text style={styles.deleteButtonText}>Baja</Text>
                     </Pressable>
                   </View>
@@ -368,25 +423,25 @@ const getStyles = (colors: ThemeColors, isDark: boolean) =>
       gap: 6,
     },
     backButton: {
-      alignSelf: "flex-start",
+      alignSelf: 'flex-start',
       paddingVertical: 6,
     },
     backButtonText: {
       color: colors.primary,
       fontSize: 14,
-      fontWeight: "700",
+      fontWeight: '700',
     },
     headerTitleRow: {
-      flexDirection: "row",
-      justifyContent: "space-between",
-      alignItems: "center",
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      alignItems: 'center',
       gap: 12,
       marginTop: 4,
     },
     title: {
       color: colors.text,
       fontSize: 24,
-      fontWeight: "800",
+      fontWeight: '800',
     },
     subtitle: {
       color: colors.textMuted,
@@ -395,15 +450,15 @@ const getStyles = (colors: ThemeColors, isDark: boolean) =>
     },
     centered: {
       flex: 1,
-      justifyContent: "center",
-      alignItems: "center",
+      justifyContent: 'center',
+      alignItems: 'center',
       padding: 30,
       gap: 16,
     },
     emptyText: {
       color: colors.textMuted,
       fontSize: 14,
-      textAlign: "center",
+      textAlign: 'center',
       lineHeight: 20,
     },
     listContainer: {
@@ -416,9 +471,9 @@ const getStyles = (colors: ThemeColors, isDark: boolean) =>
       backgroundColor: colors.surface,
       borderWidth: 1,
       borderColor: colors.border,
-      flexDirection: "row",
-      justifyContent: "space-between",
-      alignItems: "center",
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      alignItems: 'center',
       gap: 12,
     },
     empInfo: {
@@ -428,19 +483,19 @@ const getStyles = (colors: ThemeColors, isDark: boolean) =>
     empName: {
       color: colors.text,
       fontSize: 16,
-      fontWeight: "700",
+      fontWeight: '700',
     },
     selfTag: {
       color: colors.primary,
       fontSize: 12,
-      fontWeight: "600",
+      fontWeight: '600',
     },
     empEmail: {
       color: colors.textMuted,
       fontSize: 12,
     },
     tagsRow: {
-      flexDirection: "row",
+      flexDirection: 'row',
       gap: 8,
       marginTop: 4,
     },
@@ -448,37 +503,43 @@ const getStyles = (colors: ThemeColors, isDark: boolean) =>
       paddingHorizontal: 8,
       paddingVertical: 4,
       borderRadius: 8,
-      backgroundColor: isDark ? "rgba(138, 199, 255, 0.12)" : "rgba(4, 151, 191, 0.08)",
+      backgroundColor: isDark
+        ? 'rgba(138, 199, 255, 0.12)'
+        : 'rgba(4, 151, 191, 0.08)',
     },
     roleTagText: {
       color: colors.primary,
       fontSize: 11,
-      fontWeight: "700",
+      fontWeight: '700',
     },
     pinTag: {
       paddingHorizontal: 8,
       paddingVertical: 4,
       borderRadius: 8,
-      backgroundColor: isDark ? "rgba(122, 230, 179, 0.12)" : "rgba(1, 203, 99, 0.08)",
+      backgroundColor: isDark
+        ? 'rgba(122, 230, 179, 0.12)'
+        : 'rgba(1, 203, 99, 0.08)',
     },
     pinTagText: {
       color: colors.success,
       fontSize: 11,
-      fontWeight: "700",
+      fontWeight: '700',
     },
     noPinTag: {
       paddingHorizontal: 8,
       paddingVertical: 4,
       borderRadius: 8,
-      backgroundColor: isDark ? "rgba(255, 255, 255, 0.04)" : "rgba(0, 0, 0, 0.04)",
+      backgroundColor: isDark
+        ? 'rgba(255, 255, 255, 0.04)'
+        : 'rgba(0, 0, 0, 0.04)',
     },
     noPinTagText: {
       color: colors.textMuted,
       fontSize: 11,
-      fontWeight: "600",
+      fontWeight: '600',
     },
     empActions: {
-      flexDirection: "row",
+      flexDirection: 'row',
       gap: 8,
     },
     editButton: {
@@ -492,20 +553,22 @@ const getStyles = (colors: ThemeColors, isDark: boolean) =>
     editButtonText: {
       color: colors.text,
       fontSize: 12,
-      fontWeight: "700",
+      fontWeight: '700',
     },
     deleteButton: {
       paddingHorizontal: 12,
       paddingVertical: 8,
       borderRadius: 10,
       borderWidth: 1,
-      borderColor: isDark ? "rgba(255, 77, 77, 0.2)" : "rgba(211, 47, 47, 0.2)",
-      backgroundColor: isDark ? "rgba(255, 77, 77, 0.02)" : "rgba(211, 47, 47, 0.02)",
+      borderColor: isDark ? 'rgba(255, 77, 77, 0.2)' : 'rgba(211, 47, 47, 0.2)',
+      backgroundColor: isDark
+        ? 'rgba(255, 77, 77, 0.02)'
+        : 'rgba(211, 47, 47, 0.02)',
     },
     deleteButtonText: {
-      color: isDark ? "#FFB4B4" : "#D32F2F",
+      color: isDark ? '#FFB4B4' : '#D32F2F',
       fontSize: 12,
-      fontWeight: "700",
+      fontWeight: '700',
     },
     newButton: {
       backgroundColor: colors.primary,
@@ -514,9 +577,9 @@ const getStyles = (colors: ThemeColors, isDark: boolean) =>
       borderRadius: 14,
     },
     newButtonText: {
-      color: "#FFFFFF",
+      color: '#FFFFFF',
       fontSize: 14,
-      fontWeight: "800",
+      fontWeight: '800',
     },
     newButtonOutline: {
       borderWidth: 1,
@@ -529,7 +592,7 @@ const getStyles = (colors: ThemeColors, isDark: boolean) =>
     newButtonOutlineText: {
       color: colors.primary,
       fontSize: 14,
-      fontWeight: "700",
+      fontWeight: '700',
     },
     formContainer: {
       padding: 20,
@@ -548,7 +611,7 @@ const getStyles = (colors: ThemeColors, isDark: boolean) =>
     label: {
       color: colors.text,
       fontSize: 13,
-      fontWeight: "700",
+      fontWeight: '700',
     },
     roleContainer: {
       gap: 10,
@@ -559,17 +622,21 @@ const getStyles = (colors: ThemeColors, isDark: boolean) =>
       borderRadius: 14,
       borderWidth: 1,
       borderColor: colors.border,
-      backgroundColor: isDark ? "rgba(255, 255, 255, 0.02)" : colors.surfaceSoft,
+      backgroundColor: isDark
+        ? 'rgba(255, 255, 255, 0.02)'
+        : colors.surfaceSoft,
       gap: 4,
     },
     roleCardActive: {
       borderColor: colors.primary,
-      backgroundColor: isDark ? "rgba(138, 199, 255, 0.08)" : "rgba(4, 151, 191, 0.08)",
+      backgroundColor: isDark
+        ? 'rgba(138, 199, 255, 0.08)'
+        : 'rgba(4, 151, 191, 0.08)',
     },
     roleLabel: {
       color: colors.text,
       fontSize: 14,
-      fontWeight: "700",
+      fontWeight: '700',
     },
     roleLabelActive: {
       color: colors.primary,
@@ -585,20 +652,20 @@ const getStyles = (colors: ThemeColors, isDark: boolean) =>
       backgroundColor: colors.primary,
       paddingVertical: 14,
       borderRadius: 14,
-      alignItems: "center",
-      justifyContent: "center",
+      alignItems: 'center',
+      justifyContent: 'center',
     },
     saveButtonText: {
-      color: "#FFFFFF",
+      color: '#FFFFFF',
       fontSize: 14,
-      fontWeight: "800",
+      fontWeight: '800',
     },
     buttonDisabled: {
       opacity: 0.6,
     },
     errorText: {
-      color: isDark ? "#FFB4B4" : "#D32F2F",
+      color: isDark ? '#FFB4B4' : '#D32F2F',
       fontSize: 13,
-      textAlign: "center",
+      textAlign: 'center',
     },
   });

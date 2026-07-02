@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
   Pressable,
@@ -8,32 +8,36 @@ import {
   Text,
   TextInput,
   View,
-} from "react-native";
-import { useAuth } from "../context/AuthContext";
-import { radius, spacing, ThemeColors } from "../theme/tokens";
-import { useTheme } from "../context/ThemeContext";
-import { supabase } from "../api/supabase";
-import { apiConfig } from "../api/client";
-import { FormField } from "../components/form/FormField";
-import { EmployeeManagementScreen } from "./EmployeeManagementScreen";
-import { useSQLiteContext } from "expo-sqlite";
-import { getAppMeta, setAppMeta } from "../database";
+} from 'react-native';
+import { useAuth } from '../context/AuthContext';
+import { radius, spacing, ThemeColors } from '../theme/tokens';
+import { useTheme } from '../context/ThemeContext';
+import { supabase } from '../api/supabase';
+import { apiConfig } from '../api/client';
+import { FormField } from '../components/form/FormField';
+import { EmployeeManagementScreen } from './EmployeeManagementScreen';
+import { useSQLiteContext } from 'expo-sqlite';
+import { getAppMeta, setAppMeta } from '../database';
 
 const CURRENCIES = [
-  { value: "ARS", label: "ARS ($)", desc: "Peso Argentino" },
-  { value: "USD", label: "USD ($)", desc: "Dólar Estadounidense" },
-  { value: "EUR", label: "EUR (€)", desc: "Euro" },
-  { value: "UYU", label: "UYU ($)", desc: "Peso Uruguayo" },
-  { value: "CLP", label: "CLP ($)", desc: "Peso Chileno" },
+  { value: 'ARS', label: 'ARS ($)', desc: 'Peso Argentino' },
+  { value: 'USD', label: 'USD ($)', desc: 'Dólar Estadounidense' },
+  { value: 'EUR', label: 'EUR (€)', desc: 'Euro' },
+  { value: 'UYU', label: 'UYU ($)', desc: 'Peso Uruguayo' },
+  { value: 'CLP', label: 'CLP ($)', desc: 'Peso Chileno' },
 ];
 
 const TIMEZONES = [
-  { value: "America/Argentina/Buenos_Aires", label: "Buenos Aires", desc: "GMT-3" },
-  { value: "America/Montevideo", label: "Montevideo", desc: "GMT-3" },
-  { value: "America/Santiago", label: "Santiago", desc: "GMT-4" },
-  { value: "America/Bogota", label: "Bogotá / Lima", desc: "GMT-5" },
-  { value: "America/New_York", label: "New York", desc: "GMT-4" },
-  { value: "Europe/Madrid", label: "Madrid / Barcelona", desc: "GMT+2" },
+  {
+    value: 'America/Argentina/Buenos_Aires',
+    label: 'Buenos Aires',
+    desc: 'GMT-3',
+  },
+  { value: 'America/Montevideo', label: 'Montevideo', desc: 'GMT-3' },
+  { value: 'America/Santiago', label: 'Santiago', desc: 'GMT-4' },
+  { value: 'America/Bogota', label: 'Bogotá / Lima', desc: 'GMT-5' },
+  { value: 'America/New_York', label: 'New York', desc: 'GMT-4' },
+  { value: 'Europe/Madrid', label: 'Madrid / Barcelona', desc: 'GMT+2' },
 ];
 
 export function SettingsScreen() {
@@ -41,34 +45,43 @@ export function SettingsScreen() {
   const { theme, colors, isDark, toggleTheme } = useTheme();
   const styles = useMemo(() => getStyles(colors, isDark), [colors, isDark]);
 
-  const isOnlineUser = user && !user.email.endsWith("@pos.local");
-  const isAdmin = user && user.role === "admin";
+  const isOnlineUser = user && !user.email.endsWith('@pos.local');
+  const isAdmin = user && user.role === 'admin';
 
-  const [tenantInfo, setTenantInfo] = useState<{ id: string; name: string; currency: string; timezone: string } | null>(null);
+  const [tenantInfo, setTenantInfo] = useState<{
+    id: string;
+    name: string;
+    currency: string;
+    timezone: string;
+  } | null>(null);
   const [loadingTenant, setLoadingTenant] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
 
   // Estados del formulario de edición
-  const [editName, setEditName] = useState("");
-  const [editCurrency, setEditCurrency] = useState("ARS");
-  const [editTimezone, setEditTimezone] = useState("America/Argentina/Buenos_Aires");
+  const [editName, setEditName] = useState('');
+  const [editCurrency, setEditCurrency] = useState('ARS');
+  const [editTimezone, setEditTimezone] = useState(
+    'America/Argentina/Buenos_Aires',
+  );
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [showEmployees, setShowEmployees] = useState(false);
   const db = useSQLiteContext();
-  const [tenantName, setTenantName] = useState<string>("");
+  const [tenantName, setTenantName] = useState<string>('');
 
   // Obtener datos del comercio
   async function fetchTenantDetails() {
     if (!isOnlineUser) return;
     try {
       setLoadingTenant(true);
-      const { data: { session } } = await supabase.auth.getSession();
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
       if (!session) return;
 
       const response = await fetch(`${apiConfig.baseUrl}/auth/tenant`, {
-        method: "GET",
+        method: 'GET',
         headers: {
-          "Authorization": `Bearer ${session.access_token}`,
+          Authorization: `Bearer ${session.access_token}`,
         },
       });
 
@@ -79,7 +92,7 @@ export function SettingsScreen() {
           setEditName(resData.data.name);
           setEditCurrency(resData.data.currency);
           setEditTimezone(resData.data.timezone);
-          
+
           if (user?.tenant_id) {
             await setAppMeta(db, `tenant_${user.tenant_id}`, resData.data.name);
             setTenantName(resData.data.name);
@@ -87,7 +100,7 @@ export function SettingsScreen() {
         }
       }
     } catch (err) {
-      console.error("Error al obtener datos del comercio:", err);
+      console.error('Error al obtener datos del comercio:', err);
     } finally {
       setLoadingTenant(false);
     }
@@ -97,7 +110,10 @@ export function SettingsScreen() {
     async function loadCachedTenantName() {
       if (user?.tenant_id) {
         try {
-          const cached = await getAppMeta<string>(db, `tenant_${user.tenant_id}`);
+          const cached = await getAppMeta<string>(
+            db,
+            `tenant_${user.tenant_id}`,
+          );
           if (cached) {
             setTenantName(cached);
           }
@@ -105,7 +121,7 @@ export function SettingsScreen() {
           console.error(e);
         }
       } else {
-        setTenantName("");
+        setTenantName('');
       }
     }
     void loadCachedTenantName();
@@ -116,20 +132,22 @@ export function SettingsScreen() {
   async function handleSaveTenant() {
     setErrorMsg(null);
     if (!editName.trim()) {
-      setErrorMsg("El nombre comercial es obligatorio.");
+      setErrorMsg('El nombre comercial es obligatorio.');
       return;
     }
 
     try {
       setLoadingTenant(true);
-      const { data: { session } } = await supabase.auth.getSession();
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
       if (!session) return;
 
       const response = await fetch(`${apiConfig.baseUrl}/auth/tenant`, {
-        method: "PUT",
+        method: 'PUT',
         headers: {
-          "Content-Type": "application/json",
-          "Authorization": `Bearer ${session.access_token}`,
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${session.access_token}`,
         },
         body: JSON.stringify({
           name: editName.trim(),
@@ -148,15 +166,15 @@ export function SettingsScreen() {
             setTenantName(resData.data.name);
           }
         } else {
-          setErrorMsg("Error al guardar la configuración.");
+          setErrorMsg('Error al guardar la configuración.');
         }
       } else {
         const errText = await response.text();
         setErrorMsg(`Error al guardar: ${errText || response.status}`);
       }
     } catch (err) {
-      console.error("Error al guardar datos de comercio:", err);
-      setErrorMsg("Error de conexión al guardar.");
+      console.error('Error al guardar datos de comercio:', err);
+      setErrorMsg('Error de conexión al guardar.');
     } finally {
       setLoadingTenant(false);
     }
@@ -170,9 +188,12 @@ export function SettingsScreen() {
     <SafeAreaView style={styles.safeArea}>
       <ScrollView contentContainerStyle={styles.container}>
         <Text style={styles.kicker}>Ajustes</Text>
-        <Text style={styles.title}>Configuración del comercio y del dispositivo</Text>
+        <Text style={styles.title}>
+          Configuración del comercio y del dispositivo
+        </Text>
         <Text style={styles.subtitle}>
-          Aquí podés cambiar el tema visual, los datos de tu comercio y gestionar tu sesión.
+          Aquí podés cambiar el tema visual, los datos de tu comercio y
+          gestionar tu sesión.
         </Text>
 
         {/* Sección Usuario Activo */}
@@ -182,12 +203,18 @@ export function SettingsScreen() {
             <View style={styles.profileInfo}>
               <Text style={styles.profileName}>{user.name}</Text>
               <Text style={styles.profileRole}>
-                Rol: {user.role === "admin" ? "Administrador" : user.role === "supervisor" ? "Supervisor" : "Cajero"}
+                Rol:{' '}
+                {user.role === 'admin'
+                  ? 'Administrador'
+                  : user.role === 'supervisor'
+                    ? 'Supervisor'
+                    : 'Cajero'}
               </Text>
               <Text style={styles.profileEmail}>{user.email}</Text>
               {tenantName ? (
                 <Text style={styles.profileOrg}>
-                  Comercio: <Text style={{ fontWeight: "700" }}>{tenantName}</Text>
+                  Comercio:{' '}
+                  <Text style={{ fontWeight: '700' }}>{tenantName}</Text>
                 </Text>
               ) : null}
             </View>
@@ -210,7 +237,11 @@ export function SettingsScreen() {
             </View>
 
             {loadingTenant && !isEditing ? (
-              <ActivityIndicator size="small" color={colors.primary} style={{ marginVertical: 10 }} />
+              <ActivityIndicator
+                size="small"
+                color={colors.primary}
+                style={{ marginVertical: 10 }}
+              />
             ) : isEditing ? (
               <View style={styles.editForm}>
                 <FormField
@@ -229,10 +260,18 @@ export function SettingsScreen() {
                       return (
                         <Pressable
                           key={c.value}
-                          style={[styles.optionChip, active && styles.optionChipActive]}
+                          style={[
+                            styles.optionChip,
+                            active && styles.optionChipActive,
+                          ]}
                           onPress={() => setEditCurrency(c.value)}
                         >
-                          <Text style={[styles.optionChipLabel, active && styles.optionChipLabelActive]}>
+                          <Text
+                            style={[
+                              styles.optionChipLabel,
+                              active && styles.optionChipLabelActive,
+                            ]}
+                          >
                             {c.label}
                           </Text>
                         </Pressable>
@@ -249,10 +288,18 @@ export function SettingsScreen() {
                       return (
                         <Pressable
                           key={t.value}
-                          style={[styles.optionChip, active && styles.optionChipActive]}
+                          style={[
+                            styles.optionChip,
+                            active && styles.optionChipActive,
+                          ]}
                           onPress={() => setEditTimezone(t.value)}
                         >
-                          <Text style={[styles.optionChipLabel, active && styles.optionChipLabelActive]}>
+                          <Text
+                            style={[
+                              styles.optionChipLabel,
+                              active && styles.optionChipLabelActive,
+                            ]}
+                          >
                             {t.label}
                           </Text>
                         </Pressable>
@@ -265,7 +312,10 @@ export function SettingsScreen() {
 
                 <View style={styles.editActions}>
                   <Pressable
-                    style={[styles.saveButton, loadingTenant && styles.buttonDisabled]}
+                    style={[
+                      styles.saveButton,
+                      loadingTenant && styles.buttonDisabled,
+                    ]}
                     onPress={handleSaveTenant}
                     disabled={loadingTenant}
                   >
@@ -300,7 +350,9 @@ export function SettingsScreen() {
                 <View style={styles.detailRow}>
                   <Text style={styles.detailLabel}>Moneda:</Text>
                   <Text style={styles.detailValue}>
-                    {CURRENCIES.find((c) => c.value === tenantInfo.currency)?.desc || tenantInfo.currency} ({tenantInfo.currency})
+                    {CURRENCIES.find((c) => c.value === tenantInfo.currency)
+                      ?.desc || tenantInfo.currency}{' '}
+                    ({tenantInfo.currency})
                   </Text>
                 </View>
                 <View style={styles.detailRow}>
@@ -313,7 +365,9 @@ export function SettingsScreen() {
                     style={styles.manageEmployeesButton}
                     onPress={() => setShowEmployees(true)}
                   >
-                    <Text style={styles.manageEmployeesButtonText}>👥 Gestionar Empleados</Text>
+                    <Text style={styles.manageEmployeesButtonText}>
+                      👥 Gestionar Empleados
+                    </Text>
                   </Pressable>
                 )}
               </View>
@@ -324,13 +378,15 @@ export function SettingsScreen() {
         {/* Sección Apariencia */}
         <View style={styles.card}>
           <Text style={styles.cardTitle}>Apariencia</Text>
-          <Text style={styles.cardText}>Elegí el tema visual de la aplicación:</Text>
-          
+          <Text style={styles.cardText}>
+            Elegí el tema visual de la aplicación:
+          </Text>
+
           <View style={styles.themeSelectorRow}>
             <Pressable
               style={[
                 styles.themeButton,
-                theme === "light" && styles.themeButtonActive,
+                theme === 'light' && styles.themeButtonActive,
               ]}
               onPress={() => {
                 void toggleTheme();
@@ -339,7 +395,7 @@ export function SettingsScreen() {
               <Text
                 style={[
                   styles.themeButtonText,
-                  theme === "light" && styles.themeButtonTextActive,
+                  theme === 'light' && styles.themeButtonTextActive,
                 ]}
               >
                 ☀️ Claro
@@ -349,7 +405,7 @@ export function SettingsScreen() {
             <Pressable
               style={[
                 styles.themeButton,
-                theme === "dark" && styles.themeButtonActive,
+                theme === 'dark' && styles.themeButtonActive,
               ]}
               onPress={() => {
                 void toggleTheme();
@@ -358,7 +414,7 @@ export function SettingsScreen() {
               <Text
                 style={[
                   styles.themeButtonText,
-                  theme === "dark" && styles.themeButtonTextActive,
+                  theme === 'dark' && styles.themeButtonTextActive,
                 ]}
               >
                 🌙 Oscuro
@@ -378,260 +434,273 @@ export function SettingsScreen() {
   );
 }
 
-const getStyles = (colors: ThemeColors, isDark: boolean) => StyleSheet.create({
-  safeArea: {
-    flex: 1,
-    backgroundColor: colors.background,
-  },
-  container: {
-    padding: 20,
-    gap: 12,
-  },
-  kicker: {
-    color: colors.primary,
-    textTransform: "uppercase",
-    letterSpacing: 1.4,
-    fontSize: 12,
-    fontWeight: "700",
-  },
-  title: {
-    color: colors.text,
-    fontSize: 28,
-    lineHeight: 34,
-    fontWeight: "800",
-  },
-  subtitle: {
-    color: colors.textMuted,
-    fontSize: 14,
-    lineHeight: 21,
-  },
-  card: {
-    marginTop: 12,
-    padding: 18,
-    borderRadius: 24,
-    backgroundColor: colors.surface,
-    borderWidth: 1,
-    borderColor: colors.border,
-    gap: 8,
-    ...(!isDark && {
-      shadowColor: "#000",
-      shadowOpacity: 0.04,
-      shadowRadius: 6,
-      shadowOffset: { width: 0, height: 3 },
-      elevation: 2,
-    }),
-  },
-  cardHeaderRow: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-  },
-  editLink: {
-    color: colors.primary,
-    fontSize: 13,
-    fontWeight: "700",
-  },
-  cardTitle: {
-    color: colors.text,
-    fontSize: 16,
-    fontWeight: "800",
-    marginBottom: 4,
-  },
-  cardText: {
-    color: colors.textMuted,
-    fontSize: 14,
-  },
-  profileCard: {
-    marginTop: 12,
-    padding: 18,
-    borderRadius: 24,
-    backgroundColor: colors.surface,
-    borderWidth: 1,
-    borderColor: colors.border,
-    gap: 12,
-    ...(!isDark && {
-      shadowColor: "#000",
-      shadowOpacity: 0.04,
-      shadowRadius: 6,
-      shadowOffset: { width: 0, height: 3 },
-      elevation: 2,
-    }),
-  },
-  profileInfo: {
-    gap: 4,
-  },
-  profileName: {
-    color: colors.text,
-    fontSize: 18,
-    fontWeight: "800",
-  },
-  profileRole: {
-    color: colors.primary,
-    fontSize: 13,
-    fontWeight: "700",
-  },
-  profileEmail: {
-    color: colors.textMuted,
-    fontSize: 13,
-  },
-  profileOrg: {
-    color: colors.textMuted,
-    fontSize: 13,
-    marginTop: 2,
-  },
-  logoutButton: {
-    marginTop: 6,
-    paddingVertical: 12,
-    borderRadius: 14,
-    borderWidth: 1,
-    borderColor: isDark ? "rgba(255, 77, 77, 0.3)" : "rgba(211, 47, 47, 0.3)",
-    backgroundColor: isDark ? "rgba(255, 77, 77, 0.04)" : "rgba(211, 47, 47, 0.04)",
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  logoutButtonText: {
-    color: isDark ? "#FFB4B4" : "#D32F2F",
-    fontSize: 14,
-    fontWeight: "700",
-  },
-  themeSelectorRow: {
-    flexDirection: "row",
-    gap: spacing.md,
-    marginTop: 6,
-  },
-  themeButton: {
-    flex: 1,
-    paddingVertical: 12,
-    borderRadius: radius.md,
-    borderWidth: 1,
-    borderColor: colors.border,
-    backgroundColor: isDark ? "rgba(255, 255, 255, 0.02)" : colors.surfaceSoft,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  themeButtonActive: {
-    borderColor: colors.primary,
-    backgroundColor: isDark ? "rgba(138, 199, 255, 0.12)" : "rgba(4, 151, 191, 0.08)",
-  },
-  themeButtonText: {
-    color: colors.textMuted,
-    fontSize: 14,
-    fontWeight: "700",
-  },
-  themeButtonTextActive: {
-    color: isDark ? "#EAF4FF" : colors.primary,
-    fontWeight: "800",
-  },
-  tenantDetails: {
-    gap: 8,
-    marginTop: 4,
-  },
-  detailRow: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-  },
-  detailLabel: {
-    color: colors.textMuted,
-    fontSize: 13,
-    fontWeight: "600",
-  },
-  detailValue: {
-    color: colors.text,
-    fontSize: 13,
-    fontWeight: "700",
-  },
-  editForm: {
-    gap: 14,
-    marginTop: 4,
-  },
-  formGroup: {
-    gap: spacing.sm,
-  },
-  label: {
-    color: colors.text,
-    fontSize: 13,
-    fontWeight: "700",
-  },
-  optionsGrid: {
-    flexDirection: "row",
-    flexWrap: "wrap",
-    gap: 6,
-  },
-  optionChip: {
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    borderRadius: radius.md,
-    borderWidth: 1,
-    borderColor: colors.border,
-    backgroundColor: isDark ? "rgba(255, 255, 255, 0.02)" : colors.surfaceSoft,
-  },
-  optionChipActive: {
-    borderColor: colors.primary,
-    backgroundColor: isDark ? "rgba(138, 199, 255, 0.08)" : "rgba(4, 151, 191, 0.08)",
-  },
-  optionChipLabel: {
-    color: colors.textMuted,
-    fontSize: 12,
-    fontWeight: "700",
-  },
-  optionChipLabelActive: {
-    color: isDark ? "#EAF4FF" : colors.primary,
-    fontWeight: "800",
-  },
-  editActions: {
-    flexDirection: "row",
-    gap: spacing.md,
-    marginTop: 8,
-  },
-  saveButton: {
-    flex: 1,
-    backgroundColor: colors.primary,
-    paddingVertical: 12,
-    borderRadius: radius.md,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  saveButtonText: {
-    color: "#FFFFFF",
-    fontSize: 14,
-    fontWeight: "800",
-  },
-  cancelButton: {
-    flex: 1,
-    borderWidth: 1,
-    borderColor: colors.border,
-    paddingVertical: 12,
-    borderRadius: radius.md,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  cancelButtonText: {
-    color: colors.textMuted,
-    fontSize: 14,
-    fontWeight: "700",
-  },
-  manageEmployeesButton: {
-    marginTop: 14,
-    paddingVertical: 12,
-    borderRadius: radius.md,
-    borderWidth: 1,
-    borderColor: colors.border,
-    backgroundColor: isDark ? "rgba(255, 255, 255, 0.04)" : colors.surfaceSoft,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  manageEmployeesButtonText: {
-    color: colors.text,
-    fontSize: 14,
-    fontWeight: "700",
-  },
-  buttonDisabled: {
-    opacity: 0.6,
-  },
-  errorText: {
-    color: isDark ? "#FFB4B4" : "#D32F2F",
-    fontSize: 13,
-    textAlign: "center",
-  },
-});
+const getStyles = (colors: ThemeColors, isDark: boolean) =>
+  StyleSheet.create({
+    safeArea: {
+      flex: 1,
+      backgroundColor: colors.background,
+    },
+    container: {
+      padding: 20,
+      gap: 12,
+    },
+    kicker: {
+      color: colors.primary,
+      textTransform: 'uppercase',
+      letterSpacing: 1.4,
+      fontSize: 12,
+      fontWeight: '700',
+    },
+    title: {
+      color: colors.text,
+      fontSize: 28,
+      lineHeight: 34,
+      fontWeight: '800',
+    },
+    subtitle: {
+      color: colors.textMuted,
+      fontSize: 14,
+      lineHeight: 21,
+    },
+    card: {
+      marginTop: 12,
+      padding: 18,
+      borderRadius: 24,
+      backgroundColor: colors.surface,
+      borderWidth: 1,
+      borderColor: colors.border,
+      gap: 8,
+      ...(!isDark && {
+        shadowColor: '#000',
+        shadowOpacity: 0.04,
+        shadowRadius: 6,
+        shadowOffset: { width: 0, height: 3 },
+        elevation: 2,
+      }),
+    },
+    cardHeaderRow: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+    },
+    editLink: {
+      color: colors.primary,
+      fontSize: 13,
+      fontWeight: '700',
+    },
+    cardTitle: {
+      color: colors.text,
+      fontSize: 16,
+      fontWeight: '800',
+      marginBottom: 4,
+    },
+    cardText: {
+      color: colors.textMuted,
+      fontSize: 14,
+    },
+    profileCard: {
+      marginTop: 12,
+      padding: 18,
+      borderRadius: 24,
+      backgroundColor: colors.surface,
+      borderWidth: 1,
+      borderColor: colors.border,
+      gap: 12,
+      ...(!isDark && {
+        shadowColor: '#000',
+        shadowOpacity: 0.04,
+        shadowRadius: 6,
+        shadowOffset: { width: 0, height: 3 },
+        elevation: 2,
+      }),
+    },
+    profileInfo: {
+      gap: 4,
+    },
+    profileName: {
+      color: colors.text,
+      fontSize: 18,
+      fontWeight: '800',
+    },
+    profileRole: {
+      color: colors.primary,
+      fontSize: 13,
+      fontWeight: '700',
+    },
+    profileEmail: {
+      color: colors.textMuted,
+      fontSize: 13,
+    },
+    profileOrg: {
+      color: colors.textMuted,
+      fontSize: 13,
+      marginTop: 2,
+    },
+    logoutButton: {
+      marginTop: 6,
+      paddingVertical: 12,
+      borderRadius: 14,
+      borderWidth: 1,
+      borderColor: isDark ? 'rgba(255, 77, 77, 0.3)' : 'rgba(211, 47, 47, 0.3)',
+      backgroundColor: isDark
+        ? 'rgba(255, 77, 77, 0.04)'
+        : 'rgba(211, 47, 47, 0.04)',
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    logoutButtonText: {
+      color: isDark ? '#FFB4B4' : '#D32F2F',
+      fontSize: 14,
+      fontWeight: '700',
+    },
+    themeSelectorRow: {
+      flexDirection: 'row',
+      gap: spacing.md,
+      marginTop: 6,
+    },
+    themeButton: {
+      flex: 1,
+      paddingVertical: 12,
+      borderRadius: radius.md,
+      borderWidth: 1,
+      borderColor: colors.border,
+      backgroundColor: isDark
+        ? 'rgba(255, 255, 255, 0.02)'
+        : colors.surfaceSoft,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    themeButtonActive: {
+      borderColor: colors.primary,
+      backgroundColor: isDark
+        ? 'rgba(138, 199, 255, 0.12)'
+        : 'rgba(4, 151, 191, 0.08)',
+    },
+    themeButtonText: {
+      color: colors.textMuted,
+      fontSize: 14,
+      fontWeight: '700',
+    },
+    themeButtonTextActive: {
+      color: isDark ? '#EAF4FF' : colors.primary,
+      fontWeight: '800',
+    },
+    tenantDetails: {
+      gap: 8,
+      marginTop: 4,
+    },
+    detailRow: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+    },
+    detailLabel: {
+      color: colors.textMuted,
+      fontSize: 13,
+      fontWeight: '600',
+    },
+    detailValue: {
+      color: colors.text,
+      fontSize: 13,
+      fontWeight: '700',
+    },
+    editForm: {
+      gap: 14,
+      marginTop: 4,
+    },
+    formGroup: {
+      gap: spacing.sm,
+    },
+    label: {
+      color: colors.text,
+      fontSize: 13,
+      fontWeight: '700',
+    },
+    optionsGrid: {
+      flexDirection: 'row',
+      flexWrap: 'wrap',
+      gap: 6,
+    },
+    optionChip: {
+      paddingHorizontal: 12,
+      paddingVertical: 8,
+      borderRadius: radius.md,
+      borderWidth: 1,
+      borderColor: colors.border,
+      backgroundColor: isDark
+        ? 'rgba(255, 255, 255, 0.02)'
+        : colors.surfaceSoft,
+    },
+    optionChipActive: {
+      borderColor: colors.primary,
+      backgroundColor: isDark
+        ? 'rgba(138, 199, 255, 0.08)'
+        : 'rgba(4, 151, 191, 0.08)',
+    },
+    optionChipLabel: {
+      color: colors.textMuted,
+      fontSize: 12,
+      fontWeight: '700',
+    },
+    optionChipLabelActive: {
+      color: isDark ? '#EAF4FF' : colors.primary,
+      fontWeight: '800',
+    },
+    editActions: {
+      flexDirection: 'row',
+      gap: spacing.md,
+      marginTop: 8,
+    },
+    saveButton: {
+      flex: 1,
+      backgroundColor: colors.primary,
+      paddingVertical: 12,
+      borderRadius: radius.md,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    saveButtonText: {
+      color: '#FFFFFF',
+      fontSize: 14,
+      fontWeight: '800',
+    },
+    cancelButton: {
+      flex: 1,
+      borderWidth: 1,
+      borderColor: colors.border,
+      paddingVertical: 12,
+      borderRadius: radius.md,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    cancelButtonText: {
+      color: colors.textMuted,
+      fontSize: 14,
+      fontWeight: '700',
+    },
+    manageEmployeesButton: {
+      marginTop: 14,
+      paddingVertical: 12,
+      borderRadius: radius.md,
+      borderWidth: 1,
+      borderColor: colors.border,
+      backgroundColor: isDark
+        ? 'rgba(255, 255, 255, 0.04)'
+        : colors.surfaceSoft,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    manageEmployeesButtonText: {
+      color: colors.text,
+      fontSize: 14,
+      fontWeight: '700',
+    },
+    buttonDisabled: {
+      opacity: 0.6,
+    },
+    errorText: {
+      color: isDark ? '#FFB4B4' : '#D32F2F',
+      fontSize: 13,
+      textAlign: 'center',
+    },
+  });

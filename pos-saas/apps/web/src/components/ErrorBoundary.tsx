@@ -1,7 +1,7 @@
-"use client";
+'use client';
 
-import React from "react";
-import { AlertTriangle } from "lucide-react";
+import React from 'react';
+import { AlertTriangle } from 'lucide-react';
 
 interface Props {
   children: React.ReactNode;
@@ -32,7 +32,7 @@ export class ErrorBoundary extends React.Component<Props, State> {
           </h1>
           <p className="mt-2 max-w-md text-sm text-slate-400">
             {this.state.error?.message ||
-              "Ocurrio un error al renderizar esta pagina."}
+              'Ocurrio un error al renderizar esta pagina.'}
           </p>
           <button
             onClick={() => this.setState({ hasError: false, error: null })}

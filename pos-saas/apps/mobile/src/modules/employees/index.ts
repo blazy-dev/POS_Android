@@ -1,7 +1,7 @@
-import type { SQLiteDatabase } from "expo-sqlite";
-import { enqueueSyncOperation } from "../../database";
-import type { UserRecord } from "../../database/types";
-import { createLocalId } from "../../utils/ids";
+import type { SQLiteDatabase } from 'expo-sqlite';
+import { enqueueSyncOperation } from '../../database';
+import type { UserRecord } from '../../database/types';
+import { createLocalId } from '../../utils/ids';
 
 export interface EmployeeInput {
   name: string;
@@ -14,13 +14,16 @@ export interface EmployeeInput {
 /**
  * Obtiene todos los empleados activos (is_active = 1) para un tenant específico.
  */
-export async function listEmployees(db: SQLiteDatabase, tenantId = "local"): Promise<UserRecord[]> {
+export async function listEmployees(
+  db: SQLiteDatabase,
+  tenantId = 'local',
+): Promise<UserRecord[]> {
   return db.getAllAsync<UserRecord>(
     `SELECT id, tenant_id, name, email, pin, role, is_active, created_at, updated_at
      FROM users
      WHERE tenant_id = $tenantId AND is_active = 1
      ORDER BY name ASC`,
-    { $tenantId: tenantId }
+    { $tenantId: tenantId },
   );
 }
 
@@ -31,8 +34,8 @@ export async function listEmployees(db: SQLiteDatabase, tenantId = "local"): Pro
 export async function isPinTaken(
   db: SQLiteDatabase,
   pin: string,
-  tenantId = "local",
-  excludeUserId?: string
+  tenantId = 'local',
+  excludeUserId?: string,
 ): Promise<boolean> {
   if (!pin) return false;
 
@@ -55,14 +58,14 @@ export async function isPinTaken(
 export async function saveEmployee(
   db: SQLiteDatabase,
   input: EmployeeInput,
-  employeeId?: string
+  employeeId?: string,
 ): Promise<string> {
   const now = new Date().toISOString();
-  const tenantId = input.tenantId ?? "local";
-  const id = employeeId ?? createLocalId("user");
+  const tenantId = input.tenantId ?? 'local';
+  const id = employeeId ?? createLocalId('user');
 
   if (input.pin && (await isPinTaken(db, input.pin, tenantId, employeeId))) {
-    throw new Error("El PIN ya está en uso por otro empleado.");
+    throw new Error('El PIN ya está en uso por otro empleado.');
   }
 
   if (employeeId) {
@@ -83,15 +86,15 @@ export async function saveEmployee(
         $pin: input.pin,
         $role: input.role,
         $updated_at: now,
-      }
+      },
     );
 
     // Encolar sync update
     await enqueueSyncOperation(db, {
-      id: createLocalId("sync"),
-      entityType: "user",
+      id: createLocalId('sync'),
+      entityType: 'user',
       entityId: id,
-      kind: "update",
+      kind: 'update',
       payload: {
         id,
         tenant_id: tenantId,
@@ -136,15 +139,15 @@ export async function saveEmployee(
         $role: input.role,
         $created_at: now,
         $updated_at: now,
-      }
+      },
     );
 
     // Encolar sync create
     await enqueueSyncOperation(db, {
-      id: createLocalId("sync"),
-      entityType: "user",
+      id: createLocalId('sync'),
+      entityType: 'user',
       entityId: id,
-      kind: "create",
+      kind: 'create',
       payload: {
         id,
         tenant_id: tenantId,
@@ -166,7 +169,11 @@ export async function saveEmployee(
  * Desactiva un empleado en la base de datos SQLite (eliminación lógica/is_active = 0)
  * y encola una operación de sincronización de eliminación.
  */
-export async function deleteEmployee(db: SQLiteDatabase, employeeId: string, tenantId = "local"): Promise<void> {
+export async function deleteEmployee(
+  db: SQLiteDatabase,
+  employeeId: string,
+  tenantId = 'local',
+): Promise<void> {
   const now = new Date().toISOString();
 
   await db.runAsync(
@@ -178,15 +185,15 @@ export async function deleteEmployee(db: SQLiteDatabase, employeeId: string, ten
       $id: employeeId,
       $tenantId: tenantId,
       $updated_at: now,
-    }
+    },
   );
 
   // Registrar sync delete
   await enqueueSyncOperation(db, {
-    id: createLocalId("sync"),
-    entityType: "user",
+    id: createLocalId('sync'),
+    entityType: 'user',
     entityId: employeeId,
-    kind: "delete",
+    kind: 'delete',
     payload: {
       id: employeeId,
       tenant_id: tenantId,

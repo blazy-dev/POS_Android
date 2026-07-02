@@ -1,4 +1,4 @@
-import type { SQLiteDatabase } from "expo-sqlite";
+import type { SQLiteDatabase } from 'expo-sqlite';
 import {
   apiConfig,
   checkApiHealth,
@@ -6,7 +6,7 @@ import {
   pullSyncChanges,
   addSyncLog,
   SyncOperationPayload,
-} from "../api";
+} from '../api';
 
 export interface SyncResult {
   success: boolean;
@@ -21,19 +21,19 @@ export interface SyncResult {
  * con el backend, y descarga los cambios remotos.
  */
 export async function runSync(db: SQLiteDatabase): Promise<SyncResult> {
-  console.log("[SYNC] Iniciando sincronización...");
-  console.log("[SYNC] API URL:", apiConfig.baseUrl);
+  console.log('[SYNC] Iniciando sincronización...');
+  console.log('[SYNC] API URL:', apiConfig.baseUrl);
 
   const isOnline = await checkApiHealth();
-  console.log("[SYNC] Health check:", isOnline ? "OK" : "FAILED");
+  console.log('[SYNC] Health check:', isOnline ? 'OK' : 'FAILED');
 
   if (!isOnline) {
-    addSyncLog("warning", "Sincronización abortada: Servidor no disponible.");
+    addSyncLog('warning', 'Sincronización abortada: Servidor no disponible.');
     return {
       success: false,
       pushedCount: 0,
       pulledCount: 0,
-      errorMessage: "Servidor no disponible o modo offline activo",
+      errorMessage: 'Servidor no disponible o modo offline activo',
     };
   }
 
@@ -58,7 +58,7 @@ export async function runSync(db: SQLiteDatabase): Promise<SyncResult> {
       `SELECT id, entity_type, entity_id, operation, payload, retries 
        FROM sync_operations 
        WHERE status = 'pending' 
-       ORDER BY created_at ASC`
+       ORDER BY created_at ASC`,
     );
 
     if (pendingOps.length > 0) {
@@ -79,10 +79,12 @@ export async function runSync(db: SQLiteDatabase): Promise<SyncResult> {
 
       await db.withExclusiveTransactionAsync(async (txn) => {
         for (const op of pendingOps) {
-          const didFail = failedIds.includes(op.id) || (!pushRes.success && failedIds.length === 0);
+          const didFail =
+            failedIds.includes(op.id) ||
+            (!pushRes.success && failedIds.length === 0);
           if (didFail) {
             const nextRetries = op.retries + 1;
-            const nextStatus = nextRetries >= 10 ? "failed" : "pending";
+            const nextStatus = nextRetries >= 10 ? 'failed' : 'pending';
             await txn.runAsync(
               `UPDATE sync_operations 
                SET retries = $retries, status = $status, updated_at = $now 
@@ -92,7 +94,7 @@ export async function runSync(db: SQLiteDatabase): Promise<SyncResult> {
                 $status: nextStatus,
                 $now: now,
                 $id: op.id,
-              }
+              },
             );
           } else {
             pushedCount++;
@@ -100,19 +102,22 @@ export async function runSync(db: SQLiteDatabase): Promise<SyncResult> {
               `UPDATE sync_operations 
                SET status = 'synced', updated_at = $now 
                WHERE id = $id`,
-              { $now: now, $id: op.id }
+              { $now: now, $id: op.id },
             );
           }
         }
       });
 
       if (!pushRes.success && failedIds.length === 0) {
-        throw new Error(pushRes.error ?? "Fallo en el procesamiento de Push");
+        throw new Error(pushRes.error ?? 'Fallo en el procesamiento de Push');
       } else if (failedIds.length > 0) {
-        addSyncLog("warning", `PUSH parcial: ${failedIds.length} de ${pendingOps.length} operaciones fallaron.`);
+        addSyncLog(
+          'warning',
+          `PUSH parcial: ${failedIds.length} de ${pendingOps.length} operaciones fallaron.`,
+        );
       }
     } else {
-      addSyncLog("info", "No hay cambios locales pendientes por subir.");
+      addSyncLog('info', 'No hay cambios locales pendientes por subir.');
     }
 
     // ==========================================
@@ -120,7 +125,7 @@ export async function runSync(db: SQLiteDatabase): Promise<SyncResult> {
     // ==========================================
     // Obtenemos la última fecha de sincronización del dispositivo
     const deviceState = await db.getFirstAsync<{ last_sync_at: string | null }>(
-      `SELECT last_sync_at FROM device_state WHERE id = 1`
+      `SELECT last_sync_at FROM device_state WHERE id = 1`,
     );
     const lastSyncAt = deviceState?.last_sync_at ?? null;
 
@@ -135,10 +140,13 @@ export async function runSync(db: SQLiteDatabase): Promise<SyncResult> {
       // Aplicamos cambios remotos localmente dentro de una transacción exclusiva
       await db.withExclusiveTransactionAsync(async (txn) => {
         for (const change of pullRes.changes) {
-          if (change.entity_type === "product") {
+          if (change.entity_type === 'product') {
             const p = change.payload;
-            
-            if (change.operation === "create" || change.operation === "update") {
+
+            if (
+              change.operation === 'create' ||
+              change.operation === 'update'
+            ) {
               // Hacemos UPSERT del producto en la base de datos local
               await txn.runAsync(
                 `INSERT INTO products (
@@ -157,32 +165,35 @@ export async function runSync(db: SQLiteDatabase): Promise<SyncResult> {
                   updated_at = excluded.updated_at`,
                 {
                   $id: p.id,
-                  $tenant_id: p.tenant_id ?? "local",
+                  $tenant_id: p.tenant_id ?? 'local',
                   $barcode: p.barcode ?? null,
                   $name: p.name,
                   $category_id: p.category_id ?? null,
                   $purchase_price: p.purchase_price ?? 0,
                   $sale_price: p.sale_price ?? 0,
                   $stock: p.stock ?? 0,
-                  $unit: p.unit ?? "unit",
+                  $unit: p.unit ?? 'unit',
                   $is_active: p.is_active ?? 1,
                   $created_at: p.created_at ?? now,
                   $updated_at: p.updated_at ?? now,
-                }
+                },
               );
-            } else if (change.operation === "delete") {
+            } else if (change.operation === 'delete') {
               // Eliminación lógica local del producto
               await txn.runAsync(
                 `UPDATE products 
                  SET is_active = 0, updated_at = $now 
                  WHERE id = $id`,
-                { $now: now, $id: change.entity_id }
+                { $now: now, $id: change.entity_id },
               );
             }
-          } else if (change.entity_type === "user") {
+          } else if (change.entity_type === 'user') {
             const p = change.payload;
 
-            if (change.operation === "create" || change.operation === "update") {
+            if (
+              change.operation === 'create' ||
+              change.operation === 'update'
+            ) {
               // Hacemos UPSERT del usuario en la base de datos local
               await txn.runAsync(
                 `INSERT INTO users (
@@ -198,23 +209,23 @@ export async function runSync(db: SQLiteDatabase): Promise<SyncResult> {
                   updated_at = excluded.updated_at`,
                 {
                   $id: p.id,
-                  $tenant_id: p.tenant_id ?? "local",
+                  $tenant_id: p.tenant_id ?? 'local',
                   $name: p.name,
                   $email: p.email,
                   $pin: p.pin ?? null,
-                  $role: p.role ?? "cashier",
+                  $role: p.role ?? 'cashier',
                   $is_active: p.is_active ? 1 : 0,
                   $created_at: p.created_at ?? now,
                   $updated_at: p.updated_at ?? now,
-                }
+                },
               );
-            } else if (change.operation === "delete") {
+            } else if (change.operation === 'delete') {
               // Eliminación lógica local del usuario
               await txn.runAsync(
                 `UPDATE users 
                  SET is_active = 0, updated_at = $now 
                  WHERE id = $id`,
-                { $now: now, $id: change.entity_id }
+                { $now: now, $id: change.entity_id },
               );
             }
           }
@@ -225,21 +236,25 @@ export async function runSync(db: SQLiteDatabase): Promise<SyncResult> {
           `UPDATE device_state 
            SET last_sync_at = $last_sync_at, updated_at = $now 
            WHERE id = 1`,
-          { $last_sync_at: pullRes.server_time, $now: now }
+          { $last_sync_at: pullRes.server_time, $now: now },
         );
       });
     }
 
-    addSyncLog("success", `Sincronización finalizada. Subidos: ${pushedCount}. Descargados: ${pulledCount}.`);
+    addSyncLog(
+      'success',
+      `Sincronización finalizada. Subidos: ${pushedCount}. Descargados: ${pulledCount}.`,
+    );
     return {
       success: true,
       pushedCount,
       pulledCount,
     };
   } catch (error) {
-    const errMessage = error instanceof Error ? error.message : "Error desconocido";
-    console.error("[SYNC] Error:", errMessage);
-    addSyncLog("error", `Fallo en sincronización: ${errMessage}`);
+    const errMessage =
+      error instanceof Error ? error.message : 'Error desconocido';
+    console.error('[SYNC] Error:', errMessage);
+    addSyncLog('error', `Fallo en sincronización: ${errMessage}`);
     return {
       success: false,
       pushedCount,

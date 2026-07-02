@@ -1,7 +1,10 @@
-import type { SQLiteDatabase } from "expo-sqlite";
-import { enqueueSyncOperation, listProducts as listProductsQuery } from "../../database";
-import type { ProductRecord } from "../../database/types";
-import { createLocalId } from "../../utils/ids";
+import type { SQLiteDatabase } from 'expo-sqlite';
+import {
+  enqueueSyncOperation,
+  listProducts as listProductsQuery,
+} from '../../database';
+import type { ProductRecord } from '../../database/types';
+import { createLocalId } from '../../utils/ids';
 
 export interface ProductInput {
   barcode?: string | null;
@@ -19,15 +22,15 @@ function normalizeBarcode(barcode?: string | null) {
   return trimmed ? trimmed : null;
 }
 
-export async function listProducts(db: SQLiteDatabase, tenantId = "local") {
+export async function listProducts(db: SQLiteDatabase, tenantId = 'local') {
   return listProductsQuery(db, tenantId);
 }
 
 export async function isBarcodeTaken(
   db: SQLiteDatabase,
   barcode: string,
-  tenantId = "local",
-  excludeProductId?: string
+  tenantId = 'local',
+  excludeProductId?: string,
 ) {
   const normalizedBarcode = normalizeBarcode(barcode);
 
@@ -50,13 +53,13 @@ export async function isBarcodeTaken(
 
 export async function saveProduct(db: SQLiteDatabase, input: ProductInput) {
   const now = new Date().toISOString();
-  const tenantId = input.tenantId ?? "local";
-  const productId = createLocalId("product");
+  const tenantId = input.tenantId ?? 'local';
+  const productId = createLocalId('product');
   const stock = input.stock ?? 0;
   const barcode = normalizeBarcode(input.barcode);
 
   if (barcode && (await isBarcodeTaken(db, barcode, tenantId))) {
-    throw new Error("Ya existe un producto con este código de barras.");
+    throw new Error('Ya existe un producto con este código de barras.');
   }
 
   await db.runAsync(
@@ -96,14 +99,14 @@ export async function saveProduct(db: SQLiteDatabase, input: ProductInput) {
       $purchase_price: input.purchasePrice ?? 0,
       $sale_price: input.salePrice ?? 0,
       $stock: stock,
-      $unit: input.unit ?? "unit",
+      $unit: input.unit ?? 'unit',
       $created_at: now,
       $updated_at: now,
-    }
+    },
   );
 
   if (stock > 0) {
-    const movementId = createLocalId("movement");
+    const movementId = createLocalId('movement');
     await db.runAsync(
       `INSERT INTO inventory_movements (
         id,
@@ -136,15 +139,15 @@ export async function saveProduct(db: SQLiteDatabase, input: ProductInput) {
         $quantity: stock,
         $created_at: now,
         $updated_at: now,
-      }
+      },
     );
   }
 
   await enqueueSyncOperation(db, {
-    id: createLocalId("sync"),
-    entityType: "product",
+    id: createLocalId('sync'),
+    entityType: 'product',
     entityId: productId,
-    kind: "create",
+    kind: 'create',
     payload: {
       id: productId,
       tenant_id: tenantId,
@@ -154,7 +157,7 @@ export async function saveProduct(db: SQLiteDatabase, input: ProductInput) {
       purchase_price: input.purchasePrice ?? 0,
       sale_price: input.salePrice ?? 0,
       stock,
-      unit: input.unit ?? "unit",
+      unit: input.unit ?? 'unit',
     },
   });
 
@@ -164,7 +167,7 @@ export async function saveProduct(db: SQLiteDatabase, input: ProductInput) {
 /**
  * Actualiza un producto existente en la base de datos SQLite local y
  * registra una operación de sincronización de tipo 'update'.
- * 
+ *
  * @param db Instancia de SQLiteDatabase
  * @param productId UUID del producto a editar
  * @param input Datos modificados del producto (excluyendo el stock)
@@ -172,15 +175,15 @@ export async function saveProduct(db: SQLiteDatabase, input: ProductInput) {
 export async function updateProduct(
   db: SQLiteDatabase,
   productId: string,
-  input: Omit<ProductInput, "stock">
+  input: Omit<ProductInput, 'stock'>,
 ) {
   const now = new Date().toISOString();
-  const tenantId = input.tenantId ?? "local";
+  const tenantId = input.tenantId ?? 'local';
   const barcode = normalizeBarcode(input.barcode);
 
   // Valida que el código de barras no esté en uso por otro producto diferente a este
   if (barcode && (await isBarcodeTaken(db, barcode, tenantId, productId))) {
-    throw new Error("Ya existe un producto con este código de barras.");
+    throw new Error('Ya existe un producto con este código de barras.');
   }
 
   // Ejecuta la actualización en la tabla products
@@ -202,17 +205,17 @@ export async function updateProduct(
       $category_id: input.categoryId ?? null,
       $purchase_price: input.purchasePrice ?? 0,
       $sale_price: input.salePrice ?? 0,
-      $unit: input.unit ?? "unit",
+      $unit: input.unit ?? 'unit',
       $updated_at: now,
-    }
+    },
   );
 
   // Encola la operación en la cola de sincronización diferida
   await enqueueSyncOperation(db, {
-    id: createLocalId("sync"),
-    entityType: "product",
+    id: createLocalId('sync'),
+    entityType: 'product',
     entityId: productId,
-    kind: "update",
+    kind: 'update',
     payload: {
       id: productId,
       tenant_id: tenantId,
@@ -221,7 +224,7 @@ export async function updateProduct(
       category_id: input.categoryId ?? null,
       purchase_price: input.purchasePrice ?? 0,
       sale_price: input.salePrice ?? 0,
-      unit: input.unit ?? "unit",
+      unit: input.unit ?? 'unit',
     },
   });
 }
@@ -229,7 +232,7 @@ export async function updateProduct(
 /**
  * Registra un ajuste de stock (entrada o salida) para un producto, actualizando su cantidad actual
  * en la tabla products y registrando la auditoría en la tabla inventory_movements.
- * 
+ *
  * @param db Instancia de SQLiteDatabase
  * @param productId UUID del producto a ajustar
  * @param type Dirección del movimiento: 'in' (entrada/reposición) o 'out' (salida/pérdida)
@@ -240,36 +243,38 @@ export async function updateProduct(
 export async function adjustStock(
   db: SQLiteDatabase,
   productId: string,
-  type: "in" | "out",
+  type: 'in' | 'out',
   quantity: number,
   reason: string,
-  tenantId = "local"
+  tenantId = 'local',
 ) {
   if (quantity <= 0) {
-    throw new Error("La cantidad del ajuste debe ser mayor a cero.");
+    throw new Error('La cantidad del ajuste debe ser mayor a cero.');
   }
 
   const now = new Date().toISOString();
-  const movementId = createLocalId("movement");
-  const adjustmentId = createLocalId("adj");
+  const movementId = createLocalId('movement');
+  const adjustmentId = createLocalId('adj');
 
   await db.withExclusiveTransactionAsync(async (txn) => {
     // 1. Obtener stock actual para validar y actualizar
     const product = await txn.getFirstAsync<{ stock: number }>(
       `SELECT stock FROM products WHERE id = $id AND tenant_id = $tenant_id`,
-      { $id: productId, $tenant_id: tenantId }
+      { $id: productId, $tenant_id: tenantId },
     );
 
     if (!product) {
-      throw new Error("No se encontró el producto especificado.");
+      throw new Error('No se encontró el producto especificado.');
     }
 
     let nextStock = product.stock;
-    if (type === "in") {
+    if (type === 'in') {
       nextStock += quantity;
     } else {
       if (product.stock < quantity) {
-        throw new Error(`Stock insuficiente para realizar la salida. Stock actual: ${product.stock}`);
+        throw new Error(
+          `Stock insuficiente para realizar la salida. Stock actual: ${product.stock}`,
+        );
       }
       nextStock -= quantity;
     }
@@ -285,7 +290,7 @@ export async function adjustStock(
         $updated_at: now,
         $id: productId,
         $tenant_id: tenantId,
-      }
+      },
     );
 
     // 3. Registrar el movimiento en inventory_movements
@@ -322,22 +327,22 @@ export async function adjustStock(
         $quantity: quantity,
         $created_at: now,
         $updated_at: now,
-      }
+      },
     );
   });
 
   // 4. Encolar la operación de sincronización diferida
   await enqueueSyncOperation(db, {
-    id: createLocalId("sync"),
-    entityType: "inventory_movement",
+    id: createLocalId('sync'),
+    entityType: 'inventory_movement',
     entityId: movementId,
-    kind: "create",
+    kind: 'create',
     payload: {
       id: movementId,
       tenant_id: tenantId,
       product_id: productId,
       user_id: null,
-      reference_type: "adjustment",
+      reference_type: 'adjustment',
       reference_id: adjustmentId,
       movement_type: type,
       quantity,
@@ -350,7 +355,7 @@ export async function adjustStock(
 export async function findProductByBarcode(
   db: SQLiteDatabase,
   barcode: string,
-  tenantId = "local"
+  tenantId = 'local',
 ): Promise<ProductRecord | null> {
   const normalizedBarcode = normalizeBarcode(barcode);
 
@@ -377,7 +382,7 @@ export async function findProductByBarcode(
     {
       $tenant_id: tenantId,
       $barcode: normalizedBarcode,
-    }
+    },
   );
 }
 
@@ -388,7 +393,7 @@ export async function findProductByBarcode(
 export async function deleteProduct(
   db: SQLiteDatabase,
   productId: string,
-  tenantId = "local"
+  tenantId = 'local',
 ) {
   const now = new Date().toISOString();
 
@@ -401,18 +406,18 @@ export async function deleteProduct(
       $id: productId,
       $tenant_id: tenantId,
       $updated_at: now,
-    }
+    },
   );
 
   // Registrar operación de sincronización en la cola offline
   await enqueueSyncOperation(db, {
-    id: createLocalId("sync"),
-    entityType: "product",
+    id: createLocalId('sync'),
+    entityType: 'product',
     entityId: productId,
-    kind: "delete",
+    kind: 'delete',
     payload: {
       id: productId,
       tenant_id: tenantId,
     },
   });
-}
+}

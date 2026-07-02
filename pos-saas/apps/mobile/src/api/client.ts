@@ -1,6 +1,6 @@
 // Cliente de API HTTP con simulador integrado para modo Offline-First.
 // En producción, esto consumirá los endpoints definidos en API_SPEC.md.
-import { supabase } from "./supabase";
+import { supabase } from './supabase';
 
 export interface SyncOperationPayload {
   id: string;
@@ -20,9 +20,10 @@ export interface PushResponse {
 
 export interface PullChange {
   id: string;
-  entity_type: "product" | "sale" | "inventory_movement" | "cash_register" | "user";
+  entity_type:
+    'product' | 'sale' | 'inventory_movement' | 'cash_register' | 'user';
   entity_id: string;
-  operation: "create" | "update" | "delete";
+  operation: 'create' | 'update' | 'delete';
   payload: any;
   created_at: string;
 }
@@ -38,25 +39,32 @@ export const apiConfig = {
   // Usar EXPO_PUBLIC_API_URL si está definida, sino fallback a localhost:3001
   // Para emulador Android: http://10.0.2.2:3001/api/v1
   // Para dispositivo físico: http://<IP_DE_TU_PC>:3001/api/v1
-  baseUrl: process.env.EXPO_PUBLIC_API_URL || "http://192.168.0.10:3001/api/v1",
+  baseUrl: process.env.EXPO_PUBLIC_API_URL || 'http://192.168.0.10:3001/api/v1',
   simulateOffline: false,
   simulateServerError: false,
   // Configuración de Supabase para Auth
-  supabaseUrl: process.env.EXPO_PUBLIC_SUPABASE_URL || "https://dukyedgoyshhtjkuphow.supabase.co",
-  supabaseAnonKey: process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY || "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImR1a3llZGdvb3NoaHRqa3VwaG93Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3MTYxOTIwMDAsImV4cCI6MjAzMTc2ODAwMH0.xxxx_placeholder_key_change_me",
+  supabaseUrl:
+    process.env.EXPO_PUBLIC_SUPABASE_URL ||
+    'https://dukyedgoyshhtjkuphow.supabase.co',
+  supabaseAnonKey:
+    process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY ||
+    'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImR1a3llZGdvb3NoaHRqa3VwaG93Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3MTYxOTIwMDAsImV4cCI6MjAzMTc2ODAwMH0.xxxx_placeholder_key_change_me',
 };
 
 // Logs de eventos de sincronización para visualización en la UI
 export type LogEvent = {
   timestamp: string;
-  type: "info" | "success" | "error" | "warning";
+  type: 'info' | 'success' | 'error' | 'warning';
   message: string;
 };
 
 let syncLogs: LogEvent[] = [];
 let onLogsChange: ((logs: LogEvent[]) => void) | null = null;
 
-export function addSyncLog(type: "info" | "success" | "error" | "warning", message: string) {
+export function addSyncLog(
+  type: 'info' | 'success' | 'error' | 'warning',
+  message: string,
+) {
   const event: LogEvent = {
     timestamp: new Date().toLocaleTimeString(),
     type,
@@ -94,13 +102,16 @@ let cachedToken: string | null = null;
  */
 async function getAuthToken(): Promise<string> {
   try {
-    const { data: { session }, error } = await supabase.auth.getSession();
+    const {
+      data: { session },
+      error,
+    } = await supabase.auth.getSession();
     if (error || !session) {
-      return "test-token";
+      return 'test-token';
     }
     return session.access_token;
   } catch (err) {
-    return "test-token";
+    return 'test-token';
   }
 }
 
@@ -117,20 +128,20 @@ export async function checkApiHealth(): Promise<boolean> {
   }
 
   try {
-    console.log("[API] Health check:", `${apiConfig.baseUrl}/health`);
+    console.log('[API] Health check:', `${apiConfig.baseUrl}/health`);
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), 2000); // 2 segundos de timeout
 
     const response = await fetch(`${apiConfig.baseUrl}/health`, {
-      method: "GET",
+      method: 'GET',
       signal: controller.signal,
     });
 
     clearTimeout(timeoutId);
-    console.log("[API] Health check response:", response.status);
+    console.log('[API] Health check response:', response.status);
     return response.ok;
   } catch (err) {
-    console.error("[API] Health check error:", err);
+    console.error('[API] Health check error:', err);
     return false;
   }
 }
@@ -138,43 +149,54 @@ export async function checkApiHealth(): Promise<boolean> {
 /**
  * Envía un lote de operaciones pendientes al servidor (PUSH).
  */
-export async function pushSyncOperations(operations: SyncOperationPayload[]): Promise<PushResponse> {
-  addSyncLog("info", `Iniciando PUSH de ${operations.length} operaciones...`);
+export async function pushSyncOperations(
+  operations: SyncOperationPayload[],
+): Promise<PushResponse> {
+  addSyncLog('info', `Iniciando PUSH de ${operations.length} operaciones...`);
 
   if (apiConfig.simulateOffline) {
-    addSyncLog("error", "Error de red al intentar hacer PUSH: Sin conexión.");
-    throw new Error("Network request failed");
+    addSyncLog('error', 'Error de red al intentar hacer PUSH: Sin conexión.');
+    throw new Error('Network request failed');
   }
 
   if (apiConfig.simulateServerError) {
-    addSyncLog("error", "Error 500: Fallo en el servidor durante PUSH.");
-    return { success: false, processed: 0, failed: operations.length, error: "Internal Server Error" };
+    addSyncLog('error', 'Error 500: Fallo en el servidor durante PUSH.');
+    return {
+      success: false,
+      processed: 0,
+      failed: operations.length,
+      error: 'Internal Server Error',
+    };
   }
 
   try {
     const token = await getAuthToken();
-    console.log("[API] PUSH:", `${apiConfig.baseUrl}/sync/push`, `ops: ${operations.length}`);
+    console.log(
+      '[API] PUSH:',
+      `${apiConfig.baseUrl}/sync/push`,
+      `ops: ${operations.length}`,
+    );
     const response = await fetch(`${apiConfig.baseUrl}/sync/push`, {
-      method: "POST",
+      method: 'POST',
       headers: {
-        "Content-Type": "application/json",
-        "Authorization": `Bearer ${token}`,
-        "X-Device-Id": "device-expo-dev-client",
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${token}`,
+        'X-Device-Id': 'device-expo-dev-client',
       },
       body: JSON.stringify({
-        operations: operations.map(op => ({
+        operations: operations.map((op) => ({
           operation_id: op.id,
           entity_type: op.entity_type,
           entity_id: op.entity_id,
           operation: op.operation,
           payload: op.payload,
-        }))
-      })
+        })),
+      }),
     });
 
     if (!response.ok) {
       const errText = await response.text();
-      addSyncLog("error", `Fallo en PUSH (${response.status}): ${errText}`);
+      addSyncLog('error', `Fallo en PUSH (${response.status}): ${errText}`);
       return {
         success: false,
         processed: 0,
@@ -184,7 +206,10 @@ export async function pushSyncOperations(operations: SyncOperationPayload[]): Pr
     }
 
     const data = await response.json();
-    addSyncLog("success", `PUSH completado. Procesados: ${data.processed}, Fallados: ${data.failed}`);
+    addSyncLog(
+      'success',
+      `PUSH completado. Procesados: ${data.processed}, Fallados: ${data.failed}`,
+    );
 
     return {
       success: data.failed === 0,
@@ -193,8 +218,8 @@ export async function pushSyncOperations(operations: SyncOperationPayload[]): Pr
       failedIds: data.failedIds,
     };
   } catch (err) {
-    const msg = err instanceof Error ? err.message : "Error desconocido";
-    addSyncLog("error", `Error en canal PUSH: ${msg}`);
+    const msg = err instanceof Error ? err.message : 'Error desconocido';
+    addSyncLog('error', `Error en canal PUSH: ${msg}`);
     throw err;
   }
 }
@@ -202,17 +227,19 @@ export async function pushSyncOperations(operations: SyncOperationPayload[]): Pr
 /**
  * Obtiene los cambios remotos desde la fecha dada (PULL).
  */
-export async function pullSyncChanges(lastSyncAt: string | null): Promise<PullResponse> {
-  addSyncLog("info", "Iniciando PULL de cambios remotos...");
+export async function pullSyncChanges(
+  lastSyncAt: string | null,
+): Promise<PullResponse> {
+  addSyncLog('info', 'Iniciando PULL de cambios remotos...');
 
   if (apiConfig.simulateOffline) {
-    addSyncLog("error", "Error de red al intentar hacer PULL: Sin conexión.");
-    throw new Error("Network request failed");
+    addSyncLog('error', 'Error de red al intentar hacer PULL: Sin conexión.');
+    throw new Error('Network request failed');
   }
 
   if (apiConfig.simulateServerError) {
-    addSyncLog("error", "Error 500: Fallo en el servidor durante PULL.");
-    throw new Error("Server error (500)");
+    addSyncLog('error', 'Error 500: Fallo en el servidor durante PULL.');
+    throw new Error('Server error (500)');
   }
 
   try {
@@ -221,25 +248,28 @@ export async function pullSyncChanges(lastSyncAt: string | null): Promise<PullRe
     if (lastSyncAt) {
       url += `?last_sync_at=${encodeURIComponent(lastSyncAt)}`;
     }
-    console.log("[API] PULL:", url);
+    console.log('[API] PULL:', url);
 
     const response = await fetch(url, {
-      method: "GET",
+      method: 'GET',
       headers: {
-        "Content-Type": "application/json",
-        "Authorization": `Bearer ${token}`,
-        "X-Device-Id": "device-expo-dev-client",
-      }
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${token}`,
+        'X-Device-Id': 'device-expo-dev-client',
+      },
     });
 
     if (!response.ok) {
       const errText = await response.text();
-      addSyncLog("error", `Fallo en PULL (${response.status}): ${errText}`);
+      addSyncLog('error', `Fallo en PULL (${response.status}): ${errText}`);
       throw new Error(`Server responded with ${response.status}`);
     }
 
     const data = await response.json();
-    addSyncLog("success", `PULL exitoso: ${data.changes.length} cambios recibidos.`);
+    addSyncLog(
+      'success',
+      `PULL exitoso: ${data.changes.length} cambios recibidos.`,
+    );
 
     return {
       success: true,
@@ -247,9 +277,8 @@ export async function pullSyncChanges(lastSyncAt: string | null): Promise<PullRe
       server_time: data.server_time,
     };
   } catch (err) {
-    const msg = err instanceof Error ? err.message : "Error de red";
-    addSyncLog("error", `Error en canal PULL: ${msg}`);
+    const msg = err instanceof Error ? err.message : 'Error de red';
+    addSyncLog('error', `Error en canal PULL: ${msg}`);
     throw err;
   }
 }
-

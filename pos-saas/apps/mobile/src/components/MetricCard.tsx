@@ -1,7 +1,7 @@
-import { useMemo } from "react";
-import { StyleSheet, Text, View } from "react-native";
-import { useTheme } from "../context/ThemeContext";
-import type { ThemeColors } from "../theme/tokens";
+import { useMemo } from 'react';
+import { StyleSheet, Text, View } from 'react-native';
+import { useTheme } from '../context/ThemeContext';
+import type { ThemeColors } from '../theme/tokens';
 
 export function MetricCard({ label, value }: { label: string; value: string }) {
   const { colors } = useTheme();
@@ -15,26 +15,27 @@ export function MetricCard({ label, value }: { label: string; value: string }) {
   );
 }
 
-const getStyles = (colors: ThemeColors) => StyleSheet.create({
-  card: {
-    flex: 1,
-    backgroundColor: colors.surfaceCard,
-    borderRadius: 18,
-    paddingVertical: 16,
-    paddingHorizontal: 14,
-    borderWidth: 1,
-    borderColor: colors.border,
-    minHeight: 88,
-    justifyContent: "space-between",
-  },
-  value: {
-    color: colors.text,
-    fontSize: 18,
-    fontWeight: "800",
-  },
-  label: {
-    color: colors.textMuted,
-    fontSize: 12,
-    marginTop: 10,
-  },
-});
+const getStyles = (colors: ThemeColors) =>
+  StyleSheet.create({
+    card: {
+      flex: 1,
+      backgroundColor: colors.surfaceCard,
+      borderRadius: 18,
+      paddingVertical: 16,
+      paddingHorizontal: 14,
+      borderWidth: 1,
+      borderColor: colors.border,
+      minHeight: 88,
+      justifyContent: 'space-between',
+    },
+    value: {
+      color: colors.text,
+      fontSize: 18,
+      fontWeight: '800',
+    },
+    label: {
+      color: colors.textMuted,
+      fontSize: 12,
+      marginTop: 10,
+    },
+  });

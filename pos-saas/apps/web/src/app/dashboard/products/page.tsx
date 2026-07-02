@@ -1,8 +1,8 @@
-"use client";
+'use client';
 
-import React, { useState } from "react";
-import { useAuth } from "@/context/AuthContext";
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import React, { useState } from 'react';
+import { useAuth } from '@/context/AuthContext';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import {
   ShoppingBag,
   Plus,
@@ -13,28 +13,28 @@ import {
   FolderPlus,
   X,
   Check,
-  Barcode
-} from "lucide-react";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Badge } from "@/components/ui/badge";
+  Barcode,
+} from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Badge } from '@/components/ui/badge';
 import {
   Table,
   TableHeader,
   TableBody,
   TableHead,
   TableRow,
-  TableCell
-} from "@/components/ui/table";
+  TableCell,
+} from '@/components/ui/table';
 import {
   Dialog,
   DialogContent,
   DialogHeader,
   DialogTitle,
-  DialogDescription
-} from "@/components/ui/dialog";
-import { Spinner } from "@/components/ui/spinner";
-import { API_BASE } from "@/lib/api";
+  DialogDescription,
+} from '@/components/ui/dialog';
+import { Spinner } from '@/components/ui/spinner';
+import { API_BASE } from '@/lib/api';
 
 interface Category {
   id: string;
@@ -59,8 +59,8 @@ interface Product {
 export default function ProductsPage() {
   const { session, tenant } = useAuth();
   const queryClient = useQueryClient();
-  const [search, setSearch] = useState("");
-  
+  const [search, setSearch] = useState('');
+
   // Modal states
   const [isProductModalOpen, setIsProductModalOpen] = useState(false);
   const [isCategoryModalOpen, setIsCategoryModalOpen] = useState(false);
@@ -68,41 +68,45 @@ export default function ProductsPage() {
 
   // Form states
   const [productForm, setProductForm] = useState({
-    barcode: "",
-    name: "",
-    description: "",
-    categoryId: "",
+    barcode: '',
+    name: '',
+    description: '',
+    categoryId: '',
     purchasePrice: 0,
     salePrice: 0,
     costPrice: 0,
     stock: 0,
     minimumStock: 0,
-    unit: "unit",
+    unit: 'unit',
   });
-  
-  const [categoryName, setCategoryName] = useState("");
-  const [formError, setFormError] = useState("");
+
+  const [categoryName, setCategoryName] = useState('');
+  const [formError, setFormError] = useState('');
 
   // Queries
-  const { data: products = [], isLoading: isLoadingProducts } = useQuery<Product[]>({
-    queryKey: ["products"],
+  const { data: products = [], isLoading: isLoadingProducts } = useQuery<
+    Product[]
+  >({
+    queryKey: ['products'],
     queryFn: async () => {
       const res = await fetch(`${API_BASE}/dashboard/products`, {
         headers: { Authorization: `Bearer ${session?.access_token}` },
       });
-      if (!res.ok) throw new Error("Failed to fetch products");
+      if (!res.ok) throw new Error('Failed to fetch products');
       return res.json();
     },
     enabled: !!session,
   });
 
-  const { data: categories = [], isLoading: isLoadingCategories } = useQuery<Category[]>({
-    queryKey: ["categories"],
+  const { data: categories = [], isLoading: isLoadingCategories } = useQuery<
+    Category[]
+  >({
+    queryKey: ['categories'],
     queryFn: async () => {
       const res = await fetch(`${API_BASE}/dashboard/categories`, {
         headers: { Authorization: `Bearer ${session?.access_token}` },
       });
-      if (!res.ok) throw new Error("Failed to fetch categories");
+      if (!res.ok) throw new Error('Failed to fetch categories');
       return res.json();
     },
     enabled: !!session,
@@ -112,22 +116,22 @@ export default function ProductsPage() {
   const createProductMutation = useMutation({
     mutationFn: async (newProduct: typeof productForm) => {
       const res = await fetch(`${API_BASE}/dashboard/products`, {
-        method: "POST",
+        method: 'POST',
         headers: {
-          "Content-Type": "application/json",
+          'Content-Type': 'application/json',
           Authorization: `Bearer ${session?.access_token}`,
         },
         body: JSON.stringify(newProduct),
       });
       if (!res.ok) {
         const err = await res.json();
-        throw new Error(err.message || "Error al crear producto");
+        throw new Error(err.message || 'Error al crear producto');
       }
       return res.json();
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["products"] });
-      queryClient.invalidateQueries({ queryKey: ["metrics"] });
+      queryClient.invalidateQueries({ queryKey: ['products'] });
+      queryClient.invalidateQueries({ queryKey: ['metrics'] });
       setIsProductModalOpen(false);
       resetProductForm();
     },
@@ -137,24 +141,30 @@ export default function ProductsPage() {
   });
 
   const updateProductMutation = useMutation({
-    mutationFn: async ({ id, data }: { id: string; data: typeof productForm }) => {
+    mutationFn: async ({
+      id,
+      data,
+    }: {
+      id: string;
+      data: typeof productForm;
+    }) => {
       const res = await fetch(`${API_BASE}/dashboard/products/${id}`, {
-        method: "PUT",
+        method: 'PUT',
         headers: {
-          "Content-Type": "application/json",
+          'Content-Type': 'application/json',
           Authorization: `Bearer ${session?.access_token}`,
         },
         body: JSON.stringify(data),
       });
       if (!res.ok) {
         const err = await res.json();
-        throw new Error(err.message || "Error al actualizar producto");
+        throw new Error(err.message || 'Error al actualizar producto');
       }
       return res.json();
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["products"] });
-      queryClient.invalidateQueries({ queryKey: ["metrics"] });
+      queryClient.invalidateQueries({ queryKey: ['products'] });
+      queryClient.invalidateQueries({ queryKey: ['metrics'] });
       setIsProductModalOpen(false);
       setEditingProduct(null);
       resetProductForm();
@@ -167,52 +177,52 @@ export default function ProductsPage() {
   const deleteProductMutation = useMutation({
     mutationFn: async (id: string) => {
       const res = await fetch(`${API_BASE}/dashboard/products/${id}`, {
-        method: "DELETE",
+        method: 'DELETE',
         headers: { Authorization: `Bearer ${session?.access_token}` },
       });
-      if (!res.ok) throw new Error("Error al eliminar producto");
+      if (!res.ok) throw new Error('Error al eliminar producto');
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["products"] });
-      queryClient.invalidateQueries({ queryKey: ["metrics"] });
+      queryClient.invalidateQueries({ queryKey: ['products'] });
+      queryClient.invalidateQueries({ queryKey: ['metrics'] });
     },
   });
 
   const createCategoryMutation = useMutation({
     mutationFn: async (name: string) => {
       const res = await fetch(`${API_BASE}/dashboard/categories`, {
-        method: "POST",
+        method: 'POST',
         headers: {
-          "Content-Type": "application/json",
+          'Content-Type': 'application/json',
           Authorization: `Bearer ${session?.access_token}`,
         },
         body: JSON.stringify({ name }),
       });
-      if (!res.ok) throw new Error("Error al crear categoría");
+      if (!res.ok) throw new Error('Error al crear categoría');
       return res.json();
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["categories"] });
+      queryClient.invalidateQueries({ queryKey: ['categories'] });
       setIsCategoryModalOpen(false);
-      setCategoryName("");
+      setCategoryName('');
     },
   });
 
   // Helpers
   const resetProductForm = () => {
     setProductForm({
-      barcode: "",
-      name: "",
-      description: "",
-      categoryId: "",
+      barcode: '',
+      name: '',
+      description: '',
+      categoryId: '',
       purchasePrice: 0,
       salePrice: 0,
       costPrice: 0,
       stock: 0,
       minimumStock: 0,
-      unit: "unit",
+      unit: 'unit',
     });
-    setFormError("");
+    setFormError('');
   };
 
   const handleOpenCreateModal = () => {
@@ -224,54 +234,58 @@ export default function ProductsPage() {
   const handleOpenEditModal = (product: Product) => {
     setEditingProduct(product);
     setProductForm({
-      barcode: product.barcode || "",
+      barcode: product.barcode || '',
       name: product.name,
-      description: product.description || "",
-      categoryId: product.categoryId || "",
+      description: product.description || '',
+      categoryId: product.categoryId || '',
       purchasePrice: Number(product.purchasePrice) || 0,
       salePrice: Number(product.salePrice) || 0,
       costPrice: Number(product.costPrice) || 0,
       stock: Number(product.stock) || 0,
       minimumStock: Number(product.minimumStock) || 0,
-      unit: product.unit || "unit",
+      unit: product.unit || 'unit',
     });
-    setFormError("");
+    setFormError('');
     setIsProductModalOpen(true);
   };
 
   const handleSubmitProduct = (e: React.FormEvent) => {
     e.preventDefault();
-    setFormError("");
+    setFormError('');
 
     if (!productForm.name) {
-      setFormError("El nombre es requerido");
+      setFormError('El nombre es requerido');
       return;
     }
 
     if (editingProduct) {
-      updateProductMutation.mutate({ id: editingProduct.id, data: productForm });
+      updateProductMutation.mutate({
+        id: editingProduct.id,
+        data: productForm,
+      });
     } else {
       createProductMutation.mutate(productForm);
     }
   };
 
   const handleDeleteProduct = (id: string) => {
-    if (confirm("¿Estás seguro de que quieres eliminar este producto?")) {
+    if (confirm('¿Estás seguro de que quieres eliminar este producto?')) {
       deleteProductMutation.mutate(id);
     }
   };
 
   const formatCurrency = (amount: number) => {
-    const currency = tenant?.currency || "ARS";
-    return new Intl.NumberFormat("es-AR", {
-      style: "currency",
+    const currency = tenant?.currency || 'ARS';
+    return new Intl.NumberFormat('es-AR', {
+      style: 'currency',
       currency: currency,
     }).format(amount);
   };
 
-  const filteredProducts = products.filter((p) =>
-    p.name.toLowerCase().includes(search.toLowerCase()) ||
-    (p.barcode && p.barcode.includes(search))
+  const filteredProducts = products.filter(
+    (p) =>
+      p.name.toLowerCase().includes(search.toLowerCase()) ||
+      (p.barcode && p.barcode.includes(search)),
   );
 
   return (
@@ -279,7 +293,9 @@ export default function ProductsPage() {
       {/* Title / Action bar */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight text-white">Catálogo de Productos</h1>
+          <h1 className="text-2xl font-bold tracking-tight text-white">
+            Catálogo de Productos
+          </h1>
           <p className="text-sm text-slate-400 mt-1">
             Administra tus artículos de stock, precios y códigos de barra.
           </p>
@@ -319,7 +335,10 @@ export default function ProductsPage() {
           className="bg-transparent border-none outline-none text-slate-200 text-sm w-full placeholder-slate-500 py-1"
         />
         {search && (
-          <button onClick={() => setSearch("")} className="text-slate-500 hover:text-slate-350 cursor-pointer">
+          <button
+            onClick={() => setSearch('')}
+            className="text-slate-500 hover:text-slate-350 cursor-pointer"
+          >
             <X className="h-4 w-4" />
           </button>
         )}
@@ -345,7 +364,8 @@ export default function ProductsPage() {
             </TableHeader>
             <TableBody>
               {filteredProducts.map((product) => {
-                const isLowStock = Number(product.stock) <= Number(product.minimumStock);
+                const isLowStock =
+                  Number(product.stock) <= Number(product.minimumStock);
                 const isOutOfStock = Number(product.stock) <= 0;
 
                 return (
@@ -365,16 +385,23 @@ export default function ProductsPage() {
                     </TableCell>
                     <TableCell>
                       {product.category ? (
-                        <Badge variant="secondary" className="bg-slate-950/65 text-slate-400 border-slate-850 px-2 py-0.5">
+                        <Badge
+                          variant="secondary"
+                          className="bg-slate-950/65 text-slate-400 border-slate-850 px-2 py-0.5"
+                        >
                           {product.category.name}
                         </Badge>
                       ) : (
-                        <span className="text-slate-600 text-xs italic">Sin categoría</span>
+                        <span className="text-slate-600 text-xs italic">
+                          Sin categoría
+                        </span>
                       )}
                     </TableCell>
                     <TableCell className="text-right">
                       <div>
-                        <p className="text-slate-200 font-bold">{formatCurrency(product.salePrice)}</p>
+                        <p className="text-slate-200 font-bold">
+                          {formatCurrency(product.salePrice)}
+                        </p>
                         <p className="text-[10px] text-slate-550 mt-0.5">
                           Costo: {formatCurrency(product.purchasePrice)}
                         </p>
@@ -385,20 +412,26 @@ export default function ProductsPage() {
                         <span
                           className={`font-bold text-sm ${
                             isOutOfStock
-                              ? "text-rose-500"
+                              ? 'text-rose-500'
                               : isLowStock
-                              ? "text-amber-500"
-                              : "text-emerald-500"
+                                ? 'text-amber-500'
+                                : 'text-emerald-500'
                           }`}
                         >
                           {Number(product.stock)}
                         </span>
                         {isOutOfStock ? (
-                          <Badge variant="destructive" className="mt-1 text-[9px] px-1 py-0 border-rose-500/10">
+                          <Badge
+                            variant="destructive"
+                            className="mt-1 text-[9px] px-1 py-0 border-rose-500/10"
+                          >
                             Agotado
                           </Badge>
                         ) : isLowStock ? (
-                          <Badge variant="warning" className="mt-1 text-[9px] px-1 py-0 flex items-center gap-0.5 border-amber-500/10">
+                          <Badge
+                            variant="warning"
+                            className="mt-1 text-[9px] px-1 py-0 flex items-center gap-0.5 border-amber-500/10"
+                          >
                             <AlertTriangle className="h-2 w-2" />
                             <span>Mínimo</span>
                           </Badge>
@@ -439,7 +472,8 @@ export default function ProductsPage() {
             <ShoppingBag className="h-12 w-12 text-slate-700 mb-3" />
             <h3 className="text-slate-300 font-bold">Catálogo vacío</h3>
             <p className="text-sm mt-1 max-w-xs">
-              No hay productos que coincidan con la búsqueda o cargados en el inventario.
+              No hay productos que coincidan con la búsqueda o cargados en el
+              inventario.
             </p>
           </div>
         )}
@@ -450,10 +484,11 @@ export default function ProductsPage() {
         <DialogContent className="max-w-xl">
           <DialogHeader>
             <DialogTitle>
-              {editingProduct ? "Editar Producto" : "Nuevo Producto"}
+              {editingProduct ? 'Editar Producto' : 'Nuevo Producto'}
             </DialogTitle>
             <DialogDescription>
-              Introduce los datos del artículo para guardarlo en la base de datos de tu tienda.
+              Introduce los datos del artículo para guardarlo en la base de
+              datos de tu tienda.
             </DialogDescription>
           </DialogHeader>
 
@@ -476,7 +511,12 @@ export default function ProductsPage() {
                   <Input
                     type="text"
                     value={productForm.barcode}
-                    onChange={(e) => setProductForm({ ...productForm, barcode: e.target.value })}
+                    onChange={(e) =>
+                      setProductForm({
+                        ...productForm,
+                        barcode: e.target.value,
+                      })
+                    }
                     placeholder="Escribe o escanea el código..."
                     className="pl-10"
                   />
@@ -492,7 +532,9 @@ export default function ProductsPage() {
                   type="text"
                   required
                   value={productForm.name}
-                  onChange={(e) => setProductForm({ ...productForm, name: e.target.value })}
+                  onChange={(e) =>
+                    setProductForm({ ...productForm, name: e.target.value })
+                  }
                   placeholder="Ej: Gaseosa Cola 2.25L"
                 />
               </div>
@@ -505,7 +547,12 @@ export default function ProductsPage() {
                 <textarea
                   rows={2}
                   value={productForm.description}
-                  onChange={(e) => setProductForm({ ...productForm, description: e.target.value })}
+                  onChange={(e) =>
+                    setProductForm({
+                      ...productForm,
+                      description: e.target.value,
+                    })
+                  }
                   placeholder="Detalles sobre el producto..."
                   className="flex w-full rounded-xl border border-slate-800 bg-slate-950/60 px-4.5 py-2 text-sm text-slate-200 shadow-sm transition-all placeholder:text-slate-600 focus-visible:outline-none focus-visible:border-indigo-500/80 focus-visible:ring-3 focus-visible:ring-indigo-500/15 resize-none"
                 />
@@ -518,7 +565,12 @@ export default function ProductsPage() {
                 </label>
                 <select
                   value={productForm.categoryId}
-                  onChange={(e) => setProductForm({ ...productForm, categoryId: e.target.value })}
+                  onChange={(e) =>
+                    setProductForm({
+                      ...productForm,
+                      categoryId: e.target.value,
+                    })
+                  }
                   className="flex h-10 w-full rounded-xl border border-slate-800 bg-slate-950/60 px-4 py-2 text-sm text-slate-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-950 bg-slate-900"
                 >
                   <option value="">Seleccionar...</option>
@@ -537,7 +589,9 @@ export default function ProductsPage() {
                 </label>
                 <select
                   value={productForm.unit}
-                  onChange={(e) => setProductForm({ ...productForm, unit: e.target.value })}
+                  onChange={(e) =>
+                    setProductForm({ ...productForm, unit: e.target.value })
+                  }
                   className="flex h-10 w-full rounded-xl border border-slate-800 bg-slate-950/60 px-4 py-2 text-sm text-slate-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-950 bg-slate-900"
                 >
                   <option value="unit">Unidad (un)</option>
@@ -558,7 +612,10 @@ export default function ProductsPage() {
                   min="0"
                   value={productForm.purchasePrice}
                   onChange={(e) =>
-                    setProductForm({ ...productForm, purchasePrice: parseFloat(e.target.value) || 0 })
+                    setProductForm({
+                      ...productForm,
+                      purchasePrice: parseFloat(e.target.value) || 0,
+                    })
                   }
                 />
               </div>
@@ -574,7 +631,10 @@ export default function ProductsPage() {
                   min="0"
                   value={productForm.salePrice}
                   onChange={(e) =>
-                    setProductForm({ ...productForm, salePrice: parseFloat(e.target.value) || 0 })
+                    setProductForm({
+                      ...productForm,
+                      salePrice: parseFloat(e.target.value) || 0,
+                    })
                   }
                 />
               </div>
@@ -589,7 +649,10 @@ export default function ProductsPage() {
                   step="0.001"
                   value={productForm.stock}
                   onChange={(e) =>
-                    setProductForm({ ...productForm, stock: parseFloat(e.target.value) || 0 })
+                    setProductForm({
+                      ...productForm,
+                      stock: parseFloat(e.target.value) || 0,
+                    })
                   }
                 />
               </div>
@@ -604,7 +667,10 @@ export default function ProductsPage() {
                   step="0.001"
                   value={productForm.minimumStock}
                   onChange={(e) =>
-                    setProductForm({ ...productForm, minimumStock: parseFloat(e.target.value) || 0 })
+                    setProductForm({
+                      ...productForm,
+                      minimumStock: parseFloat(e.target.value) || 0,
+                    })
                   }
                 />
               </div>
@@ -621,15 +687,24 @@ export default function ProductsPage() {
               </Button>
               <Button
                 type="submit"
-                disabled={createProductMutation.isPending || updateProductMutation.isPending}
+                disabled={
+                  createProductMutation.isPending ||
+                  updateProductMutation.isPending
+                }
                 className="flex items-center space-x-2"
               >
-                {(createProductMutation.isPending || updateProductMutation.isPending) ? (
-                  <Spinner size="sm" className="border-white border-t-transparent" />
+                {createProductMutation.isPending ||
+                updateProductMutation.isPending ? (
+                  <Spinner
+                    size="sm"
+                    className="border-white border-t-transparent"
+                  />
                 ) : (
                   <Check className="h-4 w-4" />
                 )}
-                <span>{editingProduct ? "Guardar Cambios" : "Crear Producto"}</span>
+                <span>
+                  {editingProduct ? 'Guardar Cambios' : 'Crear Producto'}
+                </span>
               </Button>
             </div>
           </form>

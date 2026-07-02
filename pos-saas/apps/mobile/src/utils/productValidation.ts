@@ -8,29 +8,31 @@ export type ProductFormValues = {
   unit: string;
 };
 
-export type ProductFormErrors = Partial<Record<keyof ProductFormValues | "form", string>>;
+export type ProductFormErrors = Partial<
+  Record<keyof ProductFormValues | 'form', string>
+>;
 
 export const PRODUCT_UNITS = [
-  { value: "unit", label: "Unidad" },
-  { value: "kg", label: "Kilogramo" },
-  { value: "g", label: "Gramo" },
-  { value: "L", label: "Litro" },
-  { value: "ml", label: "Mililitro" },
-  { value: "pack", label: "Pack" },
+  { value: 'unit', label: 'Unidad' },
+  { value: 'kg', label: 'Kilogramo' },
+  { value: 'g', label: 'Gramo' },
+  { value: 'L', label: 'Litro' },
+  { value: 'ml', label: 'Mililitro' },
+  { value: 'pack', label: 'Pack' },
 ] as const;
 
 export const DEFAULT_PRODUCT_FORM: ProductFormValues = {
-  barcode: "",
-  name: "",
-  category: "",
-  purchasePrice: "",
-  salePrice: "",
-  stock: "",
-  unit: "unit",
+  barcode: '',
+  name: '',
+  category: '',
+  purchasePrice: '',
+  salePrice: '',
+  stock: '',
+  unit: 'unit',
 };
 
 function parseDecimal(value: string) {
-  const normalized = value.trim().replace(",", ".");
+  const normalized = value.trim().replace(',', '.');
   if (!normalized) {
     return null;
   }
@@ -39,12 +41,14 @@ function parseDecimal(value: string) {
   return Number.isFinite(parsed) ? parsed : null;
 }
 
-export function validateProductForm(values: ProductFormValues): ProductFormErrors {
+export function validateProductForm(
+  values: ProductFormValues,
+): ProductFormErrors {
   const errors: ProductFormErrors = {};
   const trimmedName = values.name.trim();
 
   if (!trimmedName) {
-    errors.name = "El nombre del producto es obligatorio.";
+    errors.name = 'El nombre del producto es obligatorio.';
   }
 
   const purchasePrice = parseDecimal(values.purchasePrice);
@@ -52,27 +56,31 @@ export function validateProductForm(values: ProductFormValues): ProductFormError
   const stock = parseDecimal(values.stock);
 
   if (values.purchasePrice.trim() && purchasePrice === null) {
-    errors.purchasePrice = "Ingresá un precio de compra válido.";
+    errors.purchasePrice = 'Ingresá un precio de compra válido.';
   } else if (purchasePrice !== null && purchasePrice < 0) {
-    errors.purchasePrice = "El precio de compra no puede ser negativo.";
+    errors.purchasePrice = 'El precio de compra no puede ser negativo.';
   }
 
   if (!values.salePrice.trim()) {
-    errors.salePrice = "El precio de venta es obligatorio.";
+    errors.salePrice = 'El precio de venta es obligatorio.';
   } else if (salePrice === null) {
-    errors.salePrice = "Ingresá un precio de venta válido.";
+    errors.salePrice = 'Ingresá un precio de venta válido.';
   } else if (salePrice < 0) {
-    errors.salePrice = "El precio de venta no puede ser negativo.";
+    errors.salePrice = 'El precio de venta no puede ser negativo.';
   }
 
-  if (purchasePrice !== null && salePrice !== null && salePrice < purchasePrice) {
-    errors.salePrice = "El precio de venta no puede ser menor al de compra.";
+  if (
+    purchasePrice !== null &&
+    salePrice !== null &&
+    salePrice < purchasePrice
+  ) {
+    errors.salePrice = 'El precio de venta no puede ser menor al de compra.';
   }
 
   if (values.stock.trim() && stock === null) {
-    errors.stock = "Ingresá un stock inicial válido.";
+    errors.stock = 'Ingresá un stock inicial válido.';
   } else if (stock !== null && stock < 0) {
-    errors.stock = "El stock inicial no puede ser negativo.";
+    errors.stock = 'El stock inicial no puede ser negativo.';
   }
 
   return errors;
@@ -90,7 +98,7 @@ export function parseProductForm(values: ProductFormValues) {
     purchasePrice,
     salePrice,
     stock,
-    unit: values.unit.trim() || "unit",
+    unit: values.unit.trim() || 'unit',
   };
 }
 

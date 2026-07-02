@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useMemo, useState } from 'react';
 import {
   ActivityIndicator,
   Pressable,
@@ -7,28 +7,32 @@ import {
   StyleSheet,
   Text,
   View,
-} from "react-native";
-import { useSQLiteContext } from "expo-sqlite";
-import { useAuth } from "../context/AuthContext";
-import { FormField } from "../components/form/FormField";
-import { radius, spacing, ThemeColors } from "../theme/tokens";
-import { useTheme } from "../context/ThemeContext";
+} from 'react-native';
+import { useSQLiteContext } from 'expo-sqlite';
+import { useAuth } from '../context/AuthContext';
+import { FormField } from '../components/form/FormField';
+import { radius, spacing, ThemeColors } from '../theme/tokens';
+import { useTheme } from '../context/ThemeContext';
 
 const CURRENCIES = [
-  { value: "ARS", label: "ARS ($)", desc: "Peso Argentino" },
-  { value: "USD", label: "USD ($)", desc: "Dólar Estadounidense" },
-  { value: "EUR", label: "EUR (€)", desc: "Euro" },
-  { value: "UYU", label: "UYU ($)", desc: "Peso Uruguayo" },
-  { value: "CLP", label: "CLP ($)", desc: "Peso Chileno" },
+  { value: 'ARS', label: 'ARS ($)', desc: 'Peso Argentino' },
+  { value: 'USD', label: 'USD ($)', desc: 'Dólar Estadounidense' },
+  { value: 'EUR', label: 'EUR (€)', desc: 'Euro' },
+  { value: 'UYU', label: 'UYU ($)', desc: 'Peso Uruguayo' },
+  { value: 'CLP', label: 'CLP ($)', desc: 'Peso Chileno' },
 ];
 
 const TIMEZONES = [
-  { value: "America/Argentina/Buenos_Aires", label: "Buenos Aires", desc: "GMT-3" },
-  { value: "America/Montevideo", label: "Montevideo", desc: "GMT-3" },
-  { value: "America/Santiago", label: "Santiago", desc: "GMT-4" },
-  { value: "America/Bogota", label: "Bogotá / Lima", desc: "GMT-5" },
-  { value: "America/New_York", label: "New York", desc: "GMT-4" },
-  { value: "Europe/Madrid", label: "Madrid / Barcelona", desc: "GMT+2" },
+  {
+    value: 'America/Argentina/Buenos_Aires',
+    label: 'Buenos Aires',
+    desc: 'GMT-3',
+  },
+  { value: 'America/Montevideo', label: 'Montevideo', desc: 'GMT-3' },
+  { value: 'America/Santiago', label: 'Santiago', desc: 'GMT-4' },
+  { value: 'America/Bogota', label: 'Bogotá / Lima', desc: 'GMT-5' },
+  { value: 'America/New_York', label: 'New York', desc: 'GMT-4' },
+  { value: 'Europe/Madrid', label: 'Madrid / Barcelona', desc: 'GMT+2' },
 ];
 
 export function OnboardingScreen() {
@@ -37,9 +41,9 @@ export function OnboardingScreen() {
   const { colors, isDark } = useTheme();
   const styles = useMemo(() => getStyles(colors, isDark), [colors, isDark]);
 
-  const [businessName, setBusinessName] = useState("");
-  const [currency, setCurrency] = useState("ARS");
-  const [timezone, setTimezone] = useState("America/Argentina/Buenos_Aires");
+  const [businessName, setBusinessName] = useState('');
+  const [currency, setCurrency] = useState('ARS');
+  const [timezone, setTimezone] = useState('America/Argentina/Buenos_Aires');
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
   const handleSubmit = async () => {
@@ -47,13 +51,20 @@ export function OnboardingScreen() {
     const trimmedName = businessName.trim();
 
     if (!trimmedName) {
-      setErrorMsg("El nombre comercial es obligatorio.");
+      setErrorMsg('El nombre comercial es obligatorio.');
       return;
     }
 
-    const success = await completeOnboarding(db, trimmedName, currency, timezone);
+    const success = await completeOnboarding(
+      db,
+      trimmedName,
+      currency,
+      timezone,
+    );
     if (!success) {
-      setErrorMsg("Error al registrar el comercio en el servidor. Intentá de nuevo.");
+      setErrorMsg(
+        'Error al registrar el comercio en el servidor. Intentá de nuevo.',
+      );
     }
   };
 
@@ -61,7 +72,10 @@ export function OnboardingScreen() {
     <SafeAreaView style={styles.safeArea}>
       <View style={styles.backgroundGlow} />
 
-      <ScrollView contentContainerStyle={styles.scrollContainer} keyboardShouldPersistTaps="handled">
+      <ScrollView
+        contentContainerStyle={styles.scrollContainer}
+        keyboardShouldPersistTaps="handled"
+      >
         <View style={styles.header}>
           <Text style={styles.kicker}>Paso Final de Registro</Text>
           <Text style={styles.title}>Configurar tu Comercio</Text>
@@ -89,10 +103,18 @@ export function OnboardingScreen() {
                 return (
                   <Pressable
                     key={c.value}
-                    style={[styles.optionCard, active && styles.optionCardActive]}
+                    style={[
+                      styles.optionCard,
+                      active && styles.optionCardActive,
+                    ]}
                     onPress={() => setCurrency(c.value)}
                   >
-                    <Text style={[styles.optionLabel, active && styles.optionLabelActive]}>
+                    <Text
+                      style={[
+                        styles.optionLabel,
+                        active && styles.optionLabelActive,
+                      ]}
+                    >
                       {c.label}
                     </Text>
                     <Text style={styles.optionDesc}>{c.desc}</Text>
@@ -114,7 +136,12 @@ export function OnboardingScreen() {
                     onPress={() => setTimezone(t.value)}
                   >
                     <View style={styles.rowInfo}>
-                      <Text style={[styles.rowLabel, active && styles.rowLabelActive]}>
+                      <Text
+                        style={[
+                          styles.rowLabel,
+                          active && styles.rowLabelActive,
+                        ]}
+                      >
                         {t.label}
                       </Text>
                       <Text style={styles.rowDesc}>{t.value}</Text>
@@ -165,179 +192,192 @@ export function OnboardingScreen() {
   );
 }
 
-const getStyles = (colors: ThemeColors, isDark: boolean) => StyleSheet.create({
-  safeArea: {
-    flex: 1,
-    backgroundColor: colors.background,
-  },
-  backgroundGlow: {
-    position: "absolute",
-    top: -120,
-    right: -100,
-    width: 320,
-    height: 320,
-    borderRadius: 160,
-    backgroundColor: isDark ? "rgba(138, 199, 255, 0.06)" : "rgba(4, 151, 191, 0.04)",
-  },
-  scrollContainer: {
-    padding: spacing.xl,
-    gap: spacing.lg,
-    paddingBottom: 40,
-  },
-  header: {
-    marginTop: 10,
-    gap: 6,
-  },
-  kicker: {
-    color: colors.primary,
-    textTransform: "uppercase",
-    letterSpacing: 1.4,
-    fontSize: 12,
-    fontWeight: "700",
-  },
-  title: {
-    color: colors.text,
-    fontSize: 26,
-    fontWeight: "800",
-  },
-  subtitle: {
-    color: colors.textMuted,
-    fontSize: 14,
-    lineHeight: 20,
-  },
-  card: {
-    backgroundColor: colors.surface,
-    borderRadius: radius.xl,
-    padding: 20,
-    borderWidth: 1,
-    borderColor: colors.border,
-    gap: 20,
-    ...(!isDark && {
-      shadowColor: "#000",
-      shadowOpacity: 0.04,
-      shadowRadius: 8,
-      shadowOffset: { width: 0, height: 4 },
-      elevation: 2,
-    }),
-  },
-  section: {
-    gap: spacing.sm,
-  },
-  sectionTitle: {
-    color: colors.text,
-    fontSize: 13,
-    fontWeight: "700",
-  },
-  optionsGrid: {
-    flexDirection: "row",
-    flexWrap: "wrap",
-    gap: 8,
-  },
-  optionCard: {
-    flex: 1,
-    minWidth: "45%",
-    paddingVertical: 12,
-    paddingHorizontal: 12,
-    borderRadius: radius.md,
-    borderWidth: 1,
-    borderColor: colors.border,
-    backgroundColor: isDark ? "rgba(255, 255, 255, 0.02)" : colors.surfaceSoft,
-  },
-  optionCardActive: {
-    borderColor: colors.primary,
-    backgroundColor: isDark ? "rgba(138, 199, 255, 0.06)" : "rgba(4, 151, 191, 0.06)",
-  },
-  optionLabel: {
-    color: colors.text,
-    fontSize: 14,
-    fontWeight: "800",
-  },
-  optionLabelActive: {
-    color: isDark ? "#8AC7FF" : colors.primary,
-  },
-  optionDesc: {
-    color: colors.textMuted,
-    fontSize: 11,
-    marginTop: 2,
-  },
-  optionsList: {
-    gap: 6,
-  },
-  listRow: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    padding: 12,
-    borderRadius: radius.md,
-    borderWidth: 1,
-    borderColor: colors.border,
-    backgroundColor: isDark ? "rgba(255, 255, 255, 0.02)" : colors.surfaceSoft,
-  },
-  listRowActive: {
-    borderColor: colors.primary,
-    backgroundColor: isDark ? "rgba(138, 199, 255, 0.06)" : "rgba(4, 151, 191, 0.06)",
-  },
-  rowInfo: {
-    gap: 2,
-  },
-  rowLabel: {
-    color: colors.text,
-    fontSize: 13,
-    fontWeight: "700",
-  },
-  rowLabelActive: {
-    color: isDark ? "#8AC7FF" : colors.primary,
-  },
-  rowDesc: {
-    color: colors.textMuted,
-    fontSize: 10,
-  },
-  rowGmt: {
-    color: colors.text,
-    fontSize: 12,
-    fontWeight: "800",
-  },
-  errorText: {
-    color: isDark ? "#FFB4B4" : "#D32F2F",
-    fontSize: 13,
-    textAlign: "center",
-  },
-  actions: {
-    gap: spacing.sm,
-    marginTop: 10,
-  },
-  primaryButton: {
-    backgroundColor: colors.primary,
-    paddingVertical: 14,
-    borderRadius: radius.md,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  primaryButtonPressed: {
-    opacity: 0.85,
-  },
-  primaryButtonText: {
-    color: "#FFFFFF",
-    fontSize: 15,
-    fontWeight: "800",
-  },
-  secondaryButton: {
-    paddingVertical: 12,
-    borderRadius: radius.md,
-    borderWidth: 1,
-    borderColor: colors.border,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  secondaryButtonPressed: {
-    backgroundColor: isDark ? "rgba(255, 255, 255, 0.02)" : "rgba(0, 0, 0, 0.02)",
-  },
-  secondaryButtonText: {
-    color: colors.textMuted,
-    fontSize: 14,
-    fontWeight: "700",
-  },
-  buttonDisabled: {
-    opacity: 0.65,
-  },
-});
+const getStyles = (colors: ThemeColors, isDark: boolean) =>
+  StyleSheet.create({
+    safeArea: {
+      flex: 1,
+      backgroundColor: colors.background,
+    },
+    backgroundGlow: {
+      position: 'absolute',
+      top: -120,
+      right: -100,
+      width: 320,
+      height: 320,
+      borderRadius: 160,
+      backgroundColor: isDark
+        ? 'rgba(138, 199, 255, 0.06)'
+        : 'rgba(4, 151, 191, 0.04)',
+    },
+    scrollContainer: {
+      padding: spacing.xl,
+      gap: spacing.lg,
+      paddingBottom: 40,
+    },
+    header: {
+      marginTop: 10,
+      gap: 6,
+    },
+    kicker: {
+      color: colors.primary,
+      textTransform: 'uppercase',
+      letterSpacing: 1.4,
+      fontSize: 12,
+      fontWeight: '700',
+    },
+    title: {
+      color: colors.text,
+      fontSize: 26,
+      fontWeight: '800',
+    },
+    subtitle: {
+      color: colors.textMuted,
+      fontSize: 14,
+      lineHeight: 20,
+    },
+    card: {
+      backgroundColor: colors.surface,
+      borderRadius: radius.xl,
+      padding: 20,
+      borderWidth: 1,
+      borderColor: colors.border,
+      gap: 20,
+      ...(!isDark && {
+        shadowColor: '#000',
+        shadowOpacity: 0.04,
+        shadowRadius: 8,
+        shadowOffset: { width: 0, height: 4 },
+        elevation: 2,
+      }),
+    },
+    section: {
+      gap: spacing.sm,
+    },
+    sectionTitle: {
+      color: colors.text,
+      fontSize: 13,
+      fontWeight: '700',
+    },
+    optionsGrid: {
+      flexDirection: 'row',
+      flexWrap: 'wrap',
+      gap: 8,
+    },
+    optionCard: {
+      flex: 1,
+      minWidth: '45%',
+      paddingVertical: 12,
+      paddingHorizontal: 12,
+      borderRadius: radius.md,
+      borderWidth: 1,
+      borderColor: colors.border,
+      backgroundColor: isDark
+        ? 'rgba(255, 255, 255, 0.02)'
+        : colors.surfaceSoft,
+    },
+    optionCardActive: {
+      borderColor: colors.primary,
+      backgroundColor: isDark
+        ? 'rgba(138, 199, 255, 0.06)'
+        : 'rgba(4, 151, 191, 0.06)',
+    },
+    optionLabel: {
+      color: colors.text,
+      fontSize: 14,
+      fontWeight: '800',
+    },
+    optionLabelActive: {
+      color: isDark ? '#8AC7FF' : colors.primary,
+    },
+    optionDesc: {
+      color: colors.textMuted,
+      fontSize: 11,
+      marginTop: 2,
+    },
+    optionsList: {
+      gap: 6,
+    },
+    listRow: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+      padding: 12,
+      borderRadius: radius.md,
+      borderWidth: 1,
+      borderColor: colors.border,
+      backgroundColor: isDark
+        ? 'rgba(255, 255, 255, 0.02)'
+        : colors.surfaceSoft,
+    },
+    listRowActive: {
+      borderColor: colors.primary,
+      backgroundColor: isDark
+        ? 'rgba(138, 199, 255, 0.06)'
+        : 'rgba(4, 151, 191, 0.06)',
+    },
+    rowInfo: {
+      gap: 2,
+    },
+    rowLabel: {
+      color: colors.text,
+      fontSize: 13,
+      fontWeight: '700',
+    },
+    rowLabelActive: {
+      color: isDark ? '#8AC7FF' : colors.primary,
+    },
+    rowDesc: {
+      color: colors.textMuted,
+      fontSize: 10,
+    },
+    rowGmt: {
+      color: colors.text,
+      fontSize: 12,
+      fontWeight: '800',
+    },
+    errorText: {
+      color: isDark ? '#FFB4B4' : '#D32F2F',
+      fontSize: 13,
+      textAlign: 'center',
+    },
+    actions: {
+      gap: spacing.sm,
+      marginTop: 10,
+    },
+    primaryButton: {
+      backgroundColor: colors.primary,
+      paddingVertical: 14,
+      borderRadius: radius.md,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    primaryButtonPressed: {
+      opacity: 0.85,
+    },
+    primaryButtonText: {
+      color: '#FFFFFF',
+      fontSize: 15,
+      fontWeight: '800',
+    },
+    secondaryButton: {
+      paddingVertical: 12,
+      borderRadius: radius.md,
+      borderWidth: 1,
+      borderColor: colors.border,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    secondaryButtonPressed: {
+      backgroundColor: isDark
+        ? 'rgba(255, 255, 255, 0.02)'
+        : 'rgba(0, 0, 0, 0.02)',
+    },
+    secondaryButtonText: {
+      color: colors.textMuted,
+      fontSize: 14,
+      fontWeight: '700',
+    },
+    buttonDisabled: {
+      opacity: 0.65,
+    },
+  });

@@ -1,9 +1,9 @@
-"use client";
+'use client';
 
-import React, { useEffect } from "react";
-import { useAuth } from "@/context/AuthContext";
-import { useRouter, usePathname } from "next/navigation";
-import Link from "next/link";
+import React, { useEffect } from 'react';
+import { useAuth } from '@/context/AuthContext';
+import { useRouter, usePathname } from 'next/navigation';
+import Link from 'next/link';
 import {
   ShoppingBag,
   Users,
@@ -13,8 +13,8 @@ import {
   Store,
   ChevronRight,
   User as UserIcon,
-  FolderOpen
-} from "lucide-react";
+  FolderOpen,
+} from 'lucide-react';
 
 export default function DashboardLayout({
   children,
@@ -27,7 +27,7 @@ export default function DashboardLayout({
 
   useEffect(() => {
     if (!loading && !user) {
-      router.push("/login");
+      router.push('/login');
     }
   }, [user, loading, router]);
 
@@ -36,7 +36,9 @@ export default function DashboardLayout({
       <div className="flex min-h-screen items-center justify-center bg-slate-950">
         <div className="flex flex-col items-center space-y-4">
           <div className="h-12 w-12 animate-spin rounded-full border-4 border-indigo-500 border-t-transparent"></div>
-          <p className="text-slate-400 animate-pulse text-sm">Verificando sesión...</p>
+          <p className="text-slate-400 animate-pulse text-sm">
+            Verificando sesión...
+          </p>
         </div>
       </div>
     );
@@ -44,28 +46,28 @@ export default function DashboardLayout({
 
   const navItems = [
     {
-      name: "Resumen",
-      href: "/dashboard",
+      name: 'Resumen',
+      href: '/dashboard',
       icon: LayoutDashboard,
-      roles: ["admin", "supervisor", "cashier"],
+      roles: ['admin', 'supervisor', 'cashier'],
     },
     {
-      name: "Catálogo",
-      href: "/dashboard/products",
+      name: 'Catálogo',
+      href: '/dashboard/products',
       icon: ShoppingBag,
-      roles: ["admin", "supervisor"],
+      roles: ['admin', 'supervisor'],
     },
     {
-      name: "Personal",
-      href: "/dashboard/employees",
+      name: 'Personal',
+      href: '/dashboard/employees',
       icon: Users,
-      roles: ["admin"],
+      roles: ['admin'],
     },
     {
-      name: "Ventas",
-      href: "/dashboard/sales",
+      name: 'Ventas',
+      href: '/dashboard/sales',
       icon: BarChart3,
-      roles: ["admin", "supervisor"],
+      roles: ['admin', 'supervisor'],
     },
   ];
 
@@ -103,21 +105,23 @@ export default function DashboardLayout({
                 href={item.href}
                 className={`flex items-center justify-between px-4 py-3 rounded-xl text-sm font-medium transition-all duration-200 group cursor-pointer ${
                   isActive
-                    ? "bg-gradient-to-r from-indigo-500/20 to-purple-500/10 text-indigo-300 border-l-4 border-indigo-500 pl-3"
-                    : "text-slate-400 hover:bg-slate-900 hover:text-slate-200"
+                    ? 'bg-gradient-to-r from-indigo-500/20 to-purple-500/10 text-indigo-300 border-l-4 border-indigo-500 pl-3'
+                    : 'text-slate-400 hover:bg-slate-900 hover:text-slate-200'
                 }`}
               >
                 <div className="flex items-center space-x-3">
                   <Icon
                     className={`h-5 w-5 transition-colors duration-200 ${
-                      isActive ? "text-indigo-400" : "text-slate-400 group-hover:text-slate-200"
+                      isActive
+                        ? 'text-indigo-400'
+                        : 'text-slate-400 group-hover:text-slate-200'
                     }`}
                   />
                   <span>{item.name}</span>
                 </div>
                 <ChevronRight
                   className={`h-4 w-4 opacity-0 transition-all duration-200 group-hover:opacity-100 group-hover:translate-x-1 ${
-                    isActive ? "text-indigo-400 opacity-100" : "text-slate-600"
+                    isActive ? 'text-indigo-400 opacity-100' : 'text-slate-600'
                   }`}
                 />
               </Link>
@@ -132,9 +136,15 @@ export default function DashboardLayout({
               <UserIcon className="h-4.5 w-4.5" />
             </div>
             <div className="overflow-hidden">
-              <p className="text-xs font-semibold text-slate-200 truncate">{user.name}</p>
+              <p className="text-xs font-semibold text-slate-200 truncate">
+                {user.name}
+              </p>
               <p className="text-[10px] text-slate-500 truncate capitalize font-medium">
-                {user.role === "admin" ? "Administrador" : user.role === "supervisor" ? "Supervisor" : "Cajero"}
+                {user.role === 'admin'
+                  ? 'Administrador'
+                  : user.role === 'supervisor'
+                    ? 'Supervisor'
+                    : 'Cajero'}
               </p>
             </div>
           </div>

@@ -1,9 +1,9 @@
-"use client";
+'use client';
 
-import React, { createContext, useContext, useEffect, useState } from "react";
-import { supabase } from "@/lib/supabase";
-import { apiFetch } from "@/lib/api";
-import { Session } from "@supabase/supabase-js";
+import React, { createContext, useContext, useEffect, useState } from 'react';
+import { supabase } from '@/lib/supabase';
+import { apiFetch } from '@/lib/api';
+import { Session } from '@supabase/supabase-js';
 
 export interface UserProfile {
   id: string;
@@ -49,9 +49,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         data: {
           exists: boolean;
           user: { id: string; email: string; name: string; role: string };
-          tenant: { id: string; name: string; currency: string; timezone: string };
+          tenant: {
+            id: string;
+            name: string;
+            currency: string;
+            timezone: string;
+          };
         };
-      }>("/auth/status", { token });
+      }>('/auth/status', { token });
 
       if (statusData.success && statusData.data.exists) {
         setUser({
@@ -68,22 +73,27 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       // 2. User not in backend — auto-register
       const fullName =
         currentSession.user.user_metadata?.full_name ||
-        currentSession.user.email?.split("@")[0] ||
-        "My Store";
+        currentSession.user.email?.split('@')[0] ||
+        'My Store';
 
       const registerData = await apiFetch<{
         success: boolean;
         data: {
           user: { id: string; email: string; name: string; role: string };
-          tenant: { id: string; name: string; currency?: string; timezone?: string };
+          tenant: {
+            id: string;
+            name: string;
+            currency?: string;
+            timezone?: string;
+          };
         };
-      }>("/auth/register-or-link", {
+      }>('/auth/register-or-link', {
         token,
-        method: "POST",
+        method: 'POST',
         body: JSON.stringify({
           tenant_name: `${fullName}'s Store`,
-          currency: "ARS",
-          timezone: "America/Argentina/Buenos_Aires",
+          currency: 'ARS',
+          timezone: 'America/Argentina/Buenos_Aires',
         }),
       });
 
@@ -99,23 +109,23 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         setTenant({
           id: apiData.tenant.id,
           name: apiData.tenant.name,
-          currency: apiData.tenant.currency || "ARS",
-          timezone: apiData.tenant.timezone || "America/Argentina/Buenos_Aires",
+          currency: apiData.tenant.currency || 'ARS',
+          timezone: apiData.tenant.timezone || 'America/Argentina/Buenos_Aires',
         });
       }
     } catch (error) {
-      console.error("Error syncing profile with backend:", error);
+      console.error('Error syncing profile with backend:', error);
       // DO NOT clear user — allow Supabase session to persist even if backend is down
       // Set a minimal profile from the Supabase session so the user can access the app
       setUser({
         id: currentSession.user.id,
-        email: currentSession.user.email || "",
+        email: currentSession.user.email || '',
         name:
           currentSession.user.user_metadata?.full_name ||
-          currentSession.user.email?.split("@")[0] ||
-          "Usuario",
-        role: "admin",
-        tenantId: "",
+          currentSession.user.email?.split('@')[0] ||
+          'Usuario',
+        role: 'admin',
+        tenantId: '',
       });
     }
   }
@@ -155,12 +165,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     try {
       setLoading(true);
       const { error } = await supabase.auth.signInWithOAuth({
-        provider: "google",
-        options: { redirectTo: window.location.origin + "/login" },
+        provider: 'google',
+        options: { redirectTo: window.location.origin + '/login' },
       });
       if (error) throw error;
     } catch (error) {
-      console.error("Error logging in with Google:", error);
+      console.error('Error logging in with Google:', error);
       setLoading(false);
     }
   }
@@ -173,7 +183,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       setTenant(null);
       setSession(null);
     } catch (error) {
-      console.error("Error logging out:", error);
+      console.error('Error logging out:', error);
     } finally {
       setLoading(false);
     }
@@ -205,7 +215,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 export function useAuth() {
   const context = useContext(AuthContext);
   if (context === undefined) {
-    throw new Error("useAuth must be used within an AuthProvider");
+    throw new Error('useAuth must be used within an AuthProvider');
   }
   return context;
 }

@@ -1,5 +1,5 @@
 export const API_BASE =
-  process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001/api/v1";
+  process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api/v1';
 
 interface ApiFetchOptions extends RequestInit {
   token?: string;
@@ -15,7 +15,7 @@ export async function apiFetch<T = unknown>(
 
   const res = await fetch(`${API_BASE}${path}`, {
     headers: {
-      "Content-Type": "application/json",
+      'Content-Type': 'application/json',
       ...authHeaders,
       ...headers,
     },

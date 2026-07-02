@@ -1,5 +1,8 @@
-import { useCallback, useRef } from "react";
-import type { NativeSyntheticEvent, TextInputKeyPressEventData } from "react-native";
+import { useCallback, useRef } from 'react';
+import type {
+  NativeSyntheticEvent,
+  TextInputKeyPressEventData,
+} from 'react-native';
 
 const SCANNER_CHAR_GAP_MS = 50;
 
@@ -8,11 +11,11 @@ type UseBarcodeInputOptions = {
 };
 
 export function useBarcodeInput({ onScan }: UseBarcodeInputOptions) {
-  const bufferRef = useRef("");
+  const bufferRef = useRef('');
   const lastCharAtRef = useRef(0);
 
   const resetBuffer = useCallback(() => {
-    bufferRef.current = "";
+    bufferRef.current = '';
     lastCharAtRef.current = 0;
   }, []);
 
@@ -22,7 +25,7 @@ export function useBarcodeInput({ onScan }: UseBarcodeInputOptions) {
       const now = Date.now();
       const elapsed = lastCharAtRef.current ? now - lastCharAtRef.current : 0;
 
-      if (key === "Enter") {
+      if (key === 'Enter') {
         const barcode = bufferRef.current.trim();
         resetBuffer();
 
@@ -45,7 +48,7 @@ export function useBarcodeInput({ onScan }: UseBarcodeInputOptions) {
 
       lastCharAtRef.current = now;
     },
-    [onScan, resetBuffer]
+    [onScan, resetBuffer],
   );
 
   return {

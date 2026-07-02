@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
   FlatList,
@@ -9,11 +9,11 @@ import {
   Text,
   Switch,
   View,
-} from "react-native";
-import { useSync, SyncStatus } from "../context/SyncContext";
-import { subscribeToLogs, clearSyncLogs, LogEvent } from "../api/client";
-import { radius, spacing, ThemeColors } from "../theme/tokens";
-import { useTheme } from "../context/ThemeContext";
+} from 'react-native';
+import { useSync, SyncStatus } from '../context/SyncContext';
+import { subscribeToLogs, clearSyncLogs, LogEvent } from '../api/client';
+import { radius, spacing, ThemeColors } from '../theme/tokens';
+import { useTheme } from '../context/ThemeContext';
 
 export function SyncScreen() {
   const {
@@ -43,33 +43,49 @@ export function SyncScreen() {
   // Formatear estado para visualización
   const getStatusDetails = (s: SyncStatus) => {
     switch (s) {
-      case "synced":
+      case 'synced':
         return {
-          label: "Sincronizado",
+          label: 'Sincronizado',
           color: colors.success,
-          bgColor: isDark ? "rgba(122, 230, 179, 0.08)" : "rgba(1, 203, 99, 0.08)",
-          borderColor: isDark ? "rgba(122, 230, 179, 0.18)" : "rgba(1, 203, 99, 0.18)",
+          bgColor: isDark
+            ? 'rgba(122, 230, 179, 0.08)'
+            : 'rgba(1, 203, 99, 0.08)',
+          borderColor: isDark
+            ? 'rgba(122, 230, 179, 0.18)'
+            : 'rgba(1, 203, 99, 0.18)',
         };
-      case "syncing":
+      case 'syncing':
         return {
-          label: "Sincronizando...",
+          label: 'Sincronizando...',
           color: colors.primary,
-          bgColor: isDark ? "rgba(138, 199, 255, 0.08)" : "rgba(4, 151, 191, 0.08)",
-          borderColor: isDark ? "rgba(138, 199, 255, 0.18)" : "rgba(4, 151, 191, 0.18)",
+          bgColor: isDark
+            ? 'rgba(138, 199, 255, 0.08)'
+            : 'rgba(4, 151, 191, 0.08)',
+          borderColor: isDark
+            ? 'rgba(138, 199, 255, 0.18)'
+            : 'rgba(4, 151, 191, 0.18)',
         };
-      case "offline":
+      case 'offline':
         return {
-          label: "Modo Offline",
-          color: isDark ? "#FFC069" : "#E67E22",
-          bgColor: isDark ? "rgba(255, 192, 105, 0.08)" : "rgba(230, 126, 34, 0.08)",
-          borderColor: isDark ? "rgba(255, 192, 105, 0.18)" : "rgba(230, 126, 34, 0.18)",
+          label: 'Modo Offline',
+          color: isDark ? '#FFC069' : '#E67E22',
+          bgColor: isDark
+            ? 'rgba(255, 192, 105, 0.08)'
+            : 'rgba(230, 126, 34, 0.08)',
+          borderColor: isDark
+            ? 'rgba(255, 192, 105, 0.18)'
+            : 'rgba(230, 126, 34, 0.18)',
         };
-      case "error":
+      case 'error':
         return {
-          label: "Error de sincronización",
-          color: isDark ? "#FFB4B4" : "#D32F2F",
-          bgColor: isDark ? "rgba(255, 180, 180, 0.08)" : "rgba(211, 47, 47, 0.08)",
-          borderColor: isDark ? "rgba(255, 180, 180, 0.18)" : "rgba(211, 47, 47, 0.18)",
+          label: 'Error de sincronización',
+          color: isDark ? '#FFB4B4' : '#D32F2F',
+          bgColor: isDark
+            ? 'rgba(255, 180, 180, 0.08)'
+            : 'rgba(211, 47, 47, 0.08)',
+          borderColor: isDark
+            ? 'rgba(255, 180, 180, 0.18)'
+            : 'rgba(211, 47, 47, 0.18)',
         };
     }
   };
@@ -78,18 +94,30 @@ export function SyncScreen() {
 
   return (
     <SafeAreaView style={styles.safeArea}>
-      <ScrollView contentContainerStyle={styles.container} keyboardShouldPersistTaps="handled">
+      <ScrollView
+        contentContainerStyle={styles.container}
+        keyboardShouldPersistTaps="handled"
+      >
         {/* Encabezado */}
         <View style={styles.header}>
           <Text style={styles.kicker}>Fase 5 — Sincronización</Text>
           <Text style={styles.title}>Estado y Cola Local</Text>
           <Text style={styles.subtitle}>
-            Monitoreá operaciones offline, forzá sincronizaciones y simulá estados de red.
+            Monitoreá operaciones offline, forzá sincronizaciones y simulá
+            estados de red.
           </Text>
         </View>
 
         {/* Tarjeta de Estado Principal */}
-        <View style={[styles.card, { borderColor: statusInfo.borderColor, backgroundColor: statusInfo.bgColor }]}>
+        <View
+          style={[
+            styles.card,
+            {
+              borderColor: statusInfo.borderColor,
+              backgroundColor: statusInfo.bgColor,
+            },
+          ]}
+        >
           <View style={styles.statusRow}>
             <View>
               <Text style={styles.statusLabel}>Estado Actual:</Text>
@@ -97,10 +125,15 @@ export function SyncScreen() {
                 {statusInfo.label}
               </Text>
             </View>
-            {status === "syncing" ? (
+            {status === 'syncing' ? (
               <ActivityIndicator size="small" color={colors.primary} />
             ) : (
-              <View style={[styles.statusIndicatorDot, { backgroundColor: statusInfo.color }]} />
+              <View
+                style={[
+                  styles.statusIndicatorDot,
+                  { backgroundColor: statusInfo.color },
+                ]}
+              />
             )}
           </View>
 
@@ -109,35 +142,46 @@ export function SyncScreen() {
           <View style={styles.infoRow}>
             <Text style={styles.infoLabel}>Último Sync Exitoso:</Text>
             <Text style={styles.infoValue}>
-              {lastSyncAt ? new Date(lastSyncAt).toLocaleString() : "Nunca"}
+              {lastSyncAt ? new Date(lastSyncAt).toLocaleString() : 'Nunca'}
             </Text>
           </View>
 
           <View style={styles.infoRow}>
             <Text style={styles.infoLabel}>Operaciones en Cola Local:</Text>
-            <Text style={[styles.infoValue, pendingCount > 0 && styles.pendingHighlight]}>
+            <Text
+              style={[
+                styles.infoValue,
+                pendingCount > 0 && styles.pendingHighlight,
+              ]}
+            >
               {pendingCount} pendiente(s)
             </Text>
           </View>
 
           <Pressable
-            style={[styles.syncButton, status === "syncing" && styles.syncButtonDisabled]}
+            style={[
+              styles.syncButton,
+              status === 'syncing' && styles.syncButtonDisabled,
+            ]}
             onPress={() => {
               void triggerSync();
             }}
-            disabled={status === "syncing"}
+            disabled={status === 'syncing'}
           >
             <Text style={styles.syncButtonText}>
-              {status === "syncing" ? "Sincronizando..." : "Sincronizar Ahora"}
+              {status === 'syncing' ? 'Sincronizando...' : 'Sincronizar Ahora'}
             </Text>
           </Pressable>
         </View>
 
         {/* Panel de Simulación / Herramientas de Desarrollo */}
         <View style={styles.devCard}>
-          <Text style={styles.sectionTitle}>Simulador de Conectividad (Demo)</Text>
+          <Text style={styles.sectionTitle}>
+            Simulador de Conectividad (Demo)
+          </Text>
           <Text style={styles.sectionDescription}>
-            Usá estos controles para validar el comportamiento offline-first sin necesidad de apagar el Wi-Fi del celular.
+            Usá estos controles para validar el comportamiento offline-first sin
+            necesidad de apagar el Wi-Fi del celular.
           </Text>
 
           <View style={styles.switchRow}>
@@ -150,8 +194,11 @@ export function SyncScreen() {
             <Switch
               value={isOfflineMode}
               onValueChange={setOfflineMode}
-              trackColor={{ false: "#1B2A3E", true: "rgba(138, 199, 255, 0.4)" }}
-              thumbColor={isOfflineMode ? colors.primary : "#4F647C"}
+              trackColor={{
+                false: '#1B2A3E',
+                true: 'rgba(138, 199, 255, 0.4)',
+              }}
+              thumbColor={isOfflineMode ? colors.primary : '#4F647C'}
             />
           </View>
 
@@ -159,16 +206,22 @@ export function SyncScreen() {
 
           <View style={styles.switchRow}>
             <View style={styles.switchInfo}>
-              <Text style={styles.switchTitle}>Simular Caída del Servidor (HTTP 500)</Text>
+              <Text style={styles.switchTitle}>
+                Simular Caída del Servidor (HTTP 500)
+              </Text>
               <Text style={styles.switchSubtitle}>
-                La API responderá con un error interno para probar los reintentos locales.
+                La API responderá con un error interno para probar los
+                reintentos locales.
               </Text>
             </View>
             <Switch
               value={isServerErrorMode}
               onValueChange={setServerErrorMode}
-              trackColor={{ false: "#1B2A3E", true: "rgba(255, 180, 180, 0.4)" }}
-              thumbColor={isServerErrorMode ? "#FFB4B4" : "#4F647C"}
+              trackColor={{
+                false: '#1B2A3E',
+                true: 'rgba(255, 180, 180, 0.4)',
+              }}
+              thumbColor={isServerErrorMode ? '#FFB4B4' : '#4F647C'}
               disabled={isOfflineMode}
             />
           </View>
@@ -185,20 +238,24 @@ export function SyncScreen() {
 
           {logs.length === 0 ? (
             <View style={styles.emptyLogs}>
-              <Text style={styles.emptyLogsText}>Sin registros de actividad.</Text>
+              <Text style={styles.emptyLogsText}>
+                Sin registros de actividad.
+              </Text>
             </View>
           ) : (
             <View style={styles.logsListContainer}>
               {logs.map((item, index) => {
                 let textStyle = styles.logInfo;
-                if (item.type === "success") textStyle = styles.logSuccess;
-                if (item.type === "error") textStyle = styles.logError;
-                if (item.type === "warning") textStyle = styles.logWarning;
+                if (item.type === 'success') textStyle = styles.logSuccess;
+                if (item.type === 'error') textStyle = styles.logError;
+                if (item.type === 'warning') textStyle = styles.logWarning;
 
                 return (
                   <View key={index} style={styles.logRow}>
                     <Text style={styles.logTimestamp}>[{item.timestamp}]</Text>
-                    <Text style={[styles.logMessage, textStyle]}>{item.message}</Text>
+                    <Text style={[styles.logMessage, textStyle]}>
+                      {item.message}
+                    </Text>
                   </View>
                 );
               })}
@@ -210,214 +267,219 @@ export function SyncScreen() {
   );
 }
 
-const getStyles = (colors: ThemeColors, isDark: boolean) => StyleSheet.create({
-  safeArea: {
-    flex: 1,
-    backgroundColor: colors.background,
-  },
-  container: {
-    padding: spacing.xl,
-    gap: spacing.lg,
-    paddingBottom: 40,
-  },
-  header: {
-    gap: 6,
-    marginBottom: 4,
-  },
-  kicker: {
-    color: colors.primary,
-    textTransform: "uppercase",
-    letterSpacing: 1.4,
-    fontSize: 11,
-    fontWeight: "800",
-  },
-  title: {
-    color: colors.text,
-    fontSize: 28,
-    fontWeight: "800",
-  },
-  subtitle: {
-    color: colors.textMuted,
-    fontSize: 14,
-    lineHeight: 20,
-  },
-  card: {
-    padding: spacing.lg,
-    borderRadius: radius.lg,
-    borderWidth: 1,
-    gap: spacing.md,
-  },
-  statusRow: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-  },
-  statusLabel: {
-    color: colors.textMuted,
-    fontSize: 12,
-    fontWeight: "700",
-    textTransform: "uppercase",
-  },
-  statusValue: {
-    fontSize: 20,
-    fontWeight: "800",
-    marginTop: 2,
-  },
-  statusIndicatorDot: {
-    width: 12,
-    height: 12,
-    borderRadius: 6,
-  },
-  divider: {
-    height: 1,
-    backgroundColor: colors.border,
-  },
-  infoRow: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-  },
-  infoLabel: {
-    color: colors.textMuted,
-    fontSize: 13,
-  },
-  infoValue: {
-    color: colors.text,
-    fontSize: 13,
-    fontWeight: "700",
-  },
-  pendingHighlight: {
-    color: colors.primary,
-  },
-  syncButton: {
-    width: "100%",
-    paddingVertical: 14,
-    borderRadius: radius.md,
-    backgroundColor: isDark ? "rgba(138, 199, 255, 0.18)" : "rgba(4, 151, 191, 0.15)",
-    borderWidth: 1,
-    borderColor: isDark ? "rgba(138, 199, 255, 0.22)" : "rgba(4, 151, 191, 0.35)",
-    alignItems: "center",
-    marginTop: 4,
-  },
-  syncButtonDisabled: {
-    opacity: 0.6,
-  },
-  syncButtonText: {
-    color: isDark ? "#EAF4FF" : colors.primary,
-    fontSize: 14,
-    fontWeight: "800",
-  },
-  devCard: {
-    padding: spacing.lg,
-    borderRadius: radius.lg,
-    backgroundColor: colors.surface,
-    borderWidth: 1,
-    borderColor: colors.border,
-    gap: spacing.md,
-    ...(!isDark && {
-      shadowColor: "#000",
-      shadowOpacity: 0.04,
-      shadowRadius: 6,
-      shadowOffset: { width: 0, height: 3 },
-      elevation: 2,
-    }),
-  },
-  sectionTitle: {
-    color: colors.text,
-    fontSize: 15,
-    fontWeight: "800",
-  },
-  sectionDescription: {
-    color: colors.textMuted,
-    fontSize: 12,
-    lineHeight: 17,
-  },
-  switchRow: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    paddingVertical: 4,
-  },
-  switchInfo: {
-    flex: 1,
-    gap: 3,
-    paddingRight: 10,
-  },
-  switchTitle: {
-    color: colors.text,
-    fontSize: 13,
-    fontWeight: "700",
-  },
-  switchSubtitle: {
-    color: colors.textMuted,
-    fontSize: 11,
-    lineHeight: 15,
-  },
-  logsCard: {
-    padding: spacing.lg,
-    borderRadius: radius.lg,
-    backgroundColor: isDark ? "rgba(7, 17, 31, 0.5)" : colors.surfaceCard,
-    borderWidth: 1,
-    borderColor: colors.border,
-    gap: spacing.md,
-  },
-  logsHeader: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-  },
-  logsSectionTitle: {
-    color: colors.text,
-    fontSize: 15,
-    fontWeight: "800",
-  },
-  clearButton: {
-    paddingVertical: 4,
-    paddingHorizontal: 8,
-  },
-  clearButtonText: {
-    color: colors.primary,
-    fontSize: 12,
-    fontWeight: "700",
-  },
-  emptyLogs: {
-    paddingVertical: 18,
-    alignItems: "center",
-  },
-  emptyLogsText: {
-    color: colors.textMuted,
-    fontSize: 12,
-  },
-  logsListContainer: {
-    gap: 8,
-    maxHeight: 280,
-  },
-  logRow: {
-    flexDirection: "row",
-    gap: 6,
-    alignItems: "flex-start",
-  },
-  logTimestamp: {
-    color: isDark ? "#6C8096" : "#8CA1B3",
-    fontSize: 11,
-    fontFamily: "monospace",
-  },
-  logMessage: {
-    flex: 1,
-    fontSize: 11,
-    lineHeight: 15,
-    fontFamily: "monospace",
-  },
-  logInfo: {
-    color: colors.text,
-  },
-  logSuccess: {
-    color: colors.success,
-  },
-  logWarning: {
-    color: isDark ? "#FFC069" : "#E67E22",
-  },
-  logError: {
-    color: isDark ? "#FFB4B4" : "#D32F2F",
-  },
-});
+const getStyles = (colors: ThemeColors, isDark: boolean) =>
+  StyleSheet.create({
+    safeArea: {
+      flex: 1,
+      backgroundColor: colors.background,
+    },
+    container: {
+      padding: spacing.xl,
+      gap: spacing.lg,
+      paddingBottom: 40,
+    },
+    header: {
+      gap: 6,
+      marginBottom: 4,
+    },
+    kicker: {
+      color: colors.primary,
+      textTransform: 'uppercase',
+      letterSpacing: 1.4,
+      fontSize: 11,
+      fontWeight: '800',
+    },
+    title: {
+      color: colors.text,
+      fontSize: 28,
+      fontWeight: '800',
+    },
+    subtitle: {
+      color: colors.textMuted,
+      fontSize: 14,
+      lineHeight: 20,
+    },
+    card: {
+      padding: spacing.lg,
+      borderRadius: radius.lg,
+      borderWidth: 1,
+      gap: spacing.md,
+    },
+    statusRow: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+    },
+    statusLabel: {
+      color: colors.textMuted,
+      fontSize: 12,
+      fontWeight: '700',
+      textTransform: 'uppercase',
+    },
+    statusValue: {
+      fontSize: 20,
+      fontWeight: '800',
+      marginTop: 2,
+    },
+    statusIndicatorDot: {
+      width: 12,
+      height: 12,
+      borderRadius: 6,
+    },
+    divider: {
+      height: 1,
+      backgroundColor: colors.border,
+    },
+    infoRow: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+    },
+    infoLabel: {
+      color: colors.textMuted,
+      fontSize: 13,
+    },
+    infoValue: {
+      color: colors.text,
+      fontSize: 13,
+      fontWeight: '700',
+    },
+    pendingHighlight: {
+      color: colors.primary,
+    },
+    syncButton: {
+      width: '100%',
+      paddingVertical: 14,
+      borderRadius: radius.md,
+      backgroundColor: isDark
+        ? 'rgba(138, 199, 255, 0.18)'
+        : 'rgba(4, 151, 191, 0.15)',
+      borderWidth: 1,
+      borderColor: isDark
+        ? 'rgba(138, 199, 255, 0.22)'
+        : 'rgba(4, 151, 191, 0.35)',
+      alignItems: 'center',
+      marginTop: 4,
+    },
+    syncButtonDisabled: {
+      opacity: 0.6,
+    },
+    syncButtonText: {
+      color: isDark ? '#EAF4FF' : colors.primary,
+      fontSize: 14,
+      fontWeight: '800',
+    },
+    devCard: {
+      padding: spacing.lg,
+      borderRadius: radius.lg,
+      backgroundColor: colors.surface,
+      borderWidth: 1,
+      borderColor: colors.border,
+      gap: spacing.md,
+      ...(!isDark && {
+        shadowColor: '#000',
+        shadowOpacity: 0.04,
+        shadowRadius: 6,
+        shadowOffset: { width: 0, height: 3 },
+        elevation: 2,
+      }),
+    },
+    sectionTitle: {
+      color: colors.text,
+      fontSize: 15,
+      fontWeight: '800',
+    },
+    sectionDescription: {
+      color: colors.textMuted,
+      fontSize: 12,
+      lineHeight: 17,
+    },
+    switchRow: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+      paddingVertical: 4,
+    },
+    switchInfo: {
+      flex: 1,
+      gap: 3,
+      paddingRight: 10,
+    },
+    switchTitle: {
+      color: colors.text,
+      fontSize: 13,
+      fontWeight: '700',
+    },
+    switchSubtitle: {
+      color: colors.textMuted,
+      fontSize: 11,
+      lineHeight: 15,
+    },
+    logsCard: {
+      padding: spacing.lg,
+      borderRadius: radius.lg,
+      backgroundColor: isDark ? 'rgba(7, 17, 31, 0.5)' : colors.surfaceCard,
+      borderWidth: 1,
+      borderColor: colors.border,
+      gap: spacing.md,
+    },
+    logsHeader: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+    },
+    logsSectionTitle: {
+      color: colors.text,
+      fontSize: 15,
+      fontWeight: '800',
+    },
+    clearButton: {
+      paddingVertical: 4,
+      paddingHorizontal: 8,
+    },
+    clearButtonText: {
+      color: colors.primary,
+      fontSize: 12,
+      fontWeight: '700',
+    },
+    emptyLogs: {
+      paddingVertical: 18,
+      alignItems: 'center',
+    },
+    emptyLogsText: {
+      color: colors.textMuted,
+      fontSize: 12,
+    },
+    logsListContainer: {
+      gap: 8,
+      maxHeight: 280,
+    },
+    logRow: {
+      flexDirection: 'row',
+      gap: 6,
+      alignItems: 'flex-start',
+    },
+    logTimestamp: {
+      color: isDark ? '#6C8096' : '#8CA1B3',
+      fontSize: 11,
+      fontFamily: 'monospace',
+    },
+    logMessage: {
+      flex: 1,
+      fontSize: 11,
+      lineHeight: 15,
+      fontFamily: 'monospace',
+    },
+    logInfo: {
+      color: colors.text,
+    },
+    logSuccess: {
+      color: colors.success,
+    },
+    logWarning: {
+      color: isDark ? '#FFC069' : '#E67E22',
+    },
+    logError: {
+      color: isDark ? '#FFB4B4' : '#D32F2F',
+    },
+  });

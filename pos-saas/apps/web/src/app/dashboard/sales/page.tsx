@@ -1,8 +1,8 @@
-"use client";
+'use client';
 
-import React, { useState } from "react";
-import { useAuth } from "@/context/AuthContext";
-import { useQuery } from "@tanstack/react-query";
+import React, { useState } from 'react';
+import { useAuth } from '@/context/AuthContext';
+import { useQuery } from '@tanstack/react-query';
 import {
   History,
   CreditCard,
@@ -12,30 +12,30 @@ import {
   X,
   Calendar,
   AlertTriangle,
-  Receipt
-} from "lucide-react";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Badge } from "@/components/ui/badge";
+  Receipt,
+} from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Badge } from '@/components/ui/badge';
 import {
   Table,
   TableHeader,
   TableBody,
   TableHead,
   TableRow,
-  TableCell
-} from "@/components/ui/table";
+  TableCell,
+} from '@/components/ui/table';
 import {
   Dialog,
   DialogContent,
   DialogHeader,
   DialogTitle,
   DialogDescription,
-  DialogFooter
-} from "@/components/ui/dialog";
-import { Spinner } from "@/components/ui/spinner";
-import { ErrorMessage } from "@/components/ui/error-message";
-import { API_BASE } from "@/lib/api";
+  DialogFooter,
+} from '@/components/ui/dialog';
+import { Spinner } from '@/components/ui/spinner';
+import { ErrorMessage } from '@/components/ui/error-message';
+import { API_BASE } from '@/lib/api';
 
 interface Product {
   name: string;
@@ -72,44 +72,48 @@ interface Sale {
 
 export default function SalesHistoryPage() {
   const { session, tenant } = useAuth();
-  const [search, setSearch] = useState("");
+  const [search, setSearch] = useState('');
   const [selectedSale, setSelectedSale] = useState<Sale | null>(null);
 
   // Queries
-  const { data: sales = [], isLoading, error } = useQuery<Sale[]>({
-    queryKey: ["sales"],
+  const {
+    data: sales = [],
+    isLoading,
+    error,
+  } = useQuery<Sale[]>({
+    queryKey: ['sales'],
     queryFn: async () => {
       const res = await fetch(`${API_BASE}/dashboard/sales`, {
         headers: { Authorization: `Bearer ${session?.access_token}` },
       });
-      if (!res.ok) throw new Error("Failed to fetch sales");
+      if (!res.ok) throw new Error('Failed to fetch sales');
       return res.json();
     },
     enabled: !!session,
   });
 
   const formatCurrency = (amount: number) => {
-    const currency = tenant?.currency || "ARS";
-    return new Intl.NumberFormat("es-AR", {
-      style: "currency",
+    const currency = tenant?.currency || 'ARS';
+    return new Intl.NumberFormat('es-AR', {
+      style: 'currency',
       currency: currency,
     }).format(amount);
   };
 
   const formatDate = (dateStr: string) => {
-    return new Date(dateStr).toLocaleString("es-AR", {
-      hour: "2-digit",
-      minute: "2-digit",
-      day: "2-digit",
-      month: "2-digit",
-      year: "numeric",
+    return new Date(dateStr).toLocaleString('es-AR', {
+      hour: '2-digit',
+      minute: '2-digit',
+      day: '2-digit',
+      month: '2-digit',
+      year: 'numeric',
     });
   };
 
   // Filter sales
   const filteredSales = sales.filter((sale) => {
-    const cashierName = sale.user?.name || "Desconocido";
-    const payment = sale.paymentMethod === "card" ? "tarjeta" : "efectivo";
+    const cashierName = sale.user?.name || 'Desconocido';
+    const payment = sale.paymentMethod === 'card' ? 'tarjeta' : 'efectivo';
     return (
       cashierName.toLowerCase().includes(search.toLowerCase()) ||
       sale.id.includes(search) ||
@@ -132,9 +136,12 @@ export default function SalesHistoryPage() {
     <div className="space-y-6 animate-fade-in">
       {/* Title */}
       <div>
-        <h1 className="text-2xl font-bold tracking-tight text-white">Historial de Tickets</h1>
+        <h1 className="text-2xl font-bold tracking-tight text-white">
+          Historial de Tickets
+        </h1>
         <p className="text-sm text-slate-400 mt-1">
-          Visualiza el historial detallado de todas las ventas emitidas en tus terminales de cobro.
+          Visualiza el historial detallado de todas las ventas emitidas en tus
+          terminales de cobro.
         </p>
       </div>
 
@@ -149,7 +156,10 @@ export default function SalesHistoryPage() {
           className="bg-transparent border-none outline-none text-slate-200 text-sm w-full placeholder-slate-500 py-1"
         />
         {search && (
-          <button onClick={() => setSearch("")} className="text-slate-500 hover:text-slate-350 cursor-pointer">
+          <button
+            onClick={() => setSearch('')}
+            className="text-slate-500 hover:text-slate-350 cursor-pointer"
+          >
             <X className="h-4 w-4" />
           </button>
         )}
@@ -186,23 +196,27 @@ export default function SalesHistoryPage() {
                     </span>
                   </TableCell>
                   <TableCell className="font-semibold text-slate-200">
-                    {sale.user?.name || "Desconocido"}
+                    {sale.user?.name || 'Desconocido'}
                   </TableCell>
                   <TableCell className="text-center">
                     <Badge
-                      variant={sale.paymentMethod === "card" ? "secondary" : "success"}
+                      variant={
+                        sale.paymentMethod === 'card' ? 'secondary' : 'success'
+                      }
                       className={
-                        sale.paymentMethod === "card"
-                          ? "bg-purple-500/10 text-purple-400 border-purple-500/25 px-2.5 py-1"
-                          : "bg-emerald-500/10 text-emerald-450 border-emerald-500/25 px-2.5 py-1"
+                        sale.paymentMethod === 'card'
+                          ? 'bg-purple-500/10 text-purple-400 border-purple-500/25 px-2.5 py-1'
+                          : 'bg-emerald-500/10 text-emerald-450 border-emerald-500/25 px-2.5 py-1'
                       }
                     >
-                      {sale.paymentMethod === "card" ? (
+                      {sale.paymentMethod === 'card' ? (
                         <CreditCard className="h-3 w-3 mr-1" />
                       ) : (
                         <Coins className="h-3 w-3 mr-1" />
                       )}
-                      <span>{sale.paymentMethod === "card" ? "Tarjeta" : "Efectivo"}</span>
+                      <span>
+                        {sale.paymentMethod === 'card' ? 'Tarjeta' : 'Efectivo'}
+                      </span>
                     </Badge>
                   </TableCell>
                   <TableCell className="text-right font-bold text-slate-200">
@@ -228,14 +242,18 @@ export default function SalesHistoryPage() {
             <History className="h-12 w-12 text-slate-700 mb-3" />
             <h3 className="text-slate-300 font-bold">No hay registros</h3>
             <p className="text-sm mt-1 max-w-xs">
-              No se han emitido tickets de venta que coincidan con los filtros de búsqueda.
+              No se han emitido tickets de venta que coincidan con los filtros
+              de búsqueda.
             </p>
           </div>
         )}
       </div>
 
       {/* Sale Details Modal */}
-      <Dialog open={!!selectedSale} onOpenChange={(open) => !open && setSelectedSale(null)}>
+      <Dialog
+        open={!!selectedSale}
+        onOpenChange={(open) => !open && setSelectedSale(null)}
+      >
         {selectedSale && (
           <DialogContent className="max-w-lg">
             <DialogHeader>
@@ -253,35 +271,55 @@ export default function SalesHistoryPage() {
               <div className="grid grid-cols-2 gap-y-3.5 text-sm p-4 bg-slate-950/60 border border-slate-900 rounded-xl">
                 <div>
                   <p className="text-xs text-slate-500">ID del Ticket</p>
-                  <p className="font-mono text-xs text-slate-300 mt-0.5 select-all">{selectedSale.id}</p>
+                  <p className="font-mono text-xs text-slate-300 mt-0.5 select-all">
+                    {selectedSale.id}
+                  </p>
                 </div>
                 <div>
                   <p className="text-xs text-slate-500">Fecha y Hora</p>
-                  <p className="font-medium text-slate-300 mt-0.5">{formatDate(selectedSale.createdAt)}</p>
+                  <p className="font-medium text-slate-300 mt-0.5">
+                    {formatDate(selectedSale.createdAt)}
+                  </p>
                 </div>
                 <div>
                   <p className="text-xs text-slate-500">Cajero Responsable</p>
-                  <p className="font-medium text-slate-300 mt-0.5">{selectedSale.user?.name || "Desconocido"}</p>
+                  <p className="font-medium text-slate-300 mt-0.5">
+                    {selectedSale.user?.name || 'Desconocido'}
+                  </p>
                 </div>
                 <div>
                   <p className="text-xs text-slate-500">Método de Pago</p>
-                  <p className="font-medium text-slate-300 mt-0.5 capitalize">{selectedSale.paymentMethod === "card" ? "Tarjeta" : "Efectivo"}</p>
+                  <p className="font-medium text-slate-300 mt-0.5 capitalize">
+                    {selectedSale.paymentMethod === 'card'
+                      ? 'Tarjeta'
+                      : 'Efectivo'}
+                  </p>
                 </div>
               </div>
 
               {/* Items List */}
               <div>
-                <h3 className="text-xs font-bold text-slate-400 uppercase tracking-wide mb-3">Artículos Vendidos</h3>
+                <h3 className="text-xs font-bold text-slate-400 uppercase tracking-wide mb-3">
+                  Artículos Vendidos
+                </h3>
                 <div className="space-y-2 max-h-[25vh] overflow-y-auto pr-1">
                   {selectedSale.items.map((item) => (
-                    <div key={item.id} className="flex justify-between items-center py-2.5 border-b border-slate-800/60 text-xs">
+                    <div
+                      key={item.id}
+                      className="flex justify-between items-center py-2.5 border-b border-slate-800/60 text-xs"
+                    >
                       <div>
-                        <p className="font-semibold text-slate-200">{item.product?.name || "Producto sin nombre"}</p>
+                        <p className="font-semibold text-slate-200">
+                          {item.product?.name || 'Producto sin nombre'}
+                        </p>
                         <p className="text-[10px] text-slate-500 mt-0.5">
-                          {Number(item.quantity)} {item.product?.unit || "un"} x {formatCurrency(Number(item.unitPrice))}
+                          {Number(item.quantity)} {item.product?.unit || 'un'} x{' '}
+                          {formatCurrency(Number(item.unitPrice))}
                         </p>
                       </div>
-                      <p className="font-bold text-slate-300">{formatCurrency(Number(item.subtotal))}</p>
+                      <p className="font-bold text-slate-300">
+                        {formatCurrency(Number(item.subtotal))}
+                      </p>
                     </div>
                   ))}
                 </div>
@@ -289,7 +327,9 @@ export default function SalesHistoryPage() {
 
               {/* Summary */}
               <div className="pt-4 border-t border-slate-800 flex justify-between items-center">
-                <span className="text-sm font-semibold text-slate-400">Total Recaudado</span>
+                <span className="text-sm font-semibold text-slate-400">
+                  Total Recaudado
+                </span>
                 <span className="text-xl font-extrabold text-indigo-400">
                   {formatCurrency(Number(selectedSale.total))}
                 </span>
@@ -297,10 +337,7 @@ export default function SalesHistoryPage() {
             </div>
 
             <DialogFooter>
-              <Button
-                onClick={() => setSelectedSale(null)}
-                variant="outline"
-              >
+              <Button onClick={() => setSelectedSale(null)} variant="outline">
                 Cerrar Detalle
               </Button>
             </DialogFooter>

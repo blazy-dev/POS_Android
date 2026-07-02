@@ -1,6 +1,6 @@
-import type { SQLiteDatabase } from "expo-sqlite";
-import { enqueueSyncOperation } from "../../database";
-import { createLocalId } from "../../utils/ids";
+import type { SQLiteDatabase } from 'expo-sqlite';
+import { enqueueSyncOperation } from '../../database';
+import { createLocalId } from '../../utils/ids';
 
 export interface CashRegisterRecord {
   id: string;
@@ -10,30 +10,30 @@ export interface CashRegisterRecord {
   closed_at: string | null;
   opening_amount: number;
   closing_amount: number | null;
-  status: "open" | "closed";
+  status: 'open' | 'closed';
 }
 
 /**
  * Busca si existe una sesión de caja activa (abierta) localmente.
- * 
+ *
  * @param db Instancia de SQLiteDatabase
  * @param tenantId ID de la empresa (multi-tenant)
  */
 export async function getActiveSession(
   db: SQLiteDatabase,
-  tenantId = "local"
+  tenantId = 'local',
 ): Promise<CashRegisterRecord | null> {
   return db.getFirstAsync<CashRegisterRecord>(
     `SELECT id, tenant_id, opened_by, opened_at, closed_at, opening_amount, closing_amount, status
      FROM cash_registers
      WHERE tenant_id = $tenantId AND status = 'open'`,
-    { $tenantId: tenantId }
+    { $tenantId: tenantId },
   );
 }
 
 /**
  * Registra la apertura de una nueva sesión de caja.
- * 
+ *
  * @param db Instancia de SQLiteDatabase
  * @param userId UUID del usuario que abre la caja
  * @param openingAmount Monto inicial en efectivo
@@ -43,9 +43,9 @@ export async function openRegister(
   db: SQLiteDatabase,
   userId: string,
   openingAmount: number,
-  tenantId = "local"
+  tenantId = 'local',
 ): Promise<string> {
-  const sessionId = createLocalId("session");
+  const sessionId = createLocalId('session');
   const now = new Date().toISOString();
 
   await db.runAsync(
@@ -78,22 +78,22 @@ export async function openRegister(
       $userId: userId,
       $now: now,
       $openingAmount: openingAmount,
-    }
+    },
   );
 
   // Registrar la operación en la cola de sincronización
   await enqueueSyncOperation(db, {
-    id: createLocalId("sync"),
-    entityType: "cash_register",
+    id: createLocalId('sync'),
+    entityType: 'cash_register',
     entityId: sessionId,
-    kind: "create",
+    kind: 'create',
     payload: {
       id: sessionId,
       tenant_id: tenantId,
       opened_by: userId,
       opened_at: now,
       opening_amount: openingAmount,
-      status: "open",
+      status: 'open',
     },
   });
 
@@ -102,7 +102,7 @@ export async function openRegister(
 
 /**
  * Cierra una sesión de caja activa.
- * 
+ *
  * @param db Instancia de SQLiteDatabase
  * @param sessionId UUID de la sesión de caja a cerrar
  * @param closingAmount Monto de dinero real al arqueo de cierre
@@ -112,7 +112,7 @@ export async function closeRegister(
   db: SQLiteDatabase,
   sessionId: string,
   closingAmount: number,
-  tenantId = "local"
+  tenantId = 'local',
 ): Promise<void> {
   const now = new Date().toISOString();
 
@@ -128,21 +128,21 @@ export async function closeRegister(
       $tenantId: tenantId,
       $closingAmount: closingAmount,
       $now: now,
-    }
+    },
   );
 
   // Registrar la operación de actualización en la cola de sincronización
   await enqueueSyncOperation(db, {
-    id: createLocalId("sync"),
-    entityType: "cash_register",
+    id: createLocalId('sync'),
+    entityType: 'cash_register',
     entityId: sessionId,
-    kind: "update",
+    kind: 'update',
     payload: {
       id: sessionId,
       tenant_id: tenantId,
       closed_at: now,
       closing_amount: closingAmount,
-      status: "closed",
+      status: 'closed',
     },
   });
 }
@@ -150,7 +150,7 @@ export async function closeRegister(
 /**
  * Calcula la suma total de las ventas realizadas en efectivo durante la sesión actual de caja.
  * Esto ayuda a determinar el arqueo teórico de dinero esperado.
- * 
+ *
  * @param db Instancia de SQLiteDatabase
  * @param sessionId UUID de la sesión de caja
  * @param tenantId ID de la empresa (multi-tenant)
@@ -158,7 +158,7 @@ export async function closeRegister(
 export async function getCashSalesSum(
   db: SQLiteDatabase,
   sessionId: string,
-  tenantId = "local"
+  tenantId = 'local',
 ): Promise<number> {
   const row = await db.getFirstAsync<{ sum: number }>(
     `SELECT SUM(total) as sum
@@ -170,7 +170,7 @@ export async function getCashSalesSum(
     {
       $tenantId: tenantId,
       $sessionId: sessionId,
-    }
+    },
   );
 
   return row?.sum ?? 0;
