@@ -136,7 +136,7 @@ export async function checkApiHealth(): Promise<boolean> {
   try {
     console.log('[API] Health check:', `${apiConfig.baseUrl}/health`);
     const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 2000); // 2 segundos de timeout
+    const timeoutId = setTimeout(() => controller.abort(), 5000);
 
     const response = await fetch(`${apiConfig.baseUrl}/health`, {
       method: 'GET',
