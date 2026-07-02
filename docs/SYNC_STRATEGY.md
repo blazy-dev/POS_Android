@@ -447,3 +447,85 @@ const existing = await db.getFirstAsync(
 );
 if (existing) continue; // Ya hay una pendiente, no duplicar
 ```
+
+---
+
+## Web Sync Indicator (2026-07-01)
+
+Para mantener la coherencia con la app movil, el dashboard web ahora tiene un indicador de sincronizacion en el header (esquina superior derecha).
+
+### Componente: `apps/web/src/components/SyncIndicator.tsx`
+
+```
+┌──────────────────────────────────────────┐
+│  [╰☰] Auto-sync  ✓ Sincronizado  [↻]    │
+└──────────────────────────────────────────┘
+```
+
+| Elemento | Funcion |
+|----------|---------|
+| **Toggle auto-sync** | Switch para activar/desactivar el polling automatico (30s) |
+| **Status icon** | Muestra: ✓ Sincronizado, ↻ Sincronizando..., ! Sin conexion |
+| **Sync button** | Fuerza la recarga de TODAS las queries de React Query |
+
+### Como funciona
+
+1. **Al cargar la pagina:** Verifica health del backend. Si no responde, muestra "Sin conexion".
+2. **Auto-sync (30s):** Cada 30 segundos chequea health y muestra "Actualizado" por 2s.
+3. **Boton manual:** Invalida y refetch de todas las queries de React Query (productos, empleados, ventas, metricas). Equivalente al boton "Sync" del movil.
+4. **Toggle:** Desactiva el polling automatico si el usuario prefiere control manual.
+
+### Archivos involucrados
+
+| Archivo | Cambio |
+|---------|--------|
+| `apps/web/src/components/SyncIndicator.tsx` | Nuevo componente de indicador de sync |
+| `apps/web/src/app/dashboard/layout.tsx` | Agregado `<SyncIndicator />` en el header |
+
+---
+
+## Seed Users en Mobile (2026-07-01)
+
+Los usuarios seed (Administrador y Cajero de Prueba con email `@pos.local`) son cuentas de prueba locales. No se pueden eliminar ni editar desde la interfaz de empleados.
+
+| Accion | Seed user | Usuario real |
+|--------|-----------|--------------|
+| Mostrar en lista | ✓ | ✓ |
+| Boton Editar | ✗ | ✓ |
+| Boton Baja | ✗ | ✓ |
+| Sincronizar a backend | ✗ | ✓ |
+
+**Implementacion en `EmployeeManagementScreen.tsx`:**
+```tsx
+const isSeed = emp.email.endsWith('@pos.local');
+{!isSelf && !isSeed && (
+  // ...botones de editar y baja
+)}
+```
+
+---
+
+## Reglas para no romper la sincronizacion
+
+### Mobile
+
+1. **NUNCA llamar `supabase.auth.setSession()`** — hace fetch a Supabase desde el celu y falla con "Network request failed". Usar `setCachedToken()` en su lugar.
+2. **Siempre usar `getCachedToken()`** en vez de `supabase.auth.getSession()` para API calls.
+3. **Resetear `lastSyncAt`** al hacer login para forzar pull completo.
+4. **Validar email unico** antes de guardar un empleado (`isEmailTaken()`).
+5. **No filtrar por `tenant_id`** en UPDATE/DELETE de usuarios (seed users tienen tenant='local').
+6. **Seed users protegidos** — no mostrar botones de editar/baja para emails `@pos.local`.
+
+### Web
+
+1. **Usar `apiFetch`** en vez de fetch directo (centraliza headers y error handling).
+2. **Siempre poner `staleTime`** positivo en queries (10-30s segun el recurso).
+3. **Invalida queries** despues de mutaciones (`invalidateQueries`).
+4. **Refetch periodicamente** con el SyncIndicator o `refetchInterval`.
+
+### Backend
+
+1. **Upsert por email** en User — garantiza unicidad y evita duplicados.
+2. **Logging de PUSH user** con tenantId para debuggear problemas de tenant.
+3. **Self-healing de categorias** — si `categoryId` no es UUID, buscarla/crearla por nombre.
+4. **Barcode nullable** — multiples NULL permitidos en unique constraint de PostgreSQL.

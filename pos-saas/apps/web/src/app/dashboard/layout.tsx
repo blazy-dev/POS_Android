@@ -15,6 +15,7 @@ import {
   User as UserIcon,
   FolderOpen,
 } from 'lucide-react';
+import { SyncIndicator } from '@/components/SyncIndicator';
 
 export default function DashboardLayout({
   children,
@@ -173,6 +174,7 @@ export default function DashboardLayout({
           </div>
 
           <div className="flex items-center space-x-4">
+            <SyncIndicator />
             <div className="text-xs text-slate-500 flex items-center space-x-1">
               <FolderOpen className="h-4.5 w-4.5 text-slate-600" />
               <span>ID:</span>

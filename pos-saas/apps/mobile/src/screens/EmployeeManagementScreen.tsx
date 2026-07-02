@@ -399,7 +399,7 @@ export function EmployeeManagementScreen({
                   </View>
                 </View>
 
-                {!isSelf && (
+                {!isSelf && !emp.email.endsWith('@pos.local') && (
                   <View style={styles.empActions}>
                     <Pressable
                       style={styles.editButton}
