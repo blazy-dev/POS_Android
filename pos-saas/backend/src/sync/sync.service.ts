@@ -303,6 +303,9 @@ export class SyncService {
                 update: clean,
               });
             } else if (entity_type === 'user') {
+              this.logger.log(
+                `PUSH user: ${payload.email} role=${payload.role} to tenant=${tenantId}`,
+              );
               const clean = this.cleanUser(payload, tenantId);
               if (payload.role) {
                 let role = await tx.role.findFirst({
