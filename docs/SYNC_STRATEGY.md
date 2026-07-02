@@ -187,3 +187,214 @@ curl "http://localhost:3001/api/v1/sync/pull" \
 | 2026-07-01 | Agregadas tablas `categories` y `customers` en SQLite |
 | 2026-07-01 | Auto-sync al arranque siempre activado (pull de cambios web) |
 | 2026-07-01 | Polling periodico cada 60s (antes 30s solo si habia pendientes) |
+
+---
+
+## Token y Tenant: El Flujo Completo (DOCUMENTADO 2026-07-01)
+
+Este es el punto mas critico y la fuente del 90% de los bugs de sincronizacion. Si algo se rompe, leer esta seccion PRIMERO.
+
+### Por que se SKIPEA supabase.auth.setSession()
+
+El SDK de Supabase llama `fetch()` a `supabase.co` cuando se ejecuta `setSession()`. En algunos entornos de red movil, el `fetch()` del runtime de React Native falla aunque el navegador del sistema si pueda cargar `supabase.co`.
+
+**Decision:** NUNCA llamar `supabase.auth.setSession()` desde el celular.
+
+```typescript
+// apps/mobile/src/context/AuthContext.tsx - loginWithGoogle()
+// El token de Google OAuth se extrae del callback URL
+const accessToken = getParam(result.url, 'access_token');
+
+// SE SKIPPEA: await supabase.auth.setSession({ access_token, refresh_token });
+
+// En su lugar, se cachea en memoria y se usa directo contra el backend
+setCachedToken(accessToken);
+```
+
+### Como se autentican las requests sin setSession()
+
+El token se guarda en una variable en memoria (`cachedToken` en `client.ts`). Todas las requests al backend (sync push, sync pull, health check) lo usan via `getAuthToken()`:
+
+```typescript
+// apps/mobile/src/api/client.ts
+let cachedToken: string | null = null;
+
+export function setCachedToken(token: string | null) {
+  cachedToken = token;
+}
+
+async function getAuthToken(): Promise<string> {
+  // 1. Si hay token cacheado -> usarlo (token real del usuario)
+  if (cachedToken) return cachedToken;
+
+  // 2. Intentar leer sesion de SecureStore (solo funciona si setSession() fue llamado)
+  const { data: { session } } = await supabase.auth.getSession();
+  if (session) return session.access_token;
+
+  // 3. Fallback: test-token (usuario demo, tenant distinto!)
+  //    SOLO para desarrollo. Causa sync en tenant INCORRECTO.
+  return 'test-token';
+}
+```
+
+### Por que se resetea lastSyncAt en cada login
+
+```typescript
+// apps/mobile/src/context/AuthContext.tsx - loginWithGoogle()
+// Resetear lastSyncAt para que el proximo pull descargue TODO
+await db.runAsync(
+  `UPDATE device_state SET last_sync_at = NULL WHERE id = 1`
+);
+```
+
+**Motivo:** El sync se ejecuta al montar la app (antes del login) con `test-token` y un tenant incorrecto. Ese sync SETEA `last_sync_at` a la fecha actual. Cuando el usuario se loguea y el sync usa el token real (tenant correcto), el backend filtra por `updatedAt > lastSyncAt`. Como los productos se crearon ANTES de ese timestamp, el pull devuelve 0 cambios.
+
+Resetear `lastSyncAt` a NULL fuerza que el proximo pull descargue TODOS los registros del tenant correcto.
+
+### Flujo completo paso a paso
+
+```
+1. App abre (sin sesion)
+   └─ SyncContext: triggerSync()
+      └─ getAuthToken() -> 'test-token' (sin cachedToken)
+      └─ Push: 0 ops pendientes
+      └─ Pull: GET /sync/pull (tenant demo)
+         └─ Guard: test-token -> usuario demo hardcodeado
+         └─ lastSyncAt = NULL? SI -> descarga TODO del tenant demo
+         └─ SETEA device_state.last_sync_at = server_time
+
+2. Usuario hace Login con Google
+   └─ AuthContext: loginWithGoogle()
+      └─ WebBrowser.openAuthSessionAsync(oauthUrl)
+      └─ Extrae accessToken del callback
+      └─ setCachedToken(accessToken)           // <-- guarda token real
+      └─ Resetea lastSyncAt = NULL              // <-- limpia timestamp viejo
+      └─ syncWithBackend(db, accessToken)
+         └─ POST /auth/register-or-link (token real)
+         └─ Backend: guard valida JWT via JWKS de Supabase
+         └─ Guard: busca usuario en DB
+            └─ Si existe: devuelve user + tenant
+            └─ Si no: lo crea con tenant nuevo
+      └─ runSync(db)                            // <-- sync INMEDIATO
+         └─ getAuthToken() -> accessToken real  // cachedToken
+         └─ Push: 0 opciones pendientes
+         └─ Pull: GET /sync/pull (tenant correcto)
+            └─ Guard: JWT real -> busca usuario en DB -> tenantId correcto
+            └─ lastSyncAt = NULL -> descarga TODO
+            └─ Products, categories, customers, etc.
+            └─ SETEA device_state.last_sync_at = server_time
+
+3. Usuario crea producto en la web
+   └─ Dashboard: POST /dashboard/products
+   └─ Prisma: INSERT con updatedAt = now()
+
+4. Sync periodico (60s) o manual
+   └─ triggerSync() -> runSync()
+      └─ getAuthToken() -> accessToken real (sigue cacheado)
+      └─ Pull: GET /sync/pull?last_sync_at=<timestamp>
+      └─ Backend: WHERE updatedAt > <timestamp> -> encuentra el nuevo producto
+      └─ Mobile: INSERT INTO products ... ON CONFLICT DO UPDATE
+```
+
+---
+
+## Guia de Troubleshooting
+
+### "Los productos no aparecen en el celular"
+
+**Checklist (en orden):**
+
+1. **El backend esta corriendo?**
+   - `curl http://localhost:3001/api/v1/health` debe responder 200
+
+2. **El backend tiene conexion a Supabase?**
+   - Si ves `Can't reach database server` en los logs, revisa DATABASE_URL en `backend/.env`
+   - Pooler caido? Cambia a conexion directa (`db.dukyedgoyshhtjkuphow.supabase.co`)
+
+3. **El token esta cacheado?**
+   - Hace logout y login de nuevo (fuerza `setCachedToken`)
+   - Verifica en los logs de Metro: `[AUTH] accessToken: SI`
+
+4. **El lastSyncAt esta reseteado?**
+   - Hace logout y login de nuevo (fuerza reset)
+   - O manual: `UPDATE device_state SET last_sync_at = NULL WHERE id = 1`
+
+5. **Los productos existen en PostgreSQL?**
+   ```bash
+   curl "http://localhost:3001/api/v1/sync/pull" \
+     -H "Authorization: Bearer test-token" \
+     -H "X-Device-Id: debug"
+   ```
+   - Cuenta los cambios. Si `products > 0`, el backend esta OK.
+
+6. **El celular alcanza el backend?**
+   - Abri `http://192.168.0.10:3001/api/v1/health` en el navegador del celu
+   - Si no carga: Firewall de Windows bloqueando puerto 3001
+
+7. **El tenant es correcto?**
+   - El `test-token` mapea a un usuario demo con un tenant DISTINTO al real
+   - Solo usar `test-token` para debug, nunca para sync de datos reales
+   - El token real (de Google OAuth) mapea al tenant correcto
+
+### "Error: Network request failed" en el login Google
+
+- `supabase.auth.setSession()` hace fetch a supabase.co y falla en el celu
+- **NO usar setSession()** — ya esta arreglado en el codigo actual
+- Si vuelve: revisa `AuthContext.tsx -> loginWithGoogle()` que no llame a `setSession`
+
+### "AbortError: Aborted" en el health check
+
+- El backend no responde en 5 segundos (timeout)
+- Backend caido, o firewall bloqueando, o IP incorrecta en `.env`
+- Revisa `EXPO_PUBLIC_API_URL` en `apps/mobile/.env`
+
+### "Unique constraint failed on barcode"
+
+- Barcode duplicado (incluso de productos eliminados)
+- El backend ahora chequea TODOS los productos (activos e inactivos)
+- Mensaje incluye el ID del producto conflictivo
+
+### "Error creating UUID, invalid character"
+
+- El frontend mando un nombre de categoria ("Bebidas") como categoryId
+- El backend ahora tiene `resolveCategoryId()` que busca o crea la categoria por nombre
+
+---
+
+## Archivos Clave con la Logica de Token
+
+| Archivo | Funcion | Proposito |
+|---------|---------|-----------|
+| `apps/mobile/src/api/client.ts` | `setCachedToken()` | Guarda token en memoria |
+| `apps/mobile/src/api/client.ts` | `getCachedToken()` | Lee token cacheado |
+| `apps/mobile/src/api/client.ts` | `getAuthToken()` | Prioridad: cachedToken > SecureStore > test-token |
+| `apps/mobile/src/context/AuthContext.tsx` | `loginWithGoogle()` | `setCachedToken()` + reset `lastSyncAt` + `runSync()` |
+| `apps/mobile/src/context/AuthContext.tsx` | `completeOnboarding()` | `setCachedToken()` + reset `lastSyncAt` + `runSync()` |
+| `apps/mobile/src/context/AuthContext.tsx` | `logout()` | `setCachedToken(null)` + reset `lastSyncAt` |
+| `apps/mobile/src/sync/syncRunner.ts` | `runSync()` | PUSH (cola de sync_operations) + PULL (cambios del backend) |
+| `apps/mobile/src/context/SyncContext.tsx` | `triggerSync()` | Dispara sync desde UI o polling 60s |
+| `backend/src/auth/supabase.guard.ts` | `canActivate()` | Valida JWT, busca usuario, setea tenantId |
+| `backend/src/sync/sync.service.ts` | `pullChanges()` | Devuelve registros con `updatedAt > lastSyncAt` |
+
+---
+
+## Comandos de Debug
+
+```bash
+# Verificar backend health
+curl http://localhost:3001/api/v1/health
+
+# Verificar que el pull endpoint funciona (usuario demo)
+curl "http://localhost:3001/api/v1/sync/pull" \
+  -H "Authorization: Bearer test-token" \
+  -H "X-Device-Id: debug" | jq '.changes | group_by(.entity_type) | map({type: .[0].entity_type, count: length})'
+
+# Ver tabla device_state en SQLite (desde el celu con una app SQLite viewer)
+SELECT * FROM device_state;
+
+# Ver operaciones pendientes
+SELECT entity_type, operation, status, retries FROM sync_operations ORDER BY created_at DESC;
+
+# Listar productos locales
+SELECT id, name, barcode, stock FROM products WHERE is_active = 1;
+```
