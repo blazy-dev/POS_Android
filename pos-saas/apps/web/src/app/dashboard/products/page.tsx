@@ -37,7 +37,7 @@ import {
   DialogDescription,
 } from '@/components/ui/dialog';
 import { Spinner } from '@/components/ui/spinner';
-import { API_BASE } from '@/lib/api';
+import { apiFetch } from '@/lib/api';
 
 interface Category {
   id: string;
@@ -107,26 +107,22 @@ export default function ProductsPage() {
     Product[]
   >({
     queryKey: ['products'],
-    queryFn: async () => {
-      const res = await fetch(`${API_BASE}/dashboard/products`, {
-        headers: { Authorization: `Bearer ${session?.access_token}` },
-      });
-      if (!res.ok) throw new Error('Failed to fetch products');
-      return res.json();
-    },
+    queryFn: () =>
+      apiFetch<Product[]>('/dashboard/products', {
+        token: session?.access_token,
+      }),
     enabled: !!session,
+    staleTime: 30_000,
   });
 
   const { data: categories = [] } = useQuery<Category[]>({
     queryKey: ['categories'],
-    queryFn: async () => {
-      const res = await fetch(`${API_BASE}/dashboard/categories`, {
-        headers: { Authorization: `Bearer ${session?.access_token}` },
-      });
-      if (!res.ok) throw new Error('Failed to fetch categories');
-      return res.json();
-    },
+    queryFn: () =>
+      apiFetch<Category[]>('/dashboard/categories', {
+        token: session?.access_token,
+      }),
     enabled: !!session,
+    staleTime: 60_000,
   });
 
   const categoryOptions = useMemo(() => {
@@ -148,12 +144,9 @@ export default function ProductsPage() {
 
   const createProductMutation = useMutation({
     mutationFn: async (data: typeof productForm) => {
-      const res = await fetch(`${API_BASE}/dashboard/products`, {
+      return apiFetch('/dashboard/products', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${session?.access_token}`,
-        },
+        token: session?.access_token,
         body: JSON.stringify({
           barcode: data.barcode.trim() || undefined,
           name: data.name,
@@ -167,11 +160,6 @@ export default function ProductsPage() {
           unit: data.unit,
         }),
       });
-      if (!res.ok) {
-        const err = await res.json();
-        throw new Error(err.message || 'Error al crear producto');
-      }
-      return res.json();
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['products'] });
@@ -192,12 +180,9 @@ export default function ProductsPage() {
       id: string;
       data: typeof productForm;
     }) => {
-      const res = await fetch(`${API_BASE}/dashboard/products/${id}`, {
+      return apiFetch(`/dashboard/products/${id}`, {
         method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${session?.access_token}`,
-        },
+        token: session?.access_token,
         body: JSON.stringify({
           barcode: data.barcode.trim() || undefined,
           name: data.name,
@@ -211,11 +196,6 @@ export default function ProductsPage() {
           unit: data.unit,
         }),
       });
-      if (!res.ok) {
-        const err = await res.json();
-        throw new Error(err.message || 'Error al actualizar producto');
-      }
-      return res.json();
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['products'] });
@@ -231,11 +211,10 @@ export default function ProductsPage() {
 
   const deleteProductMutation = useMutation({
     mutationFn: async (id: string) => {
-      const res = await fetch(`${API_BASE}/dashboard/products/${id}`, {
+      return apiFetch(`/dashboard/products/${id}`, {
         method: 'DELETE',
-        headers: { Authorization: `Bearer ${session?.access_token}` },
+        token: session?.access_token,
       });
-      if (!res.ok) throw new Error('Error al eliminar producto');
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['products'] });
@@ -245,16 +224,11 @@ export default function ProductsPage() {
 
   const createCategoryMutation = useMutation({
     mutationFn: async (name: string) => {
-      const res = await fetch(`${API_BASE}/dashboard/categories`, {
+      return apiFetch('/dashboard/categories', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${session?.access_token}`,
-        },
+        token: session?.access_token,
         body: JSON.stringify({ name }),
       });
-      if (!res.ok) throw new Error('Error al crear categoria');
-      return res.json();
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['categories'] });

@@ -33,12 +33,19 @@ export class DashboardController {
         tenantId: user.tenantId,
         isActive: true,
       },
-      include: {
-        category: true,
+      select: {
+        id: true,
+        barcode: true,
+        name: true,
+        purchasePrice: true,
+        salePrice: true,
+        stock: true,
+        minimumStock: true,
+        unit: true,
+        categoryId: true,
+        category: { select: { id: true, name: true } },
       },
-      orderBy: {
-        updatedAt: 'desc',
-      },
+      orderBy: { updatedAt: 'desc' },
     });
   }
 
