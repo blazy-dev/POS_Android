@@ -31,6 +31,7 @@ export class AuthController {
           tenant: {
             id: existingUser.tenant.id,
             name: existingUser.tenant.name,
+            email: existingUser.tenant.email,
             currency: existingUser.tenant.currency,
             timezone: existingUser.tenant.timezone,
           },

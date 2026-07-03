@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useAuth } from '@/context/AuthContext';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import {
@@ -13,6 +13,7 @@ import {
   UserCheck,
   UserMinus,
   Edit2,
+  CheckCircle2,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -67,6 +68,15 @@ export default function EmployeesPage() {
     isActive: true,
   });
   const [formError, setFormError] = useState('');
+  const [notice, setNotice] = useState<string | null>(null);
+  const [pendingToggleId, setPendingToggleId] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!notice) return;
+
+    const timer = setTimeout(() => setNotice(null), 2500);
+    return () => clearTimeout(timer);
+  }, [notice]);
 
   // Check admin rights
   const isAdmin = user?.role === 'admin';
@@ -79,7 +89,7 @@ export default function EmployeesPage() {
         token: session?.access_token,
       }),
     enabled: !!session && isAdmin,
-    staleTime: 10_000,
+    staleTime: 5 * 60 * 1000,
   });
 
   // Mutations
@@ -128,8 +138,22 @@ export default function EmployeesPage() {
         body: JSON.stringify({ isActive }),
       });
     },
-    onSuccess: () => {
+    onMutate: ({ id }) => {
+      setPendingToggleId(id);
+    },
+    onSuccess: (_data, variables) => {
       queryClient.invalidateQueries({ queryKey: ['employees'] });
+      setNotice(
+        variables.isActive
+          ? 'Usuario activado correctamente'
+          : 'Usuario desactivado correctamente',
+      );
+    },
+    onError: (err: any) => {
+      setNotice(`No se pudo cambiar el estado: ${err.message}`);
+    },
+    onSettled: () => {
+      setPendingToggleId(null);
     },
   });
 
@@ -211,6 +235,18 @@ export default function EmployeesPage() {
 
   return (
     <div className="space-y-6 animate-fade-in">
+      {notice && (
+        <div className="fixed bottom-6 right-6 z-50 flex items-center gap-3 rounded-2xl border border-emerald-500/20 bg-slate-950/95 px-4 py-3 shadow-2xl shadow-black/30 backdrop-blur-md animate-fade-in">
+          <div className="flex h-8 w-8 items-center justify-center rounded-full bg-emerald-500/10 text-emerald-400">
+            <CheckCircle2 className="h-4.5 w-4.5" />
+          </div>
+          <div>
+            <p className="text-sm font-semibold text-slate-100">Confirmado</p>
+            <p className="text-xs text-slate-400">{notice}</p>
+          </div>
+        </div>
+      )}
+
       {/* Title */}
       <div className="flex items-center justify-between">
         <div>
@@ -318,7 +354,7 @@ export default function EmployeesPage() {
                       </Button>
                       <Button
                         onClick={() => handleToggleStatus(emp)}
-                        disabled={emp.id === user?.id}
+                        disabled={emp.id === user?.id || pendingToggleId === emp.id}
                         variant="ghost"
                         size="icon"
                         className={`border border-transparent hover:border-slate-800 ${
@@ -328,7 +364,9 @@ export default function EmployeesPage() {
                         }`}
                         title={emp.isActive ? 'Desactivar' : 'Activar'}
                       >
-                        {emp.isActive ? (
+                        {pendingToggleId === emp.id ? (
+                          <Spinner size="sm" className="border-current border-t-transparent" />
+                        ) : emp.isActive ? (
                           <UserMinus className="h-3.5 w-3.5" />
                         ) : (
                           <UserCheck className="h-3.5 w-3.5" />

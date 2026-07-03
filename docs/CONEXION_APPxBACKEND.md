@@ -280,6 +280,46 @@ Si carga el bundle de Expo (puerto 8081) pero NO responde el backend (puerto 300
 
 **Leccion:** Cualquier pantalla del movil que necesite el token debe usar `getCachedToken()`, NO `supabase.auth.getSession()`. Este patron se repite en toda la app por el skip de `setSession()`.
 
+### 6.6 Prisma no puede conectarse a Supabase al verificar el token
+
+**Sintoma:**
+
+```text
+PrismaClientInitializationError: Can't reach database server at `db.<proyecto>.supabase.co:5432`
+Error al verificar token de Supabase en canActivate
+```
+
+**Que significa realmente:**
+
+- El token de Supabase si se esta decodificando correctamente.
+- El backend falla cuando intenta buscar el usuario local con Prisma.
+- No es un error del login movil ni del JWT en si.
+- Es un problema de conectividad del backend hacia PostgreSQL en Supabase.
+
+**Causas tipicas:**
+
+1. `DATABASE_URL` apunta a un host/puerto que no responde desde la red actual.
+2. El pooler de Supabase esta caido o inaccesible.
+3. La conexion directa de Supabase no es accesible por firewall/red local.
+
+**Patron recomendado para leer los logs:**
+
+- Si aparece `Prisma could not connect during startup`, el backend arranco pero la DB no responde.
+- Si aparece `Error al verificar token de Supabase en canActivate`, el JWT es valido pero Prisma no pudo leer el usuario local.
+- Si ambas cosas aparecen juntas, el problema raiz sigue siendo la conexion del backend a la base.
+
+**Nota de implementacion:**
+
+El guard de autenticacion no debe convertir este caso en `401 Unauthorized`. Cuando Prisma no llega a la DB, la respuesta correcta es `503 Service Unavailable`. Si ves `401`, significa que alguna capa esta atrapando la excepcion de DB y reescribiendola como error de token.
+
+**Chequeo rapido:**
+
+```powershell
+curl http://localhost:3001/api/v1/health
+```
+
+Si el backend esta vivo pero el login sigue fallando, revisar la conectividad a Supabase antes de cambiar cualquier cosa del flujo de auth.
+
 ---
 
 ## 7. ARQUITECTURA DEL CODIGO (archivos clave)

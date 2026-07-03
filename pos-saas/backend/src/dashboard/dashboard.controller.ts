@@ -15,12 +15,29 @@ import {
 import { SupabaseAuthGuard } from '../auth/supabase.guard';
 import { CurrentUser } from '../auth/user.decorator';
 import { PrismaService } from '../prisma/prisma.service';
+import { EventBusService } from '../events/event-bus';
 import * as crypto from 'crypto';
 
 @Controller('dashboard')
 @UseGuards(SupabaseAuthGuard)
 export class DashboardController {
-  constructor(private prisma: PrismaService) {}
+  constructor(
+    private prisma: PrismaService,
+    private eventBus: EventBusService,
+  ) {}
+
+  private async getTenantOwnerEmail(tenantId: string): Promise<string | null> {
+    const tenant = await this.prisma.tenant.findUnique({
+      where: { id: tenantId },
+      select: { email: true },
+    });
+
+    return tenant?.email || null;
+  }
+
+  private emit(entityType: string, operation: 'create' | 'update' | 'delete', entityId: string, tenantId?: string) {
+    this.eventBus.emit({ entityType, operation, entityId, tenantId, timestamp: new Date().toISOString() });
+  }
 
   // ==========================================
   // PRODUCTS CRUD
@@ -74,7 +91,7 @@ export class DashboardController {
     const categoryId = await this.resolveCategoryId(user.tenantId, body.categoryId);
     const barcode = body.barcode?.trim() || undefined;
 
-    return this.prisma.product.create({
+    const product = await this.prisma.product.create({
       data: {
         tenantId: user.tenantId,
         barcode,
@@ -90,6 +107,9 @@ export class DashboardController {
         isActive: true,
       },
     });
+
+    this.emit('product', 'create', product.id, user.tenantId);
+    return product;
   }
 
   @Put('products/:id')
@@ -125,7 +145,7 @@ export class DashboardController {
         ? await this.resolveCategoryId(user.tenantId, body.categoryId)
         : product.categoryId;
 
-    return this.prisma.product.update({
+    const updatedProduct = await this.prisma.product.update({
       where: { id },
       data: {
         barcode: body.barcode !== undefined ? body.barcode : product.barcode,
@@ -140,6 +160,9 @@ export class DashboardController {
         unit: body.unit !== undefined ? body.unit : product.unit,
       },
     });
+
+    this.emit('product', 'update', updatedProduct.id, user.tenantId);
+    return updatedProduct;
   }
 
   @Delete('products/:id')
@@ -152,10 +175,13 @@ export class DashboardController {
       throw new NotFoundException('Product not found');
     }
 
-    return this.prisma.product.update({
+    const deletedProduct = await this.prisma.product.update({
       where: { id },
       data: { isActive: false },
     });
+
+    this.emit('product', 'delete', deletedProduct.id, user.tenantId);
+    return deletedProduct;
   }
 
   // ==========================================
@@ -176,12 +202,15 @@ export class DashboardController {
       throw new BadRequestException('Category name is required');
     }
 
-    return this.prisma.category.create({
+    const category = await this.prisma.category.create({
       data: {
         tenantId: user.tenantId,
         name: body.name,
       },
     });
+
+    this.emit('category', 'create', category.id, user.tenantId);
+    return category;
   }
 
   // ==========================================
@@ -191,7 +220,7 @@ export class DashboardController {
   @Get('employees')
   async getEmployees(@CurrentUser() user: any) {
     return this.prisma.user.findMany({
-      where: { tenantId: user.tenantId },
+      where: { tenantId: user.tenantId, isActive: true },
       include: { role: true },
       orderBy: { createdAt: 'desc' },
     });
@@ -227,7 +256,7 @@ export class DashboardController {
       throw new BadRequestException(`Role '${body.roleName}' not found for this tenant`);
     }
 
-    return this.prisma.user.create({
+    const employee = await this.prisma.user.create({
       data: {
         id: crypto.randomUUID(),
         tenantId: user.tenantId,
@@ -241,6 +270,9 @@ export class DashboardController {
         role: true,
       },
     });
+
+    this.emit('user', 'create', employee.id, user.tenantId);
+    return employee;
   }
 
   @Put('employees/:id')
@@ -261,6 +293,11 @@ export class DashboardController {
       throw new NotFoundException('Employee not found');
     }
 
+    const ownerEmail = await this.getTenantOwnerEmail(user.tenantId);
+    if (ownerEmail && employee.email === ownerEmail && body.isActive === false) {
+      throw new ForbiddenException('No puedes dar de baja al usuario principal del comercio');
+    }
+
     const data: any = {};
     if (body.name !== undefined) data.name = body.name;
     if (body.pin !== undefined) data.pin = body.pin;
@@ -279,11 +316,14 @@ export class DashboardController {
       data.roleId = role.id;
     }
 
-    return this.prisma.user.update({
+    const updatedEmployee = await this.prisma.user.update({
       where: { id },
       data,
       include: { role: true },
     });
+
+    this.emit('user', 'update', updatedEmployee.id, user.tenantId);
+    return updatedEmployee;
   }
 
   @Delete('employees/:id')
@@ -305,11 +345,19 @@ export class DashboardController {
       throw new NotFoundException('Employee not found');
     }
 
-    return this.prisma.user.update({
+    const ownerEmail = await this.getTenantOwnerEmail(user.tenantId);
+    if (ownerEmail && employee.email === ownerEmail) {
+      throw new ForbiddenException('No puedes eliminar al usuario principal del comercio');
+    }
+
+    const deletedEmployee = await this.prisma.user.update({
       where: { id },
       data: { isActive: false },
       include: { role: true },
     });
+
+    this.emit('user', 'delete', deletedEmployee.id, user.tenantId);
+    return deletedEmployee;
   }
 
   // ==========================================

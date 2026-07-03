@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
   Pressable,
@@ -7,10 +7,12 @@ import {
   Text,
   View,
 } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import { useSQLiteContext } from 'expo-sqlite';
 import { useAuth } from '../context/AuthContext';
-import { radius, spacing, ThemeColors } from '../theme/tokens';
+import { radius, spacing, fontSize, fontWeight, ThemeColors } from '../theme/tokens';
 import { useTheme } from '../context/ThemeContext';
+import { getAppMeta } from '../database';
 
 export function LoginScreen() {
   const db = useSQLiteContext();
@@ -19,6 +21,20 @@ export function LoginScreen() {
   const styles = useMemo(() => getStyles(colors, isDark), [colors, isDark]);
   const [pin, setPin] = useState('');
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
+  const [tenantName, setTenantName] = useState<string>('');
+
+  // Cargar nombre del comercio si existe
+  useEffect(() => {
+    async function loadTenantName() {
+      try {
+        const name = await getAppMeta<string>(db, 'tenant_name');
+        if (name) setTenantName(name);
+      } catch {
+        // Ignore
+      }
+    }
+    loadTenantName();
+  }, [db]);
 
   // Maneja las pulsaciones de teclas del teclado numérico
   const handlePressKey = async (digit: string) => {
@@ -75,7 +91,7 @@ export function LoginScreen() {
   };
 
   // Renderiza una tecla del teclado
-  const renderKeyButton = (value: string, label?: string) => {
+  const renderKeyButton = (value: string) => {
     return (
       <Pressable
         key={value}
@@ -85,23 +101,29 @@ export function LoginScreen() {
         ]}
         onPress={() => handlePressKey(value)}
       >
-        <Text style={styles.keyButtonText}>{label ?? value}</Text>
+        <Text style={styles.keyButtonText}>{value}</Text>
       </Pressable>
     );
   };
 
   return (
     <SafeAreaView style={styles.safeArea}>
-      {/* Fondo estético difuminado */}
-      <View style={styles.backgroundGlow} />
-
       <View style={styles.container}>
-        {/* Cabecera / Marca */}
+        {/* Cabecera con ícono de marca */}
         <View style={styles.header}>
-          <Text style={styles.kicker}>POS SaaS Android-First</Text>
-          <Text style={styles.title}>Iniciar Sesión</Text>
+          <View style={styles.logoContainer}>
+            <Ionicons
+              name="storefront-outline"
+              size={32}
+              color={colors.text}
+            />
+          </View>
+          <Text style={styles.brandName}>POS SaaS</Text>
+          {tenantName ? (
+            <Text style={styles.tenantName}>{tenantName}</Text>
+          ) : null}
           <Text style={styles.subtitle}>
-            Ingresá tu PIN personal de 4 dígitos
+            Ingresá tu PIN de 4 dígitos
           </Text>
         </View>
 
@@ -111,14 +133,14 @@ export function LoginScreen() {
           {loading ? (
             <ActivityIndicator
               size="small"
-              color={colors.primary}
+              color={colors.text}
               style={styles.spinner}
             />
           ) : errorMsg ? (
             <Text style={styles.errorText}>{errorMsg}</Text>
           ) : (
             <Text style={styles.hintText}>
-              PIN demo admin: 1234 · cajero: 4321
+              PIN demo: admin 1234 · cajero 4321
             </Text>
           )}
         </View>
@@ -145,7 +167,7 @@ export function LoginScreen() {
               style={({ pressed }) => [
                 styles.keyButton,
                 styles.keyUtilityButton,
-                pressed ? styles.keyButtonPressed : null,
+                pressed ? styles.keyUtilityPressed : null,
               ]}
               onPress={handleClear}
             >
@@ -158,11 +180,11 @@ export function LoginScreen() {
               style={({ pressed }) => [
                 styles.keyButton,
                 styles.keyUtilityButton,
-                pressed ? styles.keyButtonPressed : null,
+                pressed ? styles.keyUtilityPressed : null,
               ]}
               onPress={handleBackspace}
             >
-              <Text style={styles.keyUtilityText}>⌫</Text>
+              <Ionicons name="backspace-outline" size={20} color={colors.textMuted} />
             </Pressable>
           </View>
         </View>
@@ -189,11 +211,12 @@ export function LoginScreen() {
             disabled={loading}
           >
             <View style={styles.googleIconContainer}>
-              <Text style={styles.googleIconText}>G</Text>
+              <Ionicons name="logo-google" size={16} color="#18181b" />
             </View>
             <Text style={styles.googleButtonText}>
               {loading ? 'Cargando...' : 'Ingresar con Google'}
             </Text>
+            <Ionicons name="arrow-forward-outline" size={14} color={colors.textMuted} />
           </Pressable>
         </View>
       </View>
@@ -207,146 +230,134 @@ const getStyles = (colors: ThemeColors, isDark: boolean) =>
       flex: 1,
       backgroundColor: colors.background,
     },
-    backgroundGlow: {
-      position: 'absolute',
-      top: -100,
-      alignSelf: 'center',
-      width: 360,
-      height: 360,
-      borderRadius: 180,
-      backgroundColor: isDark
-        ? 'rgba(138, 199, 255, 0.08)'
-        : 'rgba(4, 151, 191, 0.05)',
-    },
     container: {
       flex: 1,
       justifyContent: 'space-between',
       padding: spacing.xl,
-      paddingVertical: 40,
+      paddingVertical: 32,
     },
     header: {
       alignItems: 'center',
-      marginTop: 20,
-      gap: 8,
+      marginTop: 16,
+      gap: 6,
     },
-    kicker: {
-      color: colors.primary,
-      textTransform: 'uppercase',
-      letterSpacing: 1.6,
-      fontSize: 12,
-      fontWeight: '800',
+    logoContainer: {
+      width: 60,
+      height: 60,
+      borderRadius: radius.sm,
+      backgroundColor: colors.surface,
+      borderWidth: 1,
+      borderColor: colors.border,
+      alignItems: 'center',
+      justifyContent: 'center',
+      marginBottom: 8,
     },
-    title: {
+    brandName: {
       color: colors.text,
-      fontSize: 28,
-      fontWeight: '800',
+      fontSize: fontSize['2xl'],
+      fontWeight: fontWeight.bold,
+    },
+    tenantName: {
+      color: colors.text,
+      fontSize: fontSize.base,
+      fontWeight: fontWeight.semibold,
     },
     subtitle: {
       color: colors.textMuted,
-      fontSize: 14,
+      fontSize: fontSize.base,
       textAlign: 'center',
+      marginTop: 4,
     },
     pinContainer: {
       alignItems: 'center',
       gap: 16,
-      marginVertical: 20,
+      marginVertical: 16,
     },
     dotsRow: {
       flexDirection: 'row',
-      gap: 24,
+      gap: 20,
     },
     dot: {
-      width: 16,
-      height: 16,
-      borderRadius: 8,
-      borderWidth: 2,
-      borderColor: isDark ? 'rgba(255, 255, 255, 0.15)' : 'rgba(0, 0, 0, 0.15)',
+      width: 14,
+      height: 14,
+      borderRadius: 7,
+      borderWidth: 1,
+      borderColor: colors.border,
       backgroundColor: 'transparent',
     },
     dotActive: {
-      backgroundColor: colors.primary,
-      borderColor: colors.primary,
+      backgroundColor: colors.text,
+      borderColor: colors.text,
     },
     dotError: {
-      backgroundColor: isDark ? '#FFB4B4' : '#D32F2F',
-      borderColor: isDark ? '#FFB4B4' : '#D32F2F',
+      backgroundColor: colors.danger,
+      borderColor: colors.danger,
     },
     spinner: {
       height: 18,
     },
     errorText: {
-      color: isDark ? '#FFB4B4' : '#D32F2F',
-      fontSize: 13,
-      fontWeight: '700',
+      color: colors.danger,
+      fontSize: fontSize.md,
+      fontWeight: fontWeight.bold,
     },
     hintText: {
-      color: isDark ? 'rgba(175, 191, 206, 0.4)' : 'rgba(104, 124, 148, 0.6)',
-      fontSize: 11,
+      color: colors.textMuted,
+      fontSize: fontSize.xs,
       fontStyle: 'italic',
+      opacity: 0.6,
     },
     keypad: {
-      gap: spacing.md,
-      maxWidth: 280,
+      gap: spacing.sm,
+      maxWidth: 260,
       alignSelf: 'center',
       width: '100%',
     },
     keypadRow: {
       flexDirection: 'row',
-      gap: spacing.md,
+      gap: spacing.sm,
       justifyContent: 'space-between',
     },
     keyButton: {
       flex: 1,
-      height: 60,
-      borderRadius: radius.md,
-      backgroundColor: isDark ? 'rgba(255, 255, 255, 0.03)' : colors.surface,
+      height: 52,
+      borderRadius: radius.sm,
+      backgroundColor: colors.surface,
       borderWidth: 1,
       borderColor: colors.border,
       alignItems: 'center',
       justifyContent: 'center',
-      ...(!isDark && {
-        shadowColor: '#000',
-        shadowOpacity: 0.03,
-        shadowRadius: 3,
-        shadowOffset: { width: 0, height: 2 },
-        elevation: 1,
-      }),
     },
     keyButtonPressed: {
-      backgroundColor: isDark
-        ? 'rgba(138, 199, 255, 0.12)'
-        : 'rgba(4, 151, 191, 0.12)',
-      borderColor: isDark
-        ? 'rgba(138, 199, 255, 0.25)'
-        : 'rgba(4, 151, 191, 0.25)',
+      backgroundColor: isDark ? '#27272a' : '#f4f4f5',
     },
     keyButtonText: {
       color: colors.text,
-      fontSize: 22,
-      fontWeight: '800',
+      fontSize: fontSize.xl,
+      fontWeight: fontWeight.bold,
     },
     keyUtilityButton: {
       backgroundColor: 'transparent',
       borderColor: 'transparent',
-      elevation: 0,
-      shadowOpacity: 0,
+    },
+    keyUtilityPressed: {
+      backgroundColor: isDark ? 'rgba(255, 255, 255, 0.04)' : 'rgba(0, 0, 0, 0.03)',
     },
     keyUtilityText: {
       color: colors.textMuted,
-      fontSize: 18,
-      fontWeight: '800',
+      fontSize: fontSize.lg,
+      fontWeight: fontWeight.bold,
     },
     adminSection: {
       alignItems: 'center',
       width: '100%',
-      marginTop: spacing.md,
-      marginBottom: 10,
+      marginTop: spacing.sm,
     },
     divider: {
       flexDirection: 'row',
       alignItems: 'center',
       gap: 10,
-      width: 280,
+      width: 260,
       marginBottom: spacing.sm,
     },
     line: {
@@ -356,51 +367,43 @@ const getStyles = (colors: ThemeColors, isDark: boolean) =>
     },
     dividerText: {
       color: colors.textMuted,
-      fontSize: 11,
-      fontWeight: '700',
+      fontSize: fontSize.xs,
+      fontWeight: fontWeight.bold,
       textTransform: 'uppercase',
       letterSpacing: 0.8,
     },
     googleButton: {
-      height: 52,
-      borderRadius: radius.md,
-      backgroundColor: isDark ? 'rgba(255, 255, 255, 0.05)' : colors.surface,
+      height: 48,
+      borderRadius: radius.sm,
+      backgroundColor: colors.surface,
       borderWidth: 1,
       borderColor: colors.border,
       flexDirection: 'row',
       alignItems: 'center',
       justifyContent: 'center',
       gap: 12,
-      width: 280,
-      ...(!isDark && {
-        shadowColor: '#000',
-        shadowOpacity: 0.02,
-        shadowRadius: 3,
-        shadowOffset: { width: 0, height: 1 },
-        elevation: 1,
-      }),
+      width: 260,
     },
     googleButtonPressed: {
-      backgroundColor: isDark
-        ? 'rgba(255, 255, 255, 0.12)'
-        : 'rgba(0, 0, 0, 0.03)',
+      backgroundColor: isDark ? '#27272a' : '#f4f4f5',
     },
     googleButtonText: {
       color: colors.text,
-      fontSize: 14,
-      fontWeight: '700',
+      fontSize: fontSize.base,
+      fontWeight: fontWeight.semibold,
+      flex: 1,
     },
     googleIconContainer: {
       width: 24,
       height: 24,
-      borderRadius: 12,
-      backgroundColor: '#EA4335',
+      borderRadius: radius.sm - 2,
+      backgroundColor: '#ffffff',
       alignItems: 'center',
       justifyContent: 'center',
     },
-    googleIconText: {
-      color: '#FFFFFF',
-      fontSize: 13,
-      fontWeight: '900',
+    googleG: {
+      fontSize: 16,
+      fontWeight: '800' as const,
+      color: '#4285F4',
     },
   });

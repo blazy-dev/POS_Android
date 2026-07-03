@@ -142,6 +142,8 @@ Existe conexión a internet.
 
 Los datos locales y remotos quedan consistentes.
 
+> La estrategia técnica de sincronización, conflictos, reintentos y orden de sync se documenta en [SYNC_STRATEGY.md](SYNC_STRATEGY.md) y [SYNC_SKELETON.md](SYNC_SKELETON.md).
+
 ---
 
 ## Flujo 6: Cierre de caja

@@ -11,10 +11,11 @@ import {
   TextInput,
   View,
 } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import { useSQLiteContext } from 'expo-sqlite';
 import type { ProductRecord, SaleRecord } from '../database/types';
 import { useAuth } from '../context/AuthContext';
-import { radius, spacing, ThemeColors } from '../theme/tokens';
+import { radius, spacing, fontSize, fontWeight, shadow, ThemeColors } from '../theme/tokens';
 import { useTheme } from '../context/ThemeContext';
 import { useBarcodeInput } from '../hooks/useBarcodeInput';
 import { findProductByBarcode, listProducts } from '../modules/products';
@@ -27,6 +28,8 @@ import {
 } from '../modules/cash_registers';
 import { createSale, listRecentSales } from '../modules/sales';
 import { FormField } from '../components/form/FormField';
+import { Button } from '../components/ui/Button';
+import { EmptyState } from '../components/ui/EmptyState';
 
 function getQuickCashOptions(total: number): number[] {
   const exact = Math.ceil(total);
@@ -381,6 +384,9 @@ export function SalesScreen() {
           keyboardShouldPersistTaps="handled"
         >
           <View style={styles.authHeader}>
+            <View style={styles.openCashIcon}>
+              <Ionicons name="cash-outline" size={32} color={isDark ? '#8AC7FF' : colors.primary} />
+            </View>
             <Text style={styles.kicker}>Control de Turno</Text>
             <Text style={styles.title}>Apertura de Caja</Text>
             <Text style={styles.subtitle}>
@@ -400,12 +406,11 @@ export function SalesScreen() {
 
             {errorMsg ? <Text style={styles.errorText}>{errorMsg}</Text> : null}
 
-            <Pressable
-              style={styles.primaryButton}
+            <Button
+              label="Abrir Turno de Caja"
+              icon="lock-open-outline"
               onPress={handleOpenRegister}
-            >
-              <Text style={styles.primaryButtonText}>Abrir Turno de Caja</Text>
-            </Pressable>
+            />
           </View>
         </ScrollView>
       </SafeAreaView>
@@ -473,12 +478,12 @@ export function SalesScreen() {
 
             {errorMsg ? <Text style={styles.errorText}>{errorMsg}</Text> : null}
 
-            <Pressable
-              style={[styles.dangerButton, { marginTop: 10 }]}
+            <Button
+              label="Cerrar Caja y Turno"
+              icon="lock-closed-outline"
+              variant="danger"
               onPress={handleConfirmCloseRegister}
-            >
-              <Text style={styles.dangerButtonText}>Cerrar Caja y Turno</Text>
-            </Pressable>
+            />
           </View>
         </ScrollView>
       </SafeAreaView>
@@ -565,12 +570,11 @@ export function SalesScreen() {
           /* Carrito de Compras */
           <View style={styles.cartContainer}>
             {cart.length === 0 ? (
-              <View style={styles.emptyCartContainer}>
-                <Text style={styles.emptyCartTitle}>Carrito vacío</Text>
-                <Text style={styles.emptyCartSub}>
-                  Escaneá un producto o búscalo con el buscador de arriba.
-                </Text>
-              </View>
+              <EmptyState
+                icon="cart-outline"
+                title="Carrito vacío"
+                subtitle="Escaneá un producto o buscalo con el buscador de arriba."
+              />
             ) : (
               <>
                 {successMsg ? (
@@ -628,12 +632,11 @@ export function SalesScreen() {
                       $ {cartTotal.toFixed(2)}
                     </Text>
                   </View>
-                  <Pressable
-                    style={styles.checkoutBtn}
+                  <Button
+                    label="Cobrar Venta"
+                    icon="wallet-outline"
                     onPress={() => setCheckoutVisible(true)}
-                  >
-                    <Text style={styles.checkoutBtnText}>Cobrar Venta</Text>
-                  </Pressable>
+                  />
                 </View>
               </>
             )}
@@ -762,28 +765,27 @@ export function SalesScreen() {
 
             {/* Botones de acción */}
             <View style={styles.checkoutActions}>
-              <Pressable
-                style={styles.cancelCheckoutBtn}
-                onPress={() => setCheckoutVisible(false)}
-                disabled={savingSale}
-              >
-                <Text style={styles.cancelCheckoutBtnText}>Cancelar</Text>
-              </Pressable>
+              <View style={{ flex: 0 }}>
+                <Button
+                  label="Cancelar"
+                  variant="secondary"
+                  onPress={() => setCheckoutVisible(false)}
+                  disabled={savingSale}
+                  fullWidth={false}
+                />
+              </View>
 
-              <Pressable
-                style={[
-                  styles.confirmCheckoutBtn,
-                  savingSale && styles.buttonDisabled,
-                ]}
-                onPress={() => {
-                  void handleCompleteSale();
-                }}
-                disabled={savingSale}
-              >
-                <Text style={styles.confirmCheckoutBtnText}>
-                  {savingSale ? 'Procesando...' : 'Finalizar Venta'}
-                </Text>
-              </Pressable>
+              <View style={{ flex: 1 }}>
+                <Button
+                  label={savingSale ? 'Procesando...' : 'Finalizar Venta'}
+                  icon="checkmark-circle-outline"
+                  onPress={() => {
+                    void handleCompleteSale();
+                  }}
+                  loading={savingSale}
+                  disabled={savingSale}
+                />
+              </View>
             </View>
           </View>
         </Pressable>
@@ -829,6 +831,21 @@ const getStyles = (colors: ThemeColors, isDark: boolean) =>
     authHeader: {
       gap: 6,
       alignItems: 'center',
+    },
+    openCashIcon: {
+      width: 64,
+      height: 64,
+      borderRadius: 20,
+      backgroundColor: isDark
+        ? 'rgba(138, 199, 255, 0.08)'
+        : 'rgba(4, 151, 191, 0.06)',
+      borderWidth: 1,
+      borderColor: isDark
+        ? 'rgba(138, 199, 255, 0.16)'
+        : 'rgba(4, 151, 191, 0.14)',
+      alignItems: 'center',
+      justifyContent: 'center',
+      marginBottom: 8,
     },
     kicker: {
       color: colors.primary,
@@ -1091,19 +1108,12 @@ const getStyles = (colors: ThemeColors, isDark: boolean) =>
       flexDirection: 'row',
       justifyContent: 'space-between',
       alignItems: 'center',
-      padding: 14,
-      backgroundColor: isDark ? 'rgba(255, 255, 255, 0.03)' : colors.surface,
-      borderRadius: 14,
+      padding: 12,
+      backgroundColor: colors.surface,
+      borderRadius: radius.sm,
       borderWidth: 1,
       borderColor: colors.border,
-      marginBottom: 10,
-      ...(!isDark && {
-        shadowColor: '#000',
-        shadowOpacity: 0.02,
-        shadowRadius: 4,
-        shadowOffset: { width: 0, height: 2 },
-        elevation: 1,
-      }),
+      marginBottom: 8,
     },
     cartItemInfo: {
       flex: 1,
@@ -1127,28 +1137,24 @@ const getStyles = (colors: ThemeColors, isDark: boolean) =>
     qtyContainer: {
       flexDirection: 'row',
       alignItems: 'center',
-      backgroundColor: isDark
-        ? 'rgba(255, 255, 255, 0.04)'
-        : colors.surfaceSoft,
-      borderRadius: 10,
+      backgroundColor: isDark ? '#18181b' : '#ffffff',
+      borderRadius: radius.sm,
       borderWidth: 1,
       borderColor: colors.border,
       padding: 2,
     },
     qtyBtn: {
-      width: 28,
-      height: 28,
-      borderRadius: 8,
-      backgroundColor: isDark
-        ? 'rgba(138, 199, 255, 0.08)'
-        : 'rgba(4, 151, 191, 0.08)',
+      width: 26,
+      height: 26,
+      borderRadius: radius.sm - 2,
+      backgroundColor: isDark ? '#27272a' : '#f4f4f5',
       alignItems: 'center',
       justifyContent: 'center',
     },
     qtyBtnText: {
-      color: colors.primary,
+      color: colors.text,
       fontSize: 14,
-      fontWeight: '800',
+      fontWeight: '700',
     },
     qtyText: {
       color: colors.text,
@@ -1160,31 +1166,23 @@ const getStyles = (colors: ThemeColors, isDark: boolean) =>
     },
     deleteBtn: {
       padding: 8,
-      borderRadius: 10,
-      backgroundColor: isDark
-        ? 'rgba(255, 180, 180, 0.08)'
-        : 'rgba(211, 47, 47, 0.08)',
+      borderRadius: radius.sm,
+      backgroundColor: isDark ? 'rgba(239, 68, 68, 0.1)' : 'rgba(220, 38, 38, 0.05)',
       borderWidth: 1,
-      borderColor: isDark
-        ? 'rgba(255, 180, 180, 0.15)'
-        : 'rgba(211, 47, 47, 0.18)',
+      borderColor: isDark ? 'rgba(239, 68, 68, 0.2)' : 'rgba(220, 38, 38, 0.15)',
       alignItems: 'center',
       justifyContent: 'center',
     },
     deleteBtnText: {
-      color: isDark ? '#FFB4B4' : '#D32F2F',
+      color: colors.danger,
       fontSize: 13,
     },
     successBanner: {
-      backgroundColor: isDark
-        ? 'rgba(122, 230, 179, 0.15)'
-        : 'rgba(1, 203, 99, 0.08)',
+      backgroundColor: colors.successSoft,
       borderWidth: 1,
-      borderColor: isDark
-        ? 'rgba(122, 230, 179, 0.35)'
-        : 'rgba(1, 203, 99, 0.18)',
+      borderColor: colors.successBorder,
       padding: 10,
-      borderRadius: 10,
+      borderRadius: radius.sm,
       marginBottom: 8,
     },
     successBannerText: {
@@ -1201,18 +1199,16 @@ const getStyles = (colors: ThemeColors, isDark: boolean) =>
     },
     quickCashBtn: {
       flex: 1,
-      paddingVertical: 10,
-      borderRadius: 10,
-      backgroundColor: isDark
-        ? 'rgba(138, 199, 255, 0.08)'
-        : 'rgba(4, 151, 191, 0.08)',
+      paddingVertical: 8,
+      borderRadius: radius.sm,
+      backgroundColor: isDark ? '#27272a' : '#f4f4f5',
       borderWidth: 1,
       borderColor: colors.border,
       alignItems: 'center',
       justifyContent: 'center',
     },
     quickCashBtnText: {
-      color: colors.primary,
+      color: colors.text,
       fontSize: 13,
       fontWeight: '700',
     },
@@ -1233,37 +1229,31 @@ const getStyles = (colors: ThemeColors, isDark: boolean) =>
       fontWeight: '800',
     },
     totalValue: {
-      color: colors.primary,
+      color: colors.text,
       fontSize: 22,
       fontWeight: '800',
     },
     checkoutBtn: {
       width: '100%',
       paddingVertical: 14,
-      borderRadius: radius.md,
-      backgroundColor: isDark
-        ? 'rgba(138, 199, 255, 0.18)'
-        : 'rgba(4, 151, 191, 0.15)',
-      borderWidth: 1,
-      borderColor: isDark
-        ? 'rgba(138, 199, 255, 0.22)'
-        : 'rgba(4, 151, 191, 0.35)',
+      borderRadius: radius.sm,
+      backgroundColor: isDark ? '#ffffff' : '#18181b',
       alignItems: 'center',
     },
     checkoutBtnText: {
-      color: isDark ? '#EAF4FF' : colors.primary,
+      color: isDark ? '#18181b' : '#ffffff',
       fontSize: 14,
       fontWeight: '800',
     },
     modalOverlay: {
       flex: 1,
-      backgroundColor: 'rgba(0, 0, 0, 0.6)',
+      backgroundColor: 'rgba(0, 0, 0, 0.4)',
       justifyContent: 'flex-end',
     },
     modalContainer: {
-      backgroundColor: colors.surface,
-      borderTopLeftRadius: 24,
-      borderTopRightRadius: 24,
+      backgroundColor: colors.background,
+      borderTopLeftRadius: radius.md,
+      borderTopRightRadius: radius.md,
       padding: 24,
       paddingBottom: 36,
       gap: 16,
@@ -1277,8 +1267,8 @@ const getStyles = (colors: ThemeColors, isDark: boolean) =>
     },
     checkoutTotalCard: {
       padding: 16,
-      borderRadius: 14,
-      backgroundColor: colors.surfaceCard,
+      borderRadius: radius.sm,
+      backgroundColor: colors.surface,
       borderWidth: 1,
       borderColor: colors.border,
       flexDirection: 'row',
@@ -1291,7 +1281,7 @@ const getStyles = (colors: ThemeColors, isDark: boolean) =>
       fontWeight: '700',
     },
     checkoutTotalValue: {
-      color: colors.primary,
+      color: colors.text,
       fontSize: 22,
       fontWeight: '800',
     },
@@ -1307,21 +1297,17 @@ const getStyles = (colors: ThemeColors, isDark: boolean) =>
     },
     paymentOptionBtn: {
       flex: 1,
-      paddingVertical: 12,
-      borderRadius: radius.md,
+      paddingVertical: 10,
+      borderRadius: radius.sm,
       borderWidth: 1,
       borderColor: colors.border,
-      backgroundColor: isDark
-        ? 'rgba(255, 255, 255, 0.03)'
-        : colors.surfaceSoft,
+      backgroundColor: colors.surface,
       alignItems: 'center',
       justifyContent: 'center',
     },
     paymentOptionActive: {
-      borderColor: colors.primary,
-      backgroundColor: isDark
-        ? 'rgba(138, 199, 255, 0.16)'
-        : 'rgba(4, 151, 191, 0.15)',
+      borderColor: isDark ? '#ffffff' : '#18181b',
+      backgroundColor: isDark ? '#27272a' : '#f4f4f5',
     },
     paymentOptionText: {
       color: colors.textMuted,
@@ -1329,7 +1315,7 @@ const getStyles = (colors: ThemeColors, isDark: boolean) =>
       fontWeight: '700',
     },
     paymentOptionTextActive: {
-      color: isDark ? '#FFFFFF' : colors.primary,
+      color: colors.text,
       fontWeight: '800',
     },
     cashForm: {
@@ -1340,15 +1326,11 @@ const getStyles = (colors: ThemeColors, isDark: boolean) =>
       alignItems: 'center',
       justifyContent: 'space-between',
       paddingHorizontal: 14,
-      paddingVertical: 12,
-      borderRadius: radius.md,
-      backgroundColor: isDark
-        ? 'rgba(122, 230, 179, 0.08)'
-        : 'rgba(1, 203, 99, 0.08)',
+      paddingVertical: 10,
+      borderRadius: radius.sm,
+      backgroundColor: colors.successSoft,
       borderWidth: 1,
-      borderColor: isDark
-        ? 'rgba(122, 230, 179, 0.18)'
-        : 'rgba(1, 203, 99, 0.18)',
+      borderColor: colors.successBorder,
     },
     changeLabel: {
       color: colors.textMuted,
@@ -1362,10 +1344,8 @@ const getStyles = (colors: ThemeColors, isDark: boolean) =>
     },
     transferForm: {
       padding: 14,
-      borderRadius: radius.md,
-      backgroundColor: isDark
-        ? 'rgba(255, 255, 255, 0.02)'
-        : colors.surfaceSoft,
+      borderRadius: radius.sm,
+      backgroundColor: colors.surface,
       borderWidth: 1,
       borderColor: colors.border,
     },
@@ -1383,8 +1363,8 @@ const getStyles = (colors: ThemeColors, isDark: boolean) =>
     cancelCheckoutBtn: {
       paddingVertical: 14,
       paddingHorizontal: 18,
-      borderRadius: radius.md,
-      backgroundColor: isDark ? 'rgba(255, 255, 255, 0.04)' : colors.surface,
+      borderRadius: radius.sm,
+      backgroundColor: colors.surface,
       borderWidth: 1,
       borderColor: colors.border,
       alignItems: 'center',
@@ -1397,22 +1377,16 @@ const getStyles = (colors: ThemeColors, isDark: boolean) =>
     confirmCheckoutBtn: {
       flex: 1,
       paddingVertical: 14,
-      borderRadius: radius.md,
-      backgroundColor: isDark
-        ? 'rgba(138, 199, 255, 0.18)'
-        : 'rgba(4, 151, 191, 0.15)',
-      borderWidth: 1,
-      borderColor: isDark
-        ? 'rgba(138, 199, 255, 0.22)'
-        : 'rgba(4, 151, 191, 0.35)',
+      borderRadius: radius.sm,
+      backgroundColor: isDark ? '#ffffff' : '#18181b',
       alignItems: 'center',
     },
     confirmCheckoutBtnText: {
-      color: isDark ? '#EAF4FF' : colors.primary,
+      color: isDark ? '#18181b' : '#ffffff',
       fontSize: 14,
       fontWeight: '800',
     },
     buttonDisabled: {
-      opacity: 0.6,
+      opacity: 0.4,
     },
   });

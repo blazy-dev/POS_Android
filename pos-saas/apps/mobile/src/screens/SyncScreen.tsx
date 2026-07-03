@@ -10,10 +10,12 @@ import {
   Switch,
   View,
 } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import { useSync, SyncStatus } from '../context/SyncContext';
 import { subscribeToLogs, clearSyncLogs, LogEvent } from '../api/client';
-import { radius, spacing, ThemeColors } from '../theme/tokens';
+import { radius, spacing, fontSize, fontWeight, ThemeColors } from '../theme/tokens';
 import { useTheme } from '../context/ThemeContext';
+import { Button } from '../components/ui/Button';
 
 export function SyncScreen() {
   const {
@@ -100,11 +102,13 @@ export function SyncScreen() {
       >
         {/* Encabezado */}
         <View style={styles.header}>
-          <Text style={styles.kicker}>Fase 5 — Sincronización</Text>
-          <Text style={styles.title}>Estado y Cola Local</Text>
+          <View style={styles.headerIcon}>
+            <Ionicons name="cloud" size={28} color={isDark ? '#8AC7FF' : colors.primary} />
+          </View>
+          <Text style={styles.title}>Sincronización</Text>
           <Text style={styles.subtitle}>
-            Monitoreá operaciones offline, forzá sincronizaciones y simulá
-            estados de red.
+            Monitoreá operaciones offline, forzá sincronizaciones y
+            simulá estados de red.
           </Text>
         </View>
 
@@ -158,20 +162,15 @@ export function SyncScreen() {
             </Text>
           </View>
 
-          <Pressable
-            style={[
-              styles.syncButton,
-              status === 'syncing' && styles.syncButtonDisabled,
-            ]}
+          <Button
+            label={status === 'syncing' ? 'Sincronizando...' : 'Sincronizar Ahora'}
+            icon="sync-outline"
             onPress={() => {
               void triggerSync();
             }}
+            loading={status === 'syncing'}
             disabled={status === 'syncing'}
-          >
-            <Text style={styles.syncButtonText}>
-              {status === 'syncing' ? 'Sincronizando...' : 'Sincronizar Ahora'}
-            </Text>
-          </Pressable>
+          />
         </View>
 
         {/* Panel de Simulación / Herramientas de Desarrollo */}
@@ -280,6 +279,22 @@ const getStyles = (colors: ThemeColors, isDark: boolean) =>
     },
     header: {
       gap: 6,
+      marginBottom: 4,
+      alignItems: 'center',
+    },
+    headerIcon: {
+      width: 56,
+      height: 56,
+      borderRadius: 18,
+      backgroundColor: isDark
+        ? 'rgba(138, 199, 255, 0.08)'
+        : 'rgba(4, 151, 191, 0.06)',
+      borderWidth: 1,
+      borderColor: isDark
+        ? 'rgba(138, 199, 255, 0.16)'
+        : 'rgba(4, 151, 191, 0.14)',
+      alignItems: 'center',
+      justifyContent: 'center',
       marginBottom: 4,
     },
     kicker: {

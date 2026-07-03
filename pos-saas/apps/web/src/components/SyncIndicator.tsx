@@ -3,17 +3,29 @@
 import React, { useCallback, useEffect, useState, useRef } from 'react';
 import { RefreshCw, CheckCircle2, AlertCircle, WifiOff } from 'lucide-react';
 import { useQueryClient } from '@tanstack/react-query';
-import { apiFetch } from '@/lib/api';
+import { API_BASE } from '@/lib/api';
 
 type SyncStatus = 'synced' | 'syncing' | 'offline' | 'updates';
+
+const ENTITY_TO_QUERY_KEY: Record<string, string[]> = {
+  product: ['products'],
+  user: ['employees'],
+  category: ['categories'],
+  customer: ['customers'],
+  sale: ['sales'],
+  cash_register: ['cashRegisters'],
+  inventory_movement: ['inventoryMovements'],
+};
 
 export function SyncIndicator() {
   const queryClient = useQueryClient();
   const [status, setStatus] = useState<SyncStatus>('synced');
   const [autoSync, setAutoSync] = useState(true);
-  const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const [eventCount, setEventCount] = useState(0);
+  const sseRef = useRef<EventSource | null>(null);
+  const reconnectTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  // Invalidate all queries and refetch
+  // ── Invalidate all queries and refetch ──────────────────────────
   const triggerSync = useCallback(async () => {
     setStatus('syncing');
     await queryClient.invalidateQueries();
@@ -21,48 +33,80 @@ export function SyncIndicator() {
     setStatus('synced');
   }, [queryClient]);
 
-  // Check if backend is reachable
-  const checkHealth = useCallback(async () => {
-    try {
-      const res = await fetch(
-        `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api/v1'}/health`,
-      );
-      if (!res.ok) throw new Error();
-      return true;
-    } catch {
-      return false;
-    }
-  }, []);
-
-  // Auto-sync every 30s
+  // ── SSE connection lifecycle ───────────────────────────────────
   useEffect(() => {
-    if (!autoSync) {
-      if (intervalRef.current) clearInterval(intervalRef.current);
-      return;
-    }
+    let cancelled = false;
 
-    const tick = async () => {
-      const online = await checkHealth();
-      if (!online) {
+    function connect() {
+      if (sseRef.current) sseRef.current.close();
+
+      const es = new EventSource(`${API_BASE}/events`);
+      sseRef.current = es;
+
+      es.onopen = () => {
+        if (!cancelled) setStatus('synced');
+      };
+
+      es.onmessage = (event) => {
+        if (cancelled) return;
+        let entityType: string | undefined;
+        try {
+          entityType = JSON.parse(event.data).entityType;
+        } catch {
+          return;
+        }
+        if (!entityType) return;
+
+        setEventCount((c) => c + 1);
+        setStatus('updates');
+
+        const keys = ENTITY_TO_QUERY_KEY[entityType];
+        if (keys) {
+          for (const key of keys) {
+            queryClient.invalidateQueries({ queryKey: [key] });
+          }
+        } else {
+          queryClient.invalidateQueries();
+        }
+
+        setTimeout(() => {
+          if (!cancelled) setStatus('synced');
+        }, 2000);
+      };
+
+      es.onerror = () => {
+        if (cancelled) return;
         setStatus('offline');
-        return;
-      }
-      setStatus('updates');
-      setTimeout(() => setStatus('synced'), 2000);
-    };
+        es.close();
+        sseRef.current = null;
 
-    intervalRef.current = setInterval(tick, 30000);
+        if (reconnectTimerRef.current) clearTimeout(reconnectTimerRef.current);
+        reconnectTimerRef.current = setTimeout(() => {
+          if (!cancelled) connect();
+        }, 5000);
+      };
+    }
+
+    connect();
+
     return () => {
-      if (intervalRef.current) clearInterval(intervalRef.current);
+      cancelled = true;
+      if (sseRef.current) sseRef.current.close();
+      if (reconnectTimerRef.current) clearTimeout(reconnectTimerRef.current);
     };
-  }, [autoSync, checkHealth]);
+  }, [queryClient]);
 
-  // Health check on mount
+  // ── Fallback health check when auto-sync is off ────────────────
   useEffect(() => {
-    checkHealth().then((online) => {
+    if (!autoSync) return;
+
+    const interval = setInterval(() => {
+      const online = sseRef.current?.readyState === EventSource.OPEN;
       if (!online) setStatus('offline');
-    });
-  }, [checkHealth]);
+    }, 30000);
+
+    return () => clearInterval(interval);
+  }, [autoSync]);
 
   return (
     <div className="flex items-center space-x-3">
@@ -106,7 +150,7 @@ export function SyncIndicator() {
               ? 'Sincronizando...'
               : status === 'offline'
                 ? 'Sin conexion'
-                : 'Actualizado'}
+                : `${eventCount > 0 ? eventCount + ' ' : ''}Actualizado`}
         </span>
       </div>
 

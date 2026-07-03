@@ -10,6 +10,7 @@ import {
   TextInput,
   View,
 } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import { useSQLiteContext } from 'expo-sqlite';
 import type { ProductRecord } from '../database/types';
 import {
@@ -19,9 +20,12 @@ import {
 } from '../modules/products';
 import { ProductFormScreen } from './ProductFormScreen';
 import { StockAdjustmentScreen } from './StockAdjustmentScreen';
-import { radius, spacing, ThemeColors } from '../theme/tokens';
+import { radius, spacing, fontSize, fontWeight, shadow, ThemeColors } from '../theme/tokens';
 import { useTheme } from '../context/ThemeContext';
 import { useAuth } from '../context/AuthContext';
+import { Button } from '../components/ui/Button';
+import { EmptyState } from '../components/ui/EmptyState';
+import { Badge } from '../components/ui/Badge';
 
 type ProductsView = 'list' | 'form' | 'adjust';
 
@@ -186,15 +190,14 @@ export function ProductsScreen() {
         </Text>
 
         {!isCashier && (
-          <Pressable
-            style={styles.primaryButton}
+          <Button
+            label="Nuevo producto"
+            icon="add-circle-outline"
             onPress={() => {
               setSelectedProduct(undefined);
               setView('form');
             }}
-          >
-            <Text style={styles.primaryButtonText}>+ Nuevo producto</Text>
-          </Pressable>
+          />
         )}
 
         <View style={styles.searchCard}>
@@ -240,11 +243,15 @@ export function ProductsScreen() {
           ) : errorMessage ? (
             <Text style={styles.errorText}>{errorMessage}</Text>
           ) : filteredProducts.length === 0 ? (
-            <Text style={styles.cardText}>
-              {searchQuery.trim()
-                ? 'No hay productos que coincidan con la búsqueda.'
-                : 'Todavía no hay productos. Creá el primero con el botón de arriba.'}
-            </Text>
+            <EmptyState
+              icon={searchQuery.trim() ? 'search-outline' : 'cube-outline'}
+              title={searchQuery.trim() ? 'Sin resultados' : 'Sin productos'}
+              subtitle={
+                searchQuery.trim()
+                  ? 'No hay productos que coincidan con la búsqueda.'
+                  : 'Todavía no hay productos. Creá el primero con el botón de arriba.'
+              }
+            />
           ) : (
             filteredProducts.map((product) => (
               <Pressable
@@ -402,27 +409,20 @@ const getStyles = (colors: ThemeColors, isDark: boolean) =>
     searchCard: {
       marginTop: spacing.sm,
       padding: spacing.lg,
-      borderRadius: radius.lg,
+      borderRadius: radius.sm,
       backgroundColor: colors.surface,
       borderWidth: 1,
       borderColor: colors.border,
       gap: spacing.sm,
-      ...(!isDark && {
-        shadowColor: '#000',
-        shadowOpacity: 0.04,
-        shadowRadius: 6,
-        shadowOffset: { width: 0, height: 3 },
-        elevation: 2,
-      }),
     },
     searchInput: {
-      borderRadius: radius.md,
+      borderRadius: radius.sm,
       borderWidth: 1,
       borderColor: colors.border,
-      backgroundColor: isDark ? 'rgba(255, 255, 255, 0.04)' : colors.surface,
+      backgroundColor: isDark ? '#18181b' : '#ffffff',
       color: colors.text,
-      paddingHorizontal: 14,
-      paddingVertical: 12,
+      paddingHorizontal: 12,
+      paddingVertical: 10,
       fontSize: 15,
     },
     searchMessage: {
@@ -433,23 +433,16 @@ const getStyles = (colors: ThemeColors, isDark: boolean) =>
       color: colors.success,
     },
     searchMessageError: {
-      color: isDark ? '#FFB4B4' : '#D32F2F',
+      color: colors.danger,
     },
     card: {
       marginTop: spacing.sm,
       padding: spacing.lg,
-      borderRadius: radius.lg,
+      borderRadius: radius.sm,
       backgroundColor: colors.surface,
       borderWidth: 1,
       borderColor: colors.border,
       gap: spacing.sm,
-      ...(!isDark && {
-        shadowColor: '#000',
-        shadowOpacity: 0.04,
-        shadowRadius: 6,
-        shadowOffset: { width: 0, height: 3 },
-        elevation: 2,
-      }),
     },
     cardTitle: {
       color: colors.text,
@@ -462,7 +455,7 @@ const getStyles = (colors: ThemeColors, isDark: boolean) =>
       fontSize: 14,
     },
     errorText: {
-      color: isDark ? '#FFB4B4' : '#D32F2F',
+      color: colors.danger,
       fontSize: 14,
     },
     productRow: {
@@ -475,9 +468,7 @@ const getStyles = (colors: ThemeColors, isDark: boolean) =>
       borderTopColor: colors.border,
     },
     productRowPressed: {
-      backgroundColor: isDark
-        ? 'rgba(255, 255, 255, 0.02)'
-        : 'rgba(0, 0, 0, 0.02)',
+      backgroundColor: isDark ? '#27272a' : '#f4f4f5',
     },
     productInfo: {
       flex: 1,
@@ -493,9 +484,9 @@ const getStyles = (colors: ThemeColors, isDark: boolean) =>
       fontSize: 12,
     },
     productPrice: {
-      color: colors.primary,
+      color: colors.text,
       fontSize: 14,
-      fontWeight: '800',
+      fontWeight: '700',
     },
     priceContainer: {
       alignItems: 'flex-end',
@@ -508,13 +499,13 @@ const getStyles = (colors: ThemeColors, isDark: boolean) =>
     },
     modalOverlay: {
       flex: 1,
-      backgroundColor: 'rgba(0, 0, 0, 0.6)',
+      backgroundColor: 'rgba(0, 0, 0, 0.4)',
       justifyContent: 'flex-end',
     },
     menuContainer: {
-      backgroundColor: colors.surface,
-      borderTopLeftRadius: 24,
-      borderTopRightRadius: 24,
+      backgroundColor: colors.background,
+      borderTopLeftRadius: radius.md,
+      borderTopRightRadius: radius.md,
       padding: 24,
       paddingBottom: 36,
       gap: 16,
@@ -533,23 +524,19 @@ const getStyles = (colors: ThemeColors, isDark: boolean) =>
       marginBottom: 8,
     },
     menuOption: {
-      paddingVertical: 14,
+      paddingVertical: 12,
       paddingHorizontal: 16,
-      borderRadius: 12,
-      backgroundColor: isDark
-        ? 'rgba(255, 255, 255, 0.02)'
-        : colors.surfaceSoft,
+      borderRadius: radius.sm,
+      backgroundColor: colors.surface,
       borderWidth: 1,
       borderColor: colors.border,
     },
     menuOptionBorder: {
-      borderColor: colors.primary,
-      backgroundColor: isDark
-        ? 'rgba(138, 199, 255, 0.02)'
-        : 'rgba(4, 151, 191, 0.05)',
+      borderColor: isDark ? '#ffffff' : '#18181b',
+      backgroundColor: isDark ? '#27272a' : '#f4f4f5',
     },
     menuOptionText: {
-      color: isDark ? '#EAF4FF' : colors.primary,
+      color: colors.text,
       fontSize: 15,
       fontWeight: '700',
     },
@@ -560,11 +547,11 @@ const getStyles = (colors: ThemeColors, isDark: boolean) =>
     },
     menuCancelButton: {
       marginTop: 8,
-      paddingVertical: 14,
-      borderRadius: 12,
-      backgroundColor: isDark
-        ? 'rgba(255, 255, 255, 0.04)'
-        : colors.surfaceSoft,
+      paddingVertical: 12,
+      borderRadius: radius.sm,
+      backgroundColor: colors.surface,
+      borderWidth: 1,
+      borderColor: colors.border,
       alignItems: 'center',
     },
     menuCancelText: {

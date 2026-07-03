@@ -9,8 +9,9 @@ import {
   TextInput,
   View,
 } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '../context/AuthContext';
-import { radius, spacing, ThemeColors } from '../theme/tokens';
+import { radius, spacing, fontSize, fontWeight, shadow, ThemeColors } from '../theme/tokens';
 import { useTheme } from '../context/ThemeContext';
 import { supabase } from '../api/supabase';
 import { apiConfig, getCachedToken } from '../api/client';
@@ -18,6 +19,8 @@ import { FormField } from '../components/form/FormField';
 import { EmployeeManagementScreen } from './EmployeeManagementScreen';
 import { useSQLiteContext } from 'expo-sqlite';
 import { getAppMeta, setAppMeta } from '../database';
+import { Button } from '../components/ui/Button';
+import { Badge } from '../components/ui/Badge';
 
 const CURRENCIES = [
   { value: 'ARS', label: 'ARS ($)', desc: 'Peso Argentino' },
@@ -93,6 +96,13 @@ export function SettingsScreen() {
 
           if (user?.tenant_id) {
             await setAppMeta(db, `tenant_${user.tenant_id}`, resData.data.name);
+            if (resData.data.email) {
+              await setAppMeta(
+                db,
+                `tenant_owner_email_${user.tenant_id}`,
+                resData.data.email,
+              );
+            }
             setTenantName(resData.data.name);
           }
         }
@@ -159,6 +169,13 @@ export function SettingsScreen() {
           setIsEditing(false);
           if (user?.tenant_id) {
             await setAppMeta(db, `tenant_${user.tenant_id}`, resData.data.name);
+            if (resData.data.email) {
+              await setAppMeta(
+                db,
+                `tenant_owner_email_${user.tenant_id}`,
+                resData.data.email,
+              );
+            }
             setTenantName(resData.data.name);
           }
         } else {
@@ -183,40 +200,52 @@ export function SettingsScreen() {
   return (
     <SafeAreaView style={styles.safeArea}>
       <ScrollView contentContainerStyle={styles.container}>
-        <Text style={styles.kicker}>Ajustes</Text>
-        <Text style={styles.title}>
-          Configuración del comercio y del dispositivo
-        </Text>
-        <Text style={styles.subtitle}>
-          Aquí podés cambiar el tema visual, los datos de tu comercio y
-          gestionar tu sesión.
-        </Text>
+        <View style={styles.headerWithIcon}>
+          <View style={styles.settingsIcon}>
+            <Ionicons name="settings" size={24} color={isDark ? '#8AC7FF' : colors.primary} />
+          </View>
+          <Text style={styles.title}>Ajustes</Text>
+          <Text style={styles.subtitle}>
+            Configuración del comercio, tema visual y sesión.
+          </Text>
+        </View>
 
         {/* Sección Usuario Activo */}
         {user ? (
           <View style={styles.profileCard}>
-            <Text style={styles.cardTitle}>Usuario Activo</Text>
-            <View style={styles.profileInfo}>
-              <Text style={styles.profileName}>{user.name}</Text>
-              <Text style={styles.profileRole}>
-                Rol:{' '}
-                {user.role === 'admin'
-                  ? 'Administrador'
-                  : user.role === 'supervisor'
-                    ? 'Supervisor'
-                    : 'Cajero'}
-              </Text>
-              <Text style={styles.profileEmail}>{user.email}</Text>
-              {tenantName ? (
-                <Text style={styles.profileOrg}>
-                  Comercio:{' '}
-                  <Text style={{ fontWeight: '700' }}>{tenantName}</Text>
+            <View style={styles.profileHeaderRow}>
+              <View style={styles.profileAvatar}>
+                <Text style={styles.profileAvatarText}>
+                  {user.name.split(' ').map(w => w[0]).slice(0, 2).join('').toUpperCase()}
                 </Text>
-              ) : null}
+              </View>
+              <View style={styles.profileInfo}>
+                <Text style={styles.profileName}>{user.name}</Text>
+                <Text style={styles.profileEmail}>{user.email}</Text>
+                <Badge
+                  label={
+                    user.role === 'admin'
+                      ? 'Administrador'
+                      : user.role === 'supervisor'
+                        ? 'Supervisor'
+                        : 'Cajero'
+                  }
+                  variant={user.role === 'admin' ? 'info' : user.role === 'supervisor' ? 'warning' : 'neutral'}
+                />
+              </View>
             </View>
-            <Pressable style={styles.logoutButton} onPress={logout}>
-              <Text style={styles.logoutButtonText}>Cerrar Sesión (Salir)</Text>
-            </Pressable>
+            {tenantName ? (
+              <View style={styles.tenantRow}>
+                <Ionicons name="storefront-outline" size={16} color={colors.primary} />
+                <Text style={styles.profileOrg}>{tenantName}</Text>
+              </View>
+            ) : null}
+            <Button
+              label="Cerrar Sesión"
+              icon="log-out-outline"
+              variant="danger"
+              onPress={logout}
+            />
           </View>
         ) : null}
 
@@ -455,6 +484,25 @@ const getStyles = (colors: ThemeColors, isDark: boolean) =>
       fontSize: 12,
       fontWeight: '700',
     },
+    headerWithIcon: {
+      alignItems: 'center',
+      gap: 6,
+    },
+    settingsIcon: {
+      width: 52,
+      height: 52,
+      borderRadius: 16,
+      backgroundColor: isDark
+        ? 'rgba(138, 199, 255, 0.08)'
+        : 'rgba(4, 151, 191, 0.06)',
+      borderWidth: 1,
+      borderColor: isDark
+        ? 'rgba(138, 199, 255, 0.16)'
+        : 'rgba(4, 151, 191, 0.14)',
+      alignItems: 'center',
+      justifyContent: 'center',
+      marginBottom: 4,
+    },
     title: {
       color: colors.text,
       fontSize: 28,
@@ -465,6 +513,7 @@ const getStyles = (colors: ThemeColors, isDark: boolean) =>
       color: colors.textMuted,
       fontSize: 14,
       lineHeight: 21,
+      textAlign: 'center',
     },
     card: {
       marginTop: 12,
@@ -518,8 +567,41 @@ const getStyles = (colors: ThemeColors, isDark: boolean) =>
         elevation: 2,
       }),
     },
+    profileHeaderRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 14,
+    },
+    profileAvatar: {
+      width: 48,
+      height: 48,
+      borderRadius: 16,
+      backgroundColor: isDark
+        ? 'rgba(138, 199, 255, 0.14)'
+        : 'rgba(4, 151, 191, 0.10)',
+      borderWidth: 1,
+      borderColor: isDark
+        ? 'rgba(138, 199, 255, 0.22)'
+        : 'rgba(4, 151, 191, 0.20)',
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    profileAvatarText: {
+      color: isDark ? '#8AC7FF' : colors.primary,
+      fontSize: 16,
+      fontWeight: '800',
+    },
     profileInfo: {
+      flex: 1,
       gap: 4,
+    },
+    tenantRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 8,
+      paddingTop: 4,
+      borderTopWidth: 1,
+      borderTopColor: colors.border,
     },
     profileName: {
       color: colors.text,

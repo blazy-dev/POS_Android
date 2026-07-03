@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react';
 import { Platform, Pressable, StyleSheet, Text, View } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import {
   SafeAreaView,
   useSafeAreaInsets,
@@ -16,17 +17,22 @@ import { useSync } from '../context/SyncContext';
 import { useTheme } from '../context/ThemeContext';
 import { OnboardingScreen } from '../screens/OnboardingScreen';
 import type { ThemeColors } from '../theme/tokens';
+import { fontSize, fontWeight, spacing, radius } from '../theme/tokens';
 
-// Definición de las claves de rutas válidas en la aplicación
 type RouteKey = 'home' | 'sales' | 'products' | 'sync' | 'settings' | 'reports';
 
-// Configuración de las opciones de navegación que se muestran en el Tab Bar inferior
-const routes: Array<{ key: RouteKey; label: string }> = [
-  { key: 'home', label: 'Inicio' },
-  { key: 'sales', label: 'Ventas' },
-  { key: 'products', label: 'Productos' },
-  { key: 'sync', label: 'Sync' },
-  { key: 'settings', label: 'Ajustes' },
+// Configuración de las opciones de navegación que se muestran en el Tab Bar inferior (Ventas en el medio)
+const routes: Array<{
+  key: RouteKey;
+  label: string;
+  icon: keyof typeof Ionicons.glyphMap;
+  iconActive: keyof typeof Ionicons.glyphMap;
+}> = [
+  { key: 'home', label: 'Inicio', icon: 'home-outline', iconActive: 'home' },
+  { key: 'products', label: 'Productos', icon: 'cube-outline', iconActive: 'cube' },
+  { key: 'sales', label: 'Ventas', icon: 'cart-outline', iconActive: 'cart' },
+  { key: 'sync', label: 'Sync', icon: 'cloud-outline', iconActive: 'cloud' },
+  { key: 'settings', label: 'Ajustes', icon: 'settings-outline', iconActive: 'settings' },
 ];
 
 /**
@@ -37,24 +43,28 @@ function SyncBar() {
   const { colors, isDark } = useTheme();
   const styles = useMemo(() => getStyles(colors, isDark), [colors, isDark]);
 
-  let statusColor = '#7AE6B3';
+  let statusColor = colors.success;
   let statusText = 'Sincronizado';
+  let statusIcon: keyof typeof Ionicons.glyphMap = 'checkmark-circle';
 
   if (status === 'syncing') {
-    statusColor = '#8AC7FF';
+    statusColor = colors.info;
     statusText = 'Sincronizando...';
+    statusIcon = 'sync-circle';
   } else if (status === 'offline') {
-    statusColor = '#FFC069';
+    statusColor = colors.warning;
     statusText = 'Modo Offline';
+    statusIcon = 'cloud-offline';
   } else if (status === 'error') {
-    statusColor = '#FFB4B4';
-    statusText = 'Error de sincronización';
+    statusColor = colors.danger;
+    statusText = 'Error de sync';
+    statusIcon = 'alert-circle';
   }
 
   return (
     <View style={styles.syncBar}>
-      <View style={[styles.syncDot, { backgroundColor: statusColor }]} />
-      <Text style={styles.syncText}>
+      <Ionicons name={statusIcon} size={14} color={statusColor} />
+      <Text style={[styles.syncText, { color: statusColor }]}>
         {statusText} {pendingCount > 0 ? `· ${pendingCount} pendiente(s)` : ''}
       </Text>
     </View>
@@ -102,17 +112,30 @@ export function RootNavigator() {
   }
 
   return (
-    <SafeAreaView style={styles.safeArea}>
-      <SyncBar />
-      {/* Área del contenedor principal de la pantalla activa */}
+    <View style={styles.mainContainer}>
+      {/* SyncBar con padding superior para respetar el notch/barra de estado */}
+      <View style={{ paddingTop: insets.top, backgroundColor: isDark ? 'rgba(255,255,255,0.02)' : 'rgba(0,0,0,0.02)' }}>
+        <SyncBar />
+      </View>
+
+      {/* Área del contenedor principal de la pantalla activa - Ocupa todo el alto */}
       <View style={styles.screenArea}>
         <Screen onNavigate={setRoute} />
       </View>
 
-      {/* Barra de navegación inferior (Tab Bar) con padding dinámico para iOS/Android */}
-      <View style={[styles.tabBar, { paddingBottom: 12 + insets.bottom }]}>
+      {/* Barra de navegación inferior (Tab Bar) como píldora flotante absoluta transparente */}
+      <View
+        style={[
+          styles.tabBar,
+          {
+            bottom: Platform.OS === 'ios' ? insets.bottom + 8 : insets.bottom + 16,
+          },
+        ]}
+      >
         {routes.map((item) => {
           const active = item.key === route;
+          const isSales = item.key === 'sales';
+          const activeColor = isSales ? colors.success : colors.primary;
 
           return (
             <Pressable
@@ -120,92 +143,101 @@ export function RootNavigator() {
               onPress={() => setRoute(item.key)}
               style={[styles.tabItem, active && styles.tabItemActive]}
             >
-              <Text style={[styles.tabLabel, active && styles.tabLabelActive]}>
+              <Ionicons
+                name={active ? item.iconActive : item.icon}
+                size={isSales ? 26 : 21}
+                color={active ? activeColor : colors.textMuted}
+              />
+              <Text
+                style={[
+                  styles.tabLabel,
+                  active && styles.tabLabelActive,
+                  active && { color: activeColor },
+                  isSales && { fontSize: 10.5 },
+                ]}
+              >
                 {item.label}
               </Text>
+              {active && (
+                <View
+                  style={[
+                    styles.activeIndicator,
+                    { backgroundColor: activeColor },
+                  ]}
+                />
+              )}
             </Pressable>
           );
         })}
       </View>
-    </SafeAreaView>
+    </View>
   );
 }
 
 const getStyles = (colors: ThemeColors, isDark: boolean) =>
   StyleSheet.create({
-    safeArea: {
+    mainContainer: {
       flex: 1,
       backgroundColor: colors.background,
     },
     screenArea: {
       flex: 1,
+      paddingBottom: 110, // Asegura que el final del scroll pase holgadamente la píldora flotante
     },
     syncBar: {
       flexDirection: 'row',
       alignItems: 'center',
       justifyContent: 'center',
       paddingVertical: 6,
-      backgroundColor: isDark
-        ? 'rgba(255, 255, 255, 0.02)'
-        : 'rgba(0, 0, 0, 0.02)',
-      borderBottomWidth: 1,
-      borderBottomColor: colors.border,
       gap: 6,
     },
-    syncDot: {
-      width: 6,
-      height: 6,
-      borderRadius: 3,
-    },
     syncText: {
-      color: colors.textMuted,
-      fontSize: 11,
-      fontWeight: '600',
+      fontSize: fontSize.xs,
+      fontWeight: fontWeight.semibold,
     },
     tabBar: {
+      position: 'absolute',
+      left: 16,
+      right: 16,
       flexDirection: 'row',
-      gap: 8,
-      padding: 12,
-      borderTopWidth: 1,
-      borderTopColor: colors.border,
-      backgroundColor: isDark ? 'rgba(7, 17, 31, 0.96)' : '#FFFFFF',
-      // Sombra diferenciada según la plataforma
-      ...(Platform.OS === 'android'
-        ? {
-            elevation: 12,
-          }
-        : {
-            shadowColor: '#000',
-            shadowOpacity: 0.12,
-            shadowRadius: 10,
-            shadowOffset: { width: 0, height: -4 },
-          }),
+      paddingVertical: 10,
+      paddingHorizontal: 16,
+      borderRadius: radius.full,
+      backgroundColor: isDark ? 'rgba(24, 24, 27, 0.25)' : 'rgba(255, 255, 255, 0.30)', // Aún más transparente y translúcido
+      borderWidth: 1,
+      borderColor: colors.border,
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      shadowColor: '#000',
+      shadowOpacity: 0.05,
+      shadowRadius: 8,
+      shadowOffset: { width: 0, height: 2 },
+      elevation: 3,
     },
     tabItem: {
       flex: 1,
       alignItems: 'center',
       justifyContent: 'center',
-      paddingVertical: 10,
-      borderRadius: 16,
-      backgroundColor: isDark
-        ? 'rgba(255, 255, 255, 0.04)'
-        : 'rgba(0, 0, 0, 0.02)',
+      paddingVertical: 4,
+      gap: 2,
     },
     tabItemActive: {
-      backgroundColor: isDark
-        ? 'rgba(138, 199, 255, 0.18)'
-        : 'rgba(4, 151, 191, 0.12)',
-      borderWidth: 1,
-      borderColor: isDark
-        ? 'rgba(138, 199, 255, 0.22)'
-        : 'rgba(4, 151, 191, 0.25)',
+      // Light highlight
+    },
+    activeIndicator: {
+      width: 4,
+      height: 4,
+      borderRadius: 2,
+      backgroundColor: colors.primary,
+      marginTop: 2,
     },
     tabLabel: {
       color: colors.textMuted,
-      fontSize: 12,
-      fontWeight: '700',
+      fontSize: 10,
+      fontWeight: fontWeight.semibold,
     },
     tabLabelActive: {
-      color: isDark ? '#EAF4FF' : colors.primary,
+      color: colors.primary,
+      fontWeight: fontWeight.bold,
     },
   });

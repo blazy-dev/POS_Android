@@ -44,9 +44,9 @@ Preparar la base técnica del proyecto.
 
 ### Backend
 
-* [ ] Configurar FastAPI.
+* [ ] Configurar NestJS.
 * [ ] Configurar PostgreSQL.
-* [ ] Configurar Alembic.
+* [ ] Configurar Prisma ORM.
 * [ ] Configurar Railway.
 * [ ] Configurar autenticación con Google.
 * [ ] Configurar JWT.

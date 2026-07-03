@@ -102,58 +102,15 @@ React Native (App Móvil)
  (PostgreSQL & Auth)
 ```
 
----
-
-## Stack tecnológico
-
-### Frontend móvil
-
-- React Native
-- TypeScript
-- Expo Development Build
-- Expo Router
-- SQLite local
-- Zustand
-- React Query
-
-### Backend
-
-* NestJS (TypeScript / Node.js)
-* Fastify (Adaptador de alto rendimiento para NestJS)
-* Prisma ORM (o TypeORM)
-* `@nestjs/bull` (Colas basadas en Redis)
-
-### Base de datos e Infraestructura SaaS
-
-* Supabase (PostgreSQL administrado + Autenticación Google OAuth nativa)
-* Railway (Alojamiento del backend en NestJS)
-
-### Caché y colas
-
-* Redis (Para manejo de colas de sincronización BullMQ y caché de sesión)
-
-### Monitoreo
-
-* Sentry
+La definición operativa del stack, la estructura del repositorio y los comandos de arranque viven en [REPOSITORY_STRUCTURE.md](REPOSITORY_STRUCTURE.md) y [DEV_SETUP.md](DEV_SETUP.md).
 
 ---
 
-## Filosofía offline-first
+## Esqueleto operativo
 
-La operación del comercio no debe depender de internet.
+La app móvil opera sin internet, pero la sincronización, los conflictos y la fuente de verdad están definidos en [SYNC_STRATEGY.md](SYNC_STRATEGY.md).
 
-La venta debe completarse localmente y sincronizarse posteriormente.
-
-Flujo:
-
-1. Escanear producto.
-2. Buscar producto en SQLite local.
-3. Agregar al carrito.
-4. Confirmar venta.
-5. Actualizar inventario local.
-6. Imprimir ticket.
-7. Registrar evento de sincronización.
-8. Sincronizar cuando exista conectividad.
+La lógica de autenticación, tokens y registro de usuarios se define en [API_SPEC.md](API_SPEC.md) y en la documentación de conexión móvil/backend.
 
 ---
 
@@ -183,25 +140,9 @@ El acceso entre empresas está prohibido.
 
 ## Autenticación y Autorización
 
-La autenticación principal será mediante Google OAuth delegada en Supabase Auth.
+La autenticación principal será mediante Google OAuth delegada en Supabase Auth. El flujo detallado de registro, validación de JWT y creación del tenant vive en [API_SPEC.md](API_SPEC.md).
 
-Tecnología:
-
-* Supabase Auth (Servicio de autenticación administrado)
-* JWT de corta duración (emitido por Supabase y validado en NestJS)
-* Refresh Tokens (gestionados por la app móvil y Supabase)
-* Passport JWT en NestJS para protección de rutas
-
-### Flujo de registro y vinculación
-
-1. El usuario instala la aplicación móvil.
-2. Selecciona "Continuar con Google".
-3. Autoriza el acceso con su cuenta de Google.
-4. Supabase procesa el OAuth y retorna un JWT y los datos del perfil del usuario a la aplicación móvil.
-5. La aplicación móvil realiza una petición al backend NestJS enviando el JWT de Supabase en la cabecera `Authorization`.
-6. El backend NestJS valida el JWT de forma asíncrona usando la clave pública/secreta de Supabase.
-7. Si el usuario es nuevo, NestJS crea automáticamente el registro del usuario en la base de datos vinculándolo al `auth.users.id` de Supabase, crea el Tenant (empresa), le asigna el rol de administrador y realiza la inicialización.
-8. Comienza el flujo de sincronización inicial en segundo plano.
+La app móvil usa login diario por PIN para cajeros; el detalle de ese flujo también está en [API_SPEC.md](API_SPEC.md).
 
 ---
 

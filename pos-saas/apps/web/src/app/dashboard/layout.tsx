@@ -32,7 +32,7 @@ export default function DashboardLayout({
     }
   }, [user, loading, router]);
 
-  if (loading || !user) {
+  if (!user) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-slate-950">
         <div className="flex flex-col items-center space-y-4">

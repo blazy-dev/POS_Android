@@ -217,3 +217,5 @@ taskkill /PID <PID> /F
 | `ERR_PNPM_IGNORED_BUILDS` | pnpm bloquea scripts de build | Usar `node node_modules/next/dist/bin/next dev` en vez de `pnpm run dev` para el web |
 | Error 401 en el backend | JWT secret incorrecto o token expirado | Verificar `SUPABASE_JWT_SECRET` en `backend/.env` |
 | Sync falla con `Unique constraint` en email | Operación de sync con email duplicado | El upsert de usuarios ya usa `where: { email }` como clave única |
+| `Prisma could not connect during startup` / `Can't reach database server` | El backend no puede llegar a PostgreSQL en Supabase | Revisar `DATABASE_URL`, red local, firewall y disponibilidad del host `db.<proyecto>.supabase.co` |
+| `Error al verificar token de Supabase en canActivate` con `P1001` | El JWT se valida, pero Prisma no puede leer el usuario local | No es un error del login; es conectividad del backend a la DB |

@@ -111,12 +111,4 @@ Para instrucciones detalladas, lee [docs/DEV_SETUP.md](docs/DEV_SETUP.md).
 
 ## Documentacion Relacionada
 
-* [Roadmap del Proyecto](docs/ROADMAP.md)
-* [Especificacion de la API](docs/API_SPEC.md)
-* [Esquema de Base de Datos](docs/DATABASE_SCHEMA.md)
-* [Estrategia de Sincronizacion](docs/SYNC_STRATEGY.md)
-* [Guia de Entorno de Desarrollo](docs/DEV_SETUP.md)
-* [Requerimientos del Producto](docs/PRODUCT_REQUIREMENTS.md)
-* [Contexto del Proyecto](docs/PROJECT_CONTEXT.md)
-* [Arquitectura Frontend Web](docs/FRONTEND_WEB.md)
-* [Estructura del Repositorio](docs/REPOSITORY_STRUCTURE.md)
+* [Mapa de documentacion](docs/README.md)

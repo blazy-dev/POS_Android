@@ -1,5 +1,5 @@
 import type { SQLiteDatabase } from 'expo-sqlite';
-import { enqueueSyncOperation } from '../../database';
+import { enqueueSyncOperation, getAppMeta } from '../../database';
 import type { UserRecord } from '../../database/types';
 import { createLocalId } from '../../utils/ids';
 
@@ -198,6 +198,19 @@ export async function deleteEmployee(
   tenantId = 'local',
 ): Promise<void> {
   const now = new Date().toISOString();
+
+  const ownerEmail = await getAppMeta<string>(
+    db,
+    `tenant_owner_email_${tenantId}`,
+  );
+  const target = await db.getFirstAsync<{ email: string }>(
+    `SELECT email FROM users WHERE id = $id`,
+    { $id: employeeId },
+  );
+
+  if (ownerEmail && target?.email === ownerEmail) {
+    throw new Error('No se puede dar de baja al usuario principal del comercio.');
+  }
 
   // Nota: no filtrar por tenant_id aqui. El listado muestra empleados
   // de AMBOS tenants (real + 'local') pero el WHERE con tenant_id

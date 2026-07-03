@@ -1,4 +1,4 @@
-import { forwardRef, ReactNode, useMemo } from 'react';
+import { forwardRef, ReactNode, useMemo, useState } from 'react';
 import {
   StyleSheet,
   Text,
@@ -6,7 +6,7 @@ import {
   TextInputProps,
   View,
 } from 'react-native';
-import { radius, spacing, ThemeColors } from '../../theme/tokens';
+import { radius, spacing, fontSize, fontWeight, ThemeColors } from '../../theme/tokens';
 import { useTheme } from '../../context/ThemeContext';
 
 type FormFieldProps = TextInputProps & {
@@ -19,10 +19,11 @@ type FormFieldProps = TextInputProps & {
 
 export const FormField = forwardRef<TextInput, FormFieldProps>(
   function FormField(
-    { label, required = false, error, hint, accessory, style, ...inputProps },
+    { label, required = false, error, hint, accessory, style, onFocus, onBlur, ...inputProps },
     ref,
   ) {
     const { colors, isDark } = useTheme();
+    const [isFocused, setIsFocused] = useState(false);
     const styles = useMemo(() => getStyles(colors, isDark), [colors, isDark]);
 
     return (
@@ -38,7 +39,20 @@ export const FormField = forwardRef<TextInput, FormFieldProps>(
         <TextInput
           ref={ref}
           placeholderTextColor={isDark ? '#708090' : '#98A8B8'}
-          style={[styles.input, error ? styles.inputError : null, style]}
+          onFocus={(e) => {
+            setIsFocused(true);
+            onFocus?.(e);
+          }}
+          onBlur={(e) => {
+            setIsFocused(false);
+            onBlur?.(e);
+          }}
+          style={[
+            styles.input,
+            isFocused ? styles.inputFocused : null,
+            error ? styles.inputError : null,
+            style,
+          ]}
           {...inputProps}
         />
 
@@ -66,19 +80,20 @@ const getStyles = (colors: ThemeColors, isDark: boolean) =>
       fontWeight: '700',
     },
     input: {
-      borderRadius: radius.md,
+      borderRadius: radius.sm,
       borderWidth: 1,
       borderColor: colors.border,
-      backgroundColor: isDark ? 'rgba(255, 255, 255, 0.04)' : colors.surface,
+      backgroundColor: isDark ? '#18181b' : '#ffffff',
       color: colors.text,
-      paddingHorizontal: 14,
-      paddingVertical: 12,
+      paddingHorizontal: 12,
+      paddingVertical: 10,
       fontSize: 15,
     },
+    inputFocused: {
+      borderColor: isDark ? '#fafafa' : '#18181b',
+    },
     inputError: {
-      borderColor: isDark
-        ? 'rgba(255, 120, 120, 0.55)'
-        : 'rgba(231, 76, 60, 0.55)',
+      borderColor: colors.danger,
     },
     hint: {
       color: colors.textMuted,

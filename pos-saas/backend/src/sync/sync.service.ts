@@ -1,12 +1,16 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
+import { EventBusService } from '../events/event-bus';
 import * as crypto from 'crypto';
 
 @Injectable()
 export class SyncService {
   private readonly logger = new Logger(SyncService.name);
 
-  constructor(private prisma: PrismaService) {}
+  constructor(
+    private prisma: PrismaService,
+    private eventBus: EventBusService,
+  ) {}
 
   private toUuid(str: string): string {
     if (!str) return '00000000-0000-0000-0000-000000000000';
@@ -75,6 +79,19 @@ export class SyncService {
                 data: { isActive: false },
               });
             } else if (entity_type === 'user') {
+              const existingUser = await tx.user.findUnique({
+                where: { id: validEntityId },
+                select: { email: true },
+              });
+              const tenant = await tx.tenant.findUnique({
+                where: { id: tenantId },
+                select: { email: true },
+              });
+
+              if (existingUser && tenant?.email && existingUser.email === tenant.email) {
+                throw new Error('Cannot delete tenant owner');
+              }
+
               await tx.user.updateMany({
                 where: { id: validEntityId },
                 data: { isActive: false },
@@ -331,6 +348,15 @@ export class SyncService {
         });
 
         processed++;
+
+        // Emitir evento en tiempo real para que la web refresque
+        this.eventBus.emit({
+          entityType: entity_type,
+          operation,
+          entityId: validEntityId,
+          tenantId,
+          timestamp: new Date().toISOString(),
+        });
       } catch (err) {
         this.logger.error(`Error syncing operation ${operation_id}: ${err.message}`, err.stack);
         failed++;

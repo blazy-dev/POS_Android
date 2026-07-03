@@ -7,6 +7,7 @@ import { HealthModule } from './health/health.module';
 import { AuthModule } from './auth/auth.module';
 import { SyncModule } from './sync/sync.module';
 import { DashboardModule } from './dashboard/dashboard.module';
+import { EventsModule } from './events/events.module';
 
 @Module({
   imports: [
@@ -16,6 +17,7 @@ import { DashboardModule } from './dashboard/dashboard.module';
     AuthModule,
     SyncModule,
     DashboardModule,
+    EventsModule,
   ],
   controllers: [AppController],
   providers: [AppService],

@@ -150,6 +150,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         role: apiData.user.role,
       };
 
+      if (apiData.tenant.email) {
+        await setAppMeta(
+          db,
+          `tenant_owner_email_${apiData.tenant.id}`,
+          apiData.tenant.email,
+        );
+      }
+
       // Guardar el perfil del usuario localmente en SQLite
       await db.runAsync(
         `INSERT INTO users (id, tenant_id, name, email, role, is_active, created_at, updated_at)
@@ -409,6 +417,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         email: apiData.user.email,
         role: apiData.user.role,
       };
+
+      if (apiData.tenant.email) {
+        await setAppMeta(
+          db,
+          `tenant_owner_email_${apiData.tenant.id}`,
+          apiData.tenant.email,
+        );
+      }
 
       // Guardar el perfil del usuario localmente en SQLite
       await db.runAsync(

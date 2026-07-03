@@ -19,6 +19,8 @@ Este documento describe la arquitectura, decisiones de diseño, stack tecnológi
 
 > **Nota**: El usuario final del dashboard **nunca escribe clases Tailwind directamente**. Todos los estilos pasan por los componentes de **shadcn/ui** que abstraen Tailwind internamente. Las clases de composición se gestionan con las utilidades `cn()` (clsx + tailwind-merge) y variantes CVA.
 
+> Las reglas de autenticación, multi-tenant y sincronización no se duplican aquí; su definición canónica vive en [PROJECT_CONTEXT.md](PROJECT_CONTEXT.md), [API_SPEC.md](API_SPEC.md) y [SYNC_STRATEGY.md](SYNC_STRATEGY.md).
+
 ---
 
 ## 2. Puertos de ejecución local
@@ -146,11 +148,3 @@ sequenceDiagram
 ### Resiliencia del AuthContext
 
 Si el backend NestJS no está disponible, el `AuthContext` **no borra la sesión de Supabase**. En su lugar, crea un perfil mínimo desde el token de Supabase para que el usuario pueda ingresar. Esto evita que el login quede "atascado" en el spinner cuando el backend tarda en responder.
-
----
-
-## 6. Reglas Críticas de Aislamiento Multi-tenant
-
-- **JWT Bearer**: Todas las peticiones al backend adjuntan `Authorization: Bearer <Supabase_JWT>`.
-- **Filtro por Tenant**: El backend extrae el `tenantId` del usuario local y filtra **todas** las consultas con `where: { tenantId }`. Ninguna consulta puede omitir este filtro.
-- **Roles**: Solo usuarios con rol `admin` pueden acceder al dashboard web. Los cajeros solo acceden desde la app Android.

@@ -13,6 +13,7 @@ import { useSQLiteContext } from 'expo-sqlite';
 import { useAuth } from '../context/AuthContext';
 import { useTheme } from '../context/ThemeContext';
 import { FormField } from '../components/form/FormField';
+import { getAppMeta } from '../database';
 import { radius, spacing, ThemeColors } from '../theme/tokens';
 import {
   listEmployees,
@@ -55,6 +56,7 @@ export function EmployeeManagementScreen({
   const styles = useMemo(() => getStyles(colors, isDark), [colors, isDark]);
 
   const tenantId = user?.tenant_id || 'local';
+  const [ownerEmail, setOwnerEmail] = useState<string | null>(null);
 
   // Estados del listado
   const [employees, setEmployees] = useState<UserRecord[]>([]);
@@ -89,6 +91,22 @@ export function EmployeeManagementScreen({
   useEffect(() => {
     void fetchEmployees();
   }, []);
+
+  useEffect(() => {
+    async function loadOwnerEmail() {
+      try {
+        const cached = await getAppMeta<string>(
+          db,
+          `tenant_owner_email_${tenantId}`,
+        );
+        setOwnerEmail(cached);
+      } catch (err) {
+        console.error('Error al cargar el correo principal del tenant:', err);
+      }
+    }
+
+    void loadOwnerEmail();
+  }, [db, tenantId]);
 
   // Abrir formulario para agregar nuevo
   const handleNewEmployee = () => {
@@ -369,6 +387,7 @@ export function EmployeeManagementScreen({
           {employees.map((emp) => {
             // No permitir auto-eliminar o auto-editar el admin OAuth activo directamente desde aquí
             const isSelf = emp.email === user?.email;
+            const isOwner = ownerEmail !== null && emp.email === ownerEmail;
             return (
               <View key={emp.id} style={styles.employeeCard}>
                 <View style={styles.empInfo}>
@@ -399,7 +418,7 @@ export function EmployeeManagementScreen({
                   </View>
                 </View>
 
-                {!isSelf && !emp.email.endsWith('@pos.local') && (
+                {!isSelf && (
                   <View style={styles.empActions}>
                     <Pressable
                       style={styles.editButton}
@@ -407,12 +426,18 @@ export function EmployeeManagementScreen({
                     >
                       <Text style={styles.editButtonText}>Editar</Text>
                     </Pressable>
-                    <Pressable
-                      style={styles.deleteButton}
-                      onPress={() => handleDeleteEmployee(emp)}
-                    >
-                      <Text style={styles.deleteButtonText}>Baja</Text>
-                    </Pressable>
+                    {!isOwner ? (
+                      <Pressable
+                        style={styles.deleteButton}
+                        onPress={() => handleDeleteEmployee(emp)}
+                      >
+                        <Text style={styles.deleteButtonText}>Baja</Text>
+                      </Pressable>
+                    ) : (
+                      <View style={styles.protectedBadge}>
+                        <Text style={styles.protectedBadgeText}>Principal</Text>
+                      </View>
+                    )}
                   </View>
                 )}
               </View>
@@ -581,6 +606,17 @@ const getStyles = (colors: ThemeColors, isDark: boolean) =>
     },
     deleteButtonText: {
       color: isDark ? '#FFB4B4' : '#D32F2F',
+      fontSize: 12,
+      fontWeight: '700',
+    },
+    protectedBadge: {
+      paddingHorizontal: 10,
+      paddingVertical: 8,
+      borderRadius: 10,
+      backgroundColor: isDark ? 'rgba(245, 158, 11, 0.12)' : 'rgba(245, 158, 11, 0.18)',
+    },
+    protectedBadgeText: {
+      color: isDark ? '#FBBF24' : '#92400E',
       fontSize: 12,
       fontWeight: '700',
     },

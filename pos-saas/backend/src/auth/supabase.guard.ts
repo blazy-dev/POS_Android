@@ -2,9 +2,12 @@ import {
   CanActivate,
   ExecutionContext,
   Injectable,
+  Logger,
+  ServiceUnavailableException,
   UnauthorizedException,
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
+import { Prisma } from '@prisma/client';
 import * as jwt from 'jsonwebtoken';
 import jwksRsa from 'jwks-rsa';
 import { PrismaService } from '../prisma/prisma.service';
@@ -25,8 +28,30 @@ function getJwksClient(jwksUri: string): any {
   return clients[jwksUri];
 }
 
+function isPrismaDbUnavailableError(err: unknown): boolean {
+  if (!err || typeof err !== 'object') return false;
+
+  const error = err as {
+    code?: string;
+    name?: string;
+    message?: string;
+  };
+
+  if (error.code === 'P1001') return true;
+  if (error.name === 'PrismaClientInitializationError') return true;
+
+  const message = error.message || '';
+  return (
+    message.includes("Can't reach database server") ||
+    message.includes('PrismaClientInitializationError') ||
+    message.includes('P1001')
+  );
+}
+
 @Injectable()
 export class SupabaseAuthGuard implements CanActivate {
+  private readonly logger = new Logger(SupabaseAuthGuard.name);
+
   constructor(
     private configService: ConfigService,
     private prisma: PrismaService,
@@ -104,13 +129,26 @@ export class SupabaseAuthGuard implements CanActivate {
         name: decoded.user_metadata?.full_name || decoded.email?.split('@')[0] || 'User',
       };
 
-      const localUser = await this.prisma.user.findUnique({
-        where: { id: decoded.sub },
-        include: {
-          role: true,
-          tenant: true,
-        },
-      });
+      let localUser;
+      try {
+        localUser = await this.prisma.user.findUnique({
+          where: { id: decoded.sub },
+          include: {
+            role: true,
+            tenant: true,
+          },
+        });
+      } catch (dbErr: any) {
+        if (dbErr instanceof Prisma.PrismaClientInitializationError || isPrismaDbUnavailableError(dbErr)) {
+          this.logger.error(
+            `DB unavailable while validating token on ${request.method} ${request.url} for user ${decoded.sub} (${decoded.email || 'no-email'})`,
+          );
+          throw new ServiceUnavailableException(
+            'Database unavailable while validating Supabase token',
+          );
+        }
+        throw dbErr;
+      }
 
       if (localUser) {
         request.localUser = localUser;
@@ -119,6 +157,10 @@ export class SupabaseAuthGuard implements CanActivate {
 
       return true;
     } catch (err) {
+      if (err instanceof ServiceUnavailableException) {
+        throw err;
+      }
+
       try {
         const decodedToken = jwt.decode(token, { complete: true });
         console.error('Error al verificar token de Supabase en canActivate:', err);

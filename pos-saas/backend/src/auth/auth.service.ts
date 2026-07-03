@@ -50,6 +50,7 @@ export class AuthService {
         tenant: {
           id: updatedUser.tenant.id,
           name: updatedUser.tenant.name,
+          email: updatedUser.tenant.email,
           currency: updatedUser.tenant.currency,
           timezone: updatedUser.tenant.timezone,
         },
@@ -137,6 +138,7 @@ export class AuthService {
       tenant: {
         id: result.tenant.id,
         name: result.tenant.name,
+        email: result.tenant.email,
         currency: result.tenant.currency,
         timezone: result.tenant.timezone,
       },

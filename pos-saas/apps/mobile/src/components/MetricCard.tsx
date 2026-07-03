@@ -1,41 +1,60 @@
 import { useMemo } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '../context/ThemeContext';
 import type { ThemeColors } from '../theme/tokens';
+import { fontSize, fontWeight, spacing, radius } from '../theme/tokens';
 
-export function MetricCard({ label, value }: { label: string; value: string }) {
-  const { colors } = useTheme();
-  const styles = useMemo(() => getStyles(colors), [colors]);
+interface MetricCardProps {
+  label: string;
+  value: string;
+  icon?: keyof typeof Ionicons.glyphMap;
+}
+
+export function MetricCard({ label, value, icon }: MetricCardProps) {
+  const { colors, isDark } = useTheme();
+  const styles = useMemo(() => getStyles(colors, isDark), [colors, isDark]);
 
   return (
     <View style={styles.card}>
+      <View style={styles.header}>
+        <Text style={styles.label}>{label}</Text>
+        {icon && (
+          <Ionicons name={icon} size={16} color={colors.textMuted} />
+        )}
+      </View>
       <Text style={styles.value}>{value}</Text>
-      <Text style={styles.label}>{label}</Text>
     </View>
   );
 }
 
-const getStyles = (colors: ThemeColors) =>
+const getStyles = (colors: ThemeColors, isDark: boolean) =>
   StyleSheet.create({
     card: {
       flex: 1,
-      backgroundColor: colors.surfaceCard,
-      borderRadius: 18,
-      paddingVertical: 16,
-      paddingHorizontal: 14,
+      backgroundColor: colors.surface,
+      borderRadius: radius.sm,
+      padding: spacing.lg,
       borderWidth: 1,
       borderColor: colors.border,
-      minHeight: 88,
       justifyContent: 'space-between',
+      gap: spacing.sm,
+    },
+    header: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      alignItems: 'center',
     },
     value: {
       color: colors.text,
-      fontSize: 18,
-      fontWeight: '800',
+      fontSize: fontSize['2xl'],
+      fontWeight: fontWeight.bold,
     },
     label: {
       color: colors.textMuted,
-      fontSize: 12,
-      marginTop: 10,
+      fontSize: fontSize.xs,
+      fontWeight: fontWeight.medium,
+      textTransform: 'uppercase',
+      letterSpacing: 0.5,
     },
   });

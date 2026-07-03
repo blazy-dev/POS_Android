@@ -65,7 +65,8 @@ pos-saas/
 │   └── dev-stop.ps1
 │
 ├── docs/
-│   ├── PROJECT.md
+│   ├── README.md
+│   ├── PROJECT_CONTEXT.md
 │   ├── PRODUCT_REQUIREMENTS.md
 │   ├── DATABASE_SCHEMA.md
 │   ├── API_SPEC.md
