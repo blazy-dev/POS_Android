@@ -353,7 +353,7 @@ const getStyles = (colors: ThemeColors, isDark: boolean) =>
     container: {
       padding: spacing.xl,
       gap: spacing.lg,
-      paddingBottom: 40,
+      paddingBottom: 130,
     },
     productCard: {
       padding: spacing.lg,
@@ -481,12 +481,14 @@ const getStyles = (colors: ThemeColors, isDark: boolean) =>
     },
     reasonsRow: {
       flexDirection: 'row',
-      flexWrap: 'wrap',
       gap: spacing.sm,
       marginTop: -4,
     },
     reasonChip: {
-      paddingHorizontal: 12,
+      flex: 1,
+      alignItems: 'center',
+      justifyContent: 'center',
+      paddingHorizontal: 2,
       paddingVertical: 8,
       borderRadius: radius.md,
       backgroundColor: isDark
@@ -503,8 +505,9 @@ const getStyles = (colors: ThemeColors, isDark: boolean) =>
     },
     reasonChipText: {
       color: colors.textMuted,
-      fontSize: 12,
+      fontSize: 10.5,
       fontWeight: '700',
+      textAlign: 'center',
     },
     reasonChipTextActive: {
       color: colors.primary,
