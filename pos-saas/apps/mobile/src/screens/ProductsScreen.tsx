@@ -70,7 +70,7 @@ export function ProductsScreen({ onNavigate, navigationParams }: ProductsScreenP
       const prod = products.find((p) => p.id === navigationParams.editProductId);
       if (prod) {
         setSelectedProduct(prod);
-        setView('form');
+        setView('adjust');
       }
     }
   }, [navigationParams, products]);
@@ -608,7 +608,7 @@ export function ProductsScreen({ onNavigate, navigationParams }: ProductsScreenP
             </Text>
 
             <Pressable
-              style={styles.menuOption}
+              style={[styles.menuOption, styles.menuOptionEdit]}
               onPress={() => {
                 setActionMenuVisible(false);
                 setView('form');
@@ -621,13 +621,13 @@ export function ProductsScreen({ onNavigate, navigationParams }: ProductsScreenP
             </Pressable>
 
             <Pressable
-              style={[styles.menuOption, styles.menuOptionBorder]}
+              style={[styles.menuOption, styles.menuOptionAdjust]}
               onPress={() => {
                 setActionMenuVisible(false);
                 setView('adjust');
               }}
             >
-              <Text style={styles.menuOptionText}>
+              <Text style={[styles.menuOptionText, { color: colors.primary }]}>
                 Ajustar Stock / Historial
               </Text>
               <Text style={styles.menuOptionSub}>
@@ -636,14 +636,14 @@ export function ProductsScreen({ onNavigate, navigationParams }: ProductsScreenP
             </Pressable>
 
             <Pressable
-              style={[styles.menuOption, styles.menuOptionBorder]}
+              style={[styles.menuOption, styles.menuOptionDelete]}
               onPress={() => {
                 if (selectedProduct) {
                   handleDeleteProduct(selectedProduct);
                 }
               }}
             >
-              <Text style={[styles.menuOptionText, { color: '#ff4d4d' }]}>
+              <Text style={[styles.menuOptionText, { color: '#ef4444' }]}>
                 Eliminar Producto
               </Text>
               <Text style={styles.menuOptionSub}>
@@ -870,9 +870,17 @@ const getStyles = (colors: ThemeColors, isDark: boolean) =>
       borderWidth: 1,
       borderColor: colors.border,
     },
-    menuOptionBorder: {
-      borderColor: isDark ? '#ffffff' : '#18181b',
-      backgroundColor: isDark ? '#27272a' : '#f4f4f5',
+    menuOptionEdit: {
+      backgroundColor: colors.surface,
+      borderColor: colors.border,
+    },
+    menuOptionAdjust: {
+      backgroundColor: isDark ? 'rgba(138, 199, 255, 0.05)' : 'rgba(0, 102, 204, 0.03)',
+      borderColor: colors.primary,
+    },
+    menuOptionDelete: {
+      backgroundColor: isDark ? 'rgba(239, 68, 68, 0.05)' : 'rgba(239, 68, 68, 0.03)',
+      borderColor: 'rgba(239, 68, 68, 0.3)',
     },
     menuOptionText: {
       color: colors.text,

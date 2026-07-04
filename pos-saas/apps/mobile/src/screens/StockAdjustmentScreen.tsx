@@ -97,11 +97,7 @@ export function StockAdjustmentScreen({
       return;
     }
 
-    const trimmedReason = reason.trim();
-    if (!trimmedReason) {
-      setErrorMsg('El motivo o referencia del ajuste es obligatorio.');
-      return;
-    }
+    const trimmedReason = reason.trim() || (adjustmentType === 'in' ? 'Compra/Reposición' : 'Ajuste manual');
 
     if (adjustmentType === 'out' && product.stock < parsedQty) {
       setErrorMsg(`No hay suficiente stock. Stock actual: ${product.stock}`);
@@ -225,8 +221,7 @@ export function StockAdjustmentScreen({
             value={reason}
             onChangeText={setReason}
             placeholder="Ej: Reposición de mercadería"
-            required
-            hint="Describe el motivo (ej. Pérdida, Reposición, Control de stock)."
+            hint="Opcional. Describe el motivo (ej. Pérdida, Reposición, Control de stock)."
           />
 
           {/* Botones de Ajustes Rápidos de Motivo */}
