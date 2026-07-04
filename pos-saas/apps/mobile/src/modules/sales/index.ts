@@ -36,10 +36,9 @@ export async function createSale(db: SQLiteDatabase, input: CreateSaleInput) {
   }
 
   const saleItemsPayload: any[] = [];
+  let total = 0;
 
   await db.withExclusiveTransactionAsync(async (txn) => {
-    let total = 0;
-
     for (const item of input.items) {
       const product = await txn.getFirstAsync<{
         id: string;
@@ -230,6 +229,9 @@ export async function createSale(db: SQLiteDatabase, input: CreateSaleInput) {
       customer_id: input.customerId ?? null,
       cash_register_id: input.cashRegisterId ?? null,
       device_id: deviceId,
+      total: total,
+      created_at: now,
+      updated_at: now,
       items: saleItemsPayload,
     },
   });

@@ -132,3 +132,23 @@ SELECT
 ```
 
 Con estas medidas, las operaciones en el catálogo serán 100% independientes de las ventas registradas, garantizando una contabilidad robusta y libre de errores en producción.
+
+---
+
+## 🐛 Bug Resuelto: Pérdida del Total post-sincronización con la Nube
+
+### El Problema
+Al realizar ventas offline, los ingresos locales y arqueos se mostraban correctamente debido a que SQLite guardaba el total local. Sin embargo, al sincronizarse con la nube (PUSH), los ingresos de la venta pasaban a `$0`.
+
+Tras un análisis exhaustivo, se identificó que el payload enviado en la operación de sincronización (`SyncOperation`) **no incluía el campo `total` ni las fechas `created_at` / `updated_at` de la venta**. 
+
+1. La app móvil encolaba la operación enviando únicamente datos de cabecera como el método de pago e items sin el total acumulado.
+2. El backend de NestJS (`sync.service.ts`) al ejecutar `cleanSale` sobre la cabecera del payload, detectaba `payload.total === undefined`, asignándole por seguridad un valor por defecto de `$0`.
+3. Al guardarse en la base de datos central de Postgres con un total de `$0`, la subsiguiente fase de sincronización descendente (PULL) bajaba el registro remoto al dispositivo móvil y ejecutaba un `ON CONFLICT(id) DO UPDATE SET total = excluded.total`.
+4. Esto sobreescribía el total local correcto de SQLite con `$0`, vaciando a cero los ingresos, estadísticas de venta y arqueos del día.
+
+### La Solución
+1. Modificamos la función `createSale` en [sales/index.ts](file:///c:/Users/juanj/Desktop/Proyecto%20POS%20global/POS_Android/pos-saas/apps/mobile/src/modules/sales/index.ts) para declarar y propagar la variable acumuladora `total` fuera del bloque de transacción de la base de datos.
+2. Modificamos la creación de la operación de sincronización en `enqueueSyncOperation` para inyectar explícitamente `total: total`, `created_at: now` y `updated_at: now` en el payload.
+3. Ahora la cabecera viaja con su monto y fecha histórica intactos, almacenándose en Postgres de forma robusta e impidiendo que el posterior PULL pise el total con `$0`.
+
