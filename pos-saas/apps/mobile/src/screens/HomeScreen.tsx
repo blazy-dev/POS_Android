@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { SafeAreaView, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { SafeAreaView, ScrollView, StyleSheet, Text, View, Animated } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useSQLiteContext } from 'expo-sqlite';
 import { ActionCard } from '../components/ActionCard';
@@ -65,6 +65,33 @@ export function HomeScreen({ onNavigate }: HomeScreenProps) {
     sales_total: 0,
   });
   const [lowStock, setLowStock] = useState<LowStockProductRecord[]>([]);
+
+  // Estados para la rotación animada de Efectivo / Transferencia
+  const [metricsMode, setMetricsMode] = useState<'cash' | 'transfer'>('cash');
+  const fadeAnim = useMemo(() => new Animated.Value(1), []);
+
+  useEffect(() => {
+    const interval = setInterval(() => {
+      // 1. Desvanecer hacia afuera (fade out)
+      Animated.timing(fadeAnim, {
+        toValue: 0,
+        duration: 300,
+        useNativeDriver: true,
+      }).start(() => {
+        // 2. Alternar entre efectivo y transferencia
+        setMetricsMode((prev) => (prev === 'cash' ? 'transfer' : 'cash'));
+        
+        // 3. Desvanecer hacia adentro (fade in)
+        Animated.timing(fadeAnim, {
+          toValue: 1,
+          duration: 300,
+          useNativeDriver: true,
+        }).start();
+      });
+    }, 4000); // Rota cada 4 segundos
+
+    return () => clearInterval(interval);
+  }, [fadeAnim]);
 
   useEffect(() => {
     let mounted = true;
@@ -168,11 +195,17 @@ export function HomeScreen({ onNavigate }: HomeScreenProps) {
             value={String(productsCount)}
             icon="cube-outline"
           />
-          <MetricCard
-            label="Efectivo"
-            value={`$${dailySummary.cash_total.toLocaleString('es-AR', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`}
-            icon="cash-outline"
-          />
+          <Animated.View style={{ flex: 1, opacity: fadeAnim }}>
+            <MetricCard
+              label={metricsMode === 'cash' ? 'Efectivo' : 'Transferencia'}
+              value={
+                metricsMode === 'cash'
+                  ? `$${dailySummary.cash_total.toLocaleString('es-AR', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`
+                  : `$${dailySummary.transfer_total.toLocaleString('es-AR', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`
+              }
+              icon={metricsMode === 'cash' ? 'cash-outline' : 'card-outline'}
+            />
+          </Animated.View>
         </View>
 
         {/* Alertas de stock bajo */}
