@@ -31,7 +31,8 @@ import {
 } from '../modules/reports';
 
 interface ReportsScreenProps {
-  onNavigate: (route: string) => void;
+  onNavigate: (route: string, params?: any) => void;
+  navigationParams?: any;
 }
 
 type TabKey = 'sales' | 'cash' | 'stock';
@@ -110,7 +111,9 @@ export function ReportsScreen({ onNavigate }: ReportsScreenProps) {
               ${lowStock.map(p => `
                 <tr>
                   <td>${p.name}</td>
-                  <td style="text-align: right; color: #ef4444; font-weight: 700;">${p.stock} ${p.unit}</td>
+                  <td style="text-align: right; color: ${p.stock <= 0 ? '#ef4444' : '#f59e0b'}; font-weight: bold;">
+                    ${p.stock} ${p.unit}
+                  </td>
                 </tr>
               `).join('')}
             </tbody>
@@ -132,98 +135,84 @@ export function ReportsScreen({ onNavigate }: ReportsScreenProps) {
               font-size: 24px;
               font-weight: 800;
               margin-bottom: 4px;
-              letter-spacing: -0.5px;
             }
-            .date-subtitle {
-              font-size: 13px;
+            .subtitle {
               color: #71717a;
-              margin-top: 0;
-              margin-bottom: 24px;
+              font-size: 14px;
+              margin-bottom: 30px;
             }
             .grid {
               display: grid;
               grid-template-columns: repeat(2, 1fr);
-              gap: 16px;
-              margin-bottom: 28px;
+              gap: 20px;
+              margin-bottom: 30px;
             }
             .metric-card {
               border: 1px solid #e4e4e7;
               border-radius: 8px;
               padding: 16px;
-              background-color: #fafafa;
+            }
+            .metric-hero {
+              grid-column: span 2;
+              background: #f4f4f5;
             }
             .metric-label {
-              font-size: 11px;
-              font-weight: 700;
-              color: #71717a;
+              font-size: 12px;
               text-transform: uppercase;
               letter-spacing: 0.5px;
+              color: #71717a;
+              margin-bottom: 8px;
             }
             .metric-value {
-              font-size: 22px;
-              font-weight: 800;
-              color: #18181b;
-              margin-top: 4px;
+              font-size: 20px;
+              font-weight: 700;
             }
-            h2 {
-              font-size: 16px;
+            .metric-hero-value {
+              font-size: 28px;
               font-weight: 800;
-              margin-top: 24px;
-              margin-bottom: 12px;
-              border-bottom: 1px solid #e4e4e7;
-              padding-bottom: 6px;
+              color: #16a34a;
             }
             table {
               width: 100%;
               border-collapse: collapse;
-              margin-bottom: 20px;
+              margin-bottom: 30px;
             }
-            th {
-              background-color: #f4f4f5;
-              color: #27272a;
-              font-size: 10px;
-              font-weight: 700;
-              text-transform: uppercase;
-              padding: 8px 12px;
-              border-bottom: 2px solid #e4e4e7;
-              text-align: left;
-            }
-            td {
-              font-size: 12px;
+            th, td {
               padding: 10px 12px;
+              text-align: left;
               border-bottom: 1px solid #e4e4e7;
             }
-            tr:nth-child(even) {
-              background-color: #fafafa;
+            th {
+              font-size: 12px;
+              text-transform: uppercase;
+              color: #71717a;
+              font-weight: 600;
             }
-            tr {
-              page-break-inside: avoid;
+            h2 {
+              font-size: 16px;
+              font-weight: 700;
+              margin-top: 40px;
+              margin-bottom: 15px;
             }
           </style>
         </head>
         <body>
-          <h1>Reporte de Operaciones POS</h1>
-          <p class="date-subtitle">Generado el ${currentDate}</p>
+          <h1>Resumen del Turno Diario</h1>
+          <div class="subtitle">Generado el ${currentDate}</div>
 
           <div class="grid">
-            <div class="metric-card">
-              <div class="metric-label">Ingresos Totales</div>
-              <div class="metric-value">$ ${summary.sales_total.toLocaleString('es-AR')}</div>
-            </div>
-            <div class="metric-card">
-              <div class="metric-label">Transacciones</div>
-              <div class="metric-value">${summary.transaction_count}</div>
+            <div class="metric-card metric-hero">
+              <div class="metric-label">Total Recaudado (Ventas)</div>
+              <div class="metric-hero-value">$ ${summary.sales_total.toLocaleString('es-AR')}</div>
             </div>
             <div class="metric-card">
               <div class="metric-label">Efectivo</div>
-              <div class="metric-value">$ ${summary.cash_total.toLocaleString('es-AR')}</div>
+              <div class="metric-value" style="color: #16a34a;">$ ${summary.cash_total.toLocaleString('es-AR')}</div>
             </div>
             <div class="metric-card">
               <div class="metric-label">Transferencias</div>
               <div class="metric-value">$ ${summary.transfer_total.toLocaleString('es-AR')}</div>
             </div>
-          </div>
-
           <h2>Top 5 Productos Más Vendidos</h2>
           ${topProductsHtml}
 
@@ -313,7 +302,6 @@ export function ReportsScreen({ onNavigate }: ReportsScreenProps) {
       </View>
 
       <View style={styles.header}>
-        <Text style={styles.kicker}>Fase 7 — Reportes</Text>
         <Text style={styles.title}>Auditoría y Estadísticas</Text>
         <Text style={styles.subtitle}>
           Visualización en tiempo real del rendimiento de tu negocio offline.
@@ -670,14 +658,22 @@ export function ReportsScreen({ onNavigate }: ReportsScreenProps) {
                 {lowStock.map((item) => {
                   const isZero = item.stock <= 0;
                   return (
-                    <View
+                    <Pressable
                       key={item.id}
-                      style={[styles.stockCard, isZero && styles.stockCardZero]}
+                      style={({ pressed }) => [
+                        styles.stockCard,
+                        isZero && styles.stockCardZero,
+                        pressed && { opacity: 0.7, transform: [{ scale: 0.99 }] }
+                      ]}
+                      onPress={() => onNavigate('products', { editProductId: item.id })}
                     >
                       <View style={styles.stockInfo}>
                         <Text style={styles.stockName}>{item.name}</Text>
                         <Text style={styles.stockPrice}>
                           Precio Venta: $ {item.sale_price.toFixed(2)}
+                        </Text>
+                        <Text style={{ fontSize: 11, color: colors.textMuted, marginTop: 4 }}>
+                          Toca para ajustar stock
                         </Text>
                       </View>
                       <View style={styles.stockValueContainer}>
@@ -693,7 +689,7 @@ export function ReportsScreen({ onNavigate }: ReportsScreenProps) {
                         </Text>
                         <Text style={styles.stockUnit}>{item.unit}</Text>
                       </View>
-                    </View>
+                    </Pressable>
                   );
                 })}
               </View>
@@ -702,7 +698,7 @@ export function ReportsScreen({ onNavigate }: ReportsScreenProps) {
         ) : null}
 
         {/* Botón global para exportar reporte diario a PDF */}
-        <View style={{ paddingHorizontal: spacing.xl, paddingBottom: 16 }}>
+        <View style={{ paddingHorizontal: spacing.xl, marginTop: spacing.xl, paddingBottom: 16 }}>
           <Button
             label={isExporting ? 'Exportando reporte...' : 'Exportar Reporte Diario (PDF)'}
             icon="document-text-outline"

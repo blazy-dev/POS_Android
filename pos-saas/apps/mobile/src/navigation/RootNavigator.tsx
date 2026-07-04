@@ -75,14 +75,21 @@ export function RootNavigator() {
   const { user, onboardingToken } = useAuth();
   // Estado local para saber qué pantalla se encuentra activa
   const [route, setRoute] = useState<RouteKey>('home');
+  const [navigationParams, setNavigationParams] = useState<any>(null);
+
   // Hook para obtener los insets de áreas seguras del dispositivo (notch, barra de navegación, etc.)
   const insets = useSafeAreaInsets();
   const { colors, isDark } = useTheme();
   const styles = useMemo(() => getStyles(colors, isDark), [colors, isDark]);
 
+  const handleNavigate = (nextRoute: RouteKey, params?: any) => {
+    setRoute(nextRoute);
+    setNavigationParams(params);
+  };
+
   // Selecciona dinámicamente el componente de pantalla correspondiente según la ruta actual
   const Screen = useMemo<
-    React.ComponentType<{ onNavigate: (route: RouteKey) => void }>
+    React.ComponentType<{ onNavigate: (route: RouteKey, params?: any) => void; navigationParams?: any }>
   >(() => {
     switch (route) {
       case 'reports':
@@ -120,7 +127,7 @@ export function RootNavigator() {
 
       {/* Área del contenedor principal de la pantalla activa */}
       <View style={styles.screenArea}>
-        <Screen onNavigate={setRoute} />
+        <Screen onNavigate={handleNavigate} navigationParams={navigationParams} />
       </View>
 
       {/* Barra de navegación inferior: píldora flotante */}

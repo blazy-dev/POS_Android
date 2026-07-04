@@ -32,7 +32,12 @@ import { Badge } from '../components/ui/Badge';
 
 type ProductsView = 'list' | 'form' | 'adjust' | 'labels';
 
-export function ProductsScreen() {
+interface ProductsScreenProps {
+  onNavigate?: (route: string, params?: any) => void;
+  navigationParams?: { editProductId?: string } | null;
+}
+
+export function ProductsScreen({ onNavigate, navigationParams }: ProductsScreenProps) {
   const db = useSQLiteContext();
   const { colors, isDark } = useTheme();
   const { user } = useAuth();
@@ -58,6 +63,17 @@ export function ProductsScreen() {
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
 
   const tenantId = user?.tenant_id || 'local';
+
+  // Manejar edición automática desde parámetros de navegación externos (ej: Reportes -> Stock Bajo)
+  useEffect(() => {
+    if (navigationParams?.editProductId && products.length > 0) {
+      const prod = products.find((p) => p.id === navigationParams.editProductId);
+      if (prod) {
+        setSelectedProduct(prod);
+        setView('form');
+      }
+    }
+  }, [navigationParams, products]);
 
   // Genera y comparte el PDF del catálogo completo de productos
   const handleExportProductsPDF = async () => {
