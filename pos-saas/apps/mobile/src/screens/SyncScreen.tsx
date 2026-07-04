@@ -280,7 +280,7 @@ const getStyles = (colors: ThemeColors, isDark: boolean) =>
     container: {
       padding: spacing.xl,
       gap: spacing.lg,
-      paddingBottom: 120, // espacio seguro sobre la pill flotante
+      paddingBottom: 130, // espacio seguro sobre la pill flotante
     },
     header: {
       gap: 6,

@@ -504,6 +504,6 @@ const getStyles = (colors: ThemeColors, isDark: boolean) =>
       textAlign: 'center',
     },
     footer: {
-      paddingBottom: 120,
+      paddingBottom: 130,
     },
   });

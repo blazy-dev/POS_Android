@@ -820,7 +820,7 @@ const getStyles = (colors: ThemeColors, isDark: boolean) =>
       // safe-area + margen). Si se cambia la altura de la pill en
       // RootNavigator.tsx → tabBar.height, actualizar este valor también.
       // ─────────────────────────────────────────────────────────────────────
-      paddingBottom: 120,
+      paddingBottom: 130,
     },
     tabContent: {
       gap: spacing.lg,

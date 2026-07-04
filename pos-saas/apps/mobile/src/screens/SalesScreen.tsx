@@ -869,7 +869,7 @@ const getStyles = (colors: ThemeColors, isDark: boolean) =>
       paddingTop: spacing['2xl'] + 12, // Espacio prudencial desde arriba
       justifyContent: 'flex-start',
       gap: spacing.lg,
-      paddingBottom: 120, // Altura segura para el navbar
+      paddingBottom: 130, // Altura segura para el navbar
     },
     headerRow: {
       marginBottom: -10,

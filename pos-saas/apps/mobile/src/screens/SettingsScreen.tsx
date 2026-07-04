@@ -475,7 +475,7 @@ const getStyles = (colors: ThemeColors, isDark: boolean) =>
     },
     container: {
       padding: 20,
-      paddingBottom: 120, // espacio seguro sobre la pill flotante
+      paddingBottom: 130, // espacio seguro sobre la pill flotante
       gap: 12,
     },
     kicker: {
