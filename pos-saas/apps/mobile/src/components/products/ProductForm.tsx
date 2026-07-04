@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Pressable,
@@ -82,6 +82,38 @@ export function ProductForm({
   const [barcodeStatus, setBarcodeStatus] = useState<
     'idle' | 'checking' | 'available' | 'taken'
   >('idle');
+
+  const [suggestedCategories, setSuggestedCategories] = useState<string[]>(CATEGORY_PRESETS);
+
+  useEffect(() => {
+    async function loadMostUsedCategories() {
+      try {
+        const rows = await db.getAllAsync<{ category_name: string; count: number }>(
+          `SELECT COALESCE(c.name, p.category_id) AS category_name, COUNT(*) as count
+           FROM products p
+           LEFT JOIN categories c ON p.category_id = c.id
+           WHERE p.tenant_id = $tenantId 
+             AND p.category_id IS NOT NULL 
+             AND p.category_id != '' 
+             AND p.is_active = 1
+           GROUP BY category_name
+           ORDER BY count DESC 
+           LIMIT 8`,
+          { $tenantId: tenantId }
+        );
+
+        const foundCategories = rows.map((r) => r.category_name);
+        const uniqueCategories = Array.from(
+          new Set([...foundCategories, ...CATEGORY_PRESETS])
+        ).slice(0, 8);
+
+        setSuggestedCategories(uniqueCategories);
+      } catch (err) {
+        console.error('Error cargando categorias mas usadas:', err);
+      }
+    }
+    void loadMostUsedCategories();
+  }, [db, tenantId]);
 
   const margin = useMemo(() => {
     const purchase = Number(values.purchasePrice.replace(',', '.'));
@@ -283,7 +315,7 @@ export function ProductForm({
           />
 
           <View style={styles.categoryGrid}>
-            {CATEGORY_PRESETS.map((category) => {
+            {suggestedCategories.map((category) => {
               const active = values.category === category;
 
               return (

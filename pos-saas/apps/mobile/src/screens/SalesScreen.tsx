@@ -2,15 +2,24 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   FlatList,
+  LayoutAnimation,
   Modal,
+  Platform,
   Pressable,
   SafeAreaView,
   ScrollView,
   StyleSheet,
   Text,
   TextInput,
+  UIManager,
+  Animated,
   View,
 } from 'react-native';
+
+// Habilitar LayoutAnimation en Android
+if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental) {
+  UIManager.setLayoutAnimationEnabledExperimental(true);
+}
 import { Ionicons } from '@expo/vector-icons';
 import { useSQLiteContext } from 'expo-sqlite';
 import type { ProductRecord, SaleRecord } from '../database/types';
@@ -84,6 +93,7 @@ export function SalesScreen() {
   const [searchQuery, setSearchQuery] = useState('');
   const [searchResults, setSearchResults] = useState<ProductRecord[]>([]);
   const [allProducts, setAllProducts] = useState<ProductRecord[]>([]);
+  const [lastAddedId, setLastAddedId] = useState<string | null>(null);
 
   // Estados del Checkout
   const [checkoutVisible, setCheckoutVisible] = useState(false);
@@ -95,6 +105,19 @@ export function SalesScreen() {
 
   const [savingSale, setSavingSale] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
+
+  // Animación de sacudida (Shake) para errores en la búsqueda/escaneo
+  const shakeAnim = useRef(new Animated.Value(0)).current;
+  const triggerShake = () => {
+    Animated.sequence([
+      Animated.timing(shakeAnim, { toValue: 12, duration: 60, useNativeDriver: true }),
+      Animated.timing(shakeAnim, { toValue: -12, duration: 60, useNativeDriver: true }),
+      Animated.timing(shakeAnim, { toValue: 8, duration: 60, useNativeDriver: true }),
+      Animated.timing(shakeAnim, { toValue: -8, duration: 60, useNativeDriver: true }),
+      Animated.timing(shakeAnim, { toValue: 4, duration: 60, useNativeDriver: true }),
+      Animated.timing(shakeAnim, { toValue: 0, duration: 60, useNativeDriver: true }),
+    ]).start();
+  };
 
   // Inicialización: busca si hay caja abierta
   async function checkSession() {
@@ -139,6 +162,9 @@ export function SalesScreen() {
         setSearchResults([]);
       } else {
         void playErrorSound();
+        triggerShake();
+        setSearchQuery(''); // Limpia el input si falla
+        setSearchResults([]);
         setErrorMsg(`Producto con código ${trimmed} no encontrado.`);
         setTimeout(() => setErrorMsg(null), 3000);
       }
@@ -178,6 +204,9 @@ export function SalesScreen() {
 
     if (product.stock < currentQty + 1) {
       void playErrorSound();
+      triggerShake();
+      setSearchQuery(''); // Limpia el input por falta de stock
+      setSearchResults([]);
       setErrorMsg(
         `Stock insuficiente para ${product.name} (Disponible: ${product.stock}).`,
       );
@@ -185,6 +214,8 @@ export function SalesScreen() {
       return;
     }
 
+    // Animación suave de entrada nativa
+    LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
     setCart((current) => {
       const exists = current.find((item) => item.product.id === product.id);
       if (exists) {
@@ -197,11 +228,14 @@ export function SalesScreen() {
       return [...current, { product, quantity: 1 }];
     });
 
+    setLastAddedId(product.id);
+    setTimeout(() => setLastAddedId(null), 500); // Destello por 500ms
     void playSuccessSound();
   };
 
   // Carrito: modificar cantidad
   const updateQuantity = (productId: string, delta: number) => {
+    LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
     setCart((current) => {
       return current
         .map((item) => {
@@ -219,10 +253,16 @@ export function SalesScreen() {
         })
         .filter((item) => item.quantity > 0);
     });
+
+    if (delta > 0) {
+      setLastAddedId(productId);
+      setTimeout(() => setLastAddedId(null), 500);
+    }
   };
 
   // Carrito: eliminar ítem
   const removeProduct = (productId: string) => {
+    LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
     setCart((current) =>
       current.filter((item) => item.product.id !== productId),
     );
@@ -508,7 +548,12 @@ export function SalesScreen() {
         </Pressable>
       </View>
 
-      <View style={styles.posContainer}>
+      <Animated.View
+        style={[
+          styles.posContainer,
+          { transform: [{ translateX: shakeAnim }] },
+        ]}
+      >
         {/* Barra de Búsqueda y Escaneo */}
         <View style={styles.searchBarContainer}>
           <TextInput
@@ -587,9 +632,14 @@ export function SalesScreen() {
                 <FlatList
                   data={cart}
                   keyExtractor={(item) => item.product.id}
-                  renderItem={({ item }) => (
-                    <View style={styles.cartRow}>
-                      <View style={styles.cartItemInfo}>
+                  renderItem={({ item }) => {
+                    const isHighlighted = item.product.id === lastAddedId;
+                    return (
+                      <View style={[
+                        styles.cartRow,
+                        isHighlighted && styles.cartRowHighlighted
+                      ]}>
+                        <View style={styles.cartItemInfo}>
                         <Text style={styles.cartItemName}>
                           {item.product.name}
                         </Text>
@@ -622,8 +672,9 @@ export function SalesScreen() {
                           <Text style={styles.deleteBtnText}>🗑</Text>
                         </Pressable>
                       </View>
-                    </View>
-                  )}
+                      </View>
+                    );
+                  }}
                 />
 
                 {/* Resumen del Total y Cobro */}
@@ -644,7 +695,7 @@ export function SalesScreen() {
             )}
           </View>
         )}
-      </View>
+      </Animated.View>
 
       {/* --- MODAL DE COBRO (CHECKOUT) --- */}
       <Modal
@@ -815,7 +866,7 @@ const getStyles = (colors: ThemeColors, isDark: boolean) =>
     centerContainer: {
       flexGrow: 1,
       padding: spacing.xl,
-      paddingTop: spacing.xxl + 12, // Espacio prudencial desde arriba
+      paddingTop: spacing['2xl'] + 12, // Espacio prudencial desde arriba
       justifyContent: 'flex-start',
       gap: spacing.lg,
       paddingBottom: 120, // Altura segura para el navbar
@@ -1118,6 +1169,10 @@ const getStyles = (colors: ThemeColors, isDark: boolean) =>
       borderWidth: 1,
       borderColor: colors.border,
       marginBottom: 8,
+    },
+    cartRowHighlighted: {
+      backgroundColor: isDark ? 'rgba(74, 222, 128, 0.15)' : 'rgba(220, 252, 231, 0.95)',
+      borderColor: isDark ? 'rgba(74, 222, 128, 0.4)' : 'rgba(74, 222, 128, 0.6)',
     },
     cartItemInfo: {
       flex: 1,

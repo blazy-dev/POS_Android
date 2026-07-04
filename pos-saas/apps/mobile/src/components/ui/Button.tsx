@@ -5,6 +5,8 @@ import {
   StyleSheet,
   Text,
   View,
+  StyleProp,
+  ViewStyle,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '../../context/ThemeContext';
@@ -22,6 +24,7 @@ interface ButtonProps {
   disabled?: boolean;
   fullWidth?: boolean;
   size?: 'sm' | 'md' | 'lg';
+  style?: StyleProp<ViewStyle>;
 }
 
 /**
@@ -36,6 +39,7 @@ export function Button({
   disabled = false,
   fullWidth = true,
   size = 'md',
+  style,
 }: ButtonProps) {
   const { colors, isDark } = useTheme();
   const styles = useMemo(() => getStyles(colors, isDark), [colors, isDark]);
@@ -56,6 +60,7 @@ export function Button({
         fullWidth && styles.fullWidth,
         pressed && !isDisabled && variantStyles.pressed,
         isDisabled && styles.disabled,
+        style,
       ]}
     >
       {loading ? (

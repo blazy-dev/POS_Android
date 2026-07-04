@@ -55,6 +55,7 @@ export function ProductsScreen() {
   // Estado para controlar la visibilidad del menú de opciones rápidas
   const [actionMenuVisible, setActionMenuVisible] = useState(false);
   const [isExporting, setIsExporting] = useState(false);
+  const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
 
   const tenantId = user?.tenant_id || 'local';
 
@@ -170,9 +171,37 @@ export function ProductsScreen() {
   };
 
   async function refreshProducts() {
-    const rows = await listProducts(db, tenantId);
+    const rows = await db.getAllAsync<ProductRecord & { category_name: string | null }>(
+      `SELECT
+        p.id,
+        p.tenant_id,
+        p.barcode,
+        p.name,
+        p.category_id,
+        p.purchase_price,
+        p.sale_price,
+        p.stock,
+        p.unit,
+        p.is_active,
+        p.created_at,
+        p.updated_at,
+        COALESCE(c.name, p.category_id) AS category_name
+       FROM products p
+       LEFT JOIN categories c ON p.category_id = c.id
+       WHERE p.tenant_id = $tenant_id AND p.is_active = 1
+       ORDER BY p.updated_at DESC`,
+      { $tenant_id: tenantId }
+    );
     setProducts(rows);
   }
+
+  // Memoriza las categorías activas únicas presentes en los productos en pantalla
+  const categories = useMemo(() => {
+    const list = products
+      .map((p: any) => p.category_name)
+      .filter((cat): cat is string => !!cat && cat.trim() !== '');
+    return Array.from(new Set(list)).sort((a, b) => a.localeCompare(b));
+  }, [products]);
 
   useEffect(() => {
     let mounted = true;
@@ -254,7 +283,16 @@ export function ProductsScreen() {
     );
   };
 
-  const filteredProducts = products.filter((product) => {
+  const filteredProducts = products.filter((product: any) => {
+    // 1. Filtrar por categoría
+    if (selectedCategory) {
+      const prodCat = product.category_name || '';
+      if (prodCat.toLowerCase() !== selectedCategory.toLowerCase()) {
+        return false;
+      }
+    }
+
+    // 2. Filtrar por texto
     const query = searchQuery.trim().toLowerCase();
     if (!query) return true;
     return (
@@ -364,6 +402,62 @@ export function ProductsScreen() {
             </Text>
           ) : null}
         </View>
+
+        {categories.length > 0 && (
+          <View style={styles.categoriesWrapper}>
+            <Text style={styles.categoriesLabel}>Filtrar por categoría:</Text>
+            <ScrollView
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              contentContainerStyle={styles.categoriesScroll}
+            >
+              <Pressable
+                onPress={() => {
+                  setSelectedCategory(null);
+                  setCurrentPage(1);
+                }}
+                style={[
+                  styles.categoryChip,
+                  selectedCategory === null && styles.categoryChipActive,
+                ]}
+              >
+                <Text
+                  style={[
+                    styles.categoryChipText,
+                    selectedCategory === null && styles.categoryChipTextActive,
+                  ]}
+                >
+                  Todas
+                </Text>
+              </Pressable>
+              {categories.map((cat) => {
+                const active = selectedCategory === cat;
+                return (
+                  <Pressable
+                    key={cat}
+                    onPress={() => {
+                      setSelectedCategory(cat);
+                      setCurrentPage(1);
+                    }}
+                    style={[
+                      styles.categoryChip,
+                      active && styles.categoryChipActive,
+                    ]}
+                  >
+                    <Text
+                      style={[
+                        styles.categoryChipText,
+                        active && styles.categoryChipTextActive,
+                      ]}
+                    >
+                      {cat}
+                    </Text>
+                  </Pressable>
+                );
+              })}
+            </ScrollView>
+          </View>
+        )}
 
         <View style={styles.card}>
           <Text style={styles.cardTitle}>
@@ -809,5 +903,45 @@ const getStyles = (colors: ThemeColors, isDark: boolean) =>
     },
     toolBtn: {
       width: '100%',
+    },
+    // Carrusel de Categorías
+    categoriesWrapper: {
+      gap: spacing.xs,
+      marginVertical: spacing.xs,
+    },
+    categoriesLabel: {
+      color: colors.textMuted,
+      fontSize: 12,
+      fontWeight: '700',
+      textTransform: 'uppercase',
+      letterSpacing: 0.5,
+      paddingLeft: 2,
+    },
+    categoriesScroll: {
+      paddingVertical: spacing.xs,
+      gap: spacing.sm,
+    },
+    categoryChip: {
+      paddingHorizontal: 16,
+      paddingVertical: 10,
+      borderRadius: radius.md,
+      borderWidth: 1,
+      borderColor: colors.border,
+      backgroundColor: isDark ? 'rgba(255, 255, 255, 0.04)' : colors.surface,
+      marginRight: 2,
+    },
+    categoryChipActive: {
+      backgroundColor: isDark
+        ? 'rgba(138, 199, 255, 0.18)'
+        : 'rgba(4, 151, 191, 0.15)',
+      borderColor: colors.primary,
+    },
+    categoryChipText: {
+      color: colors.textMuted,
+      fontSize: 13,
+      fontWeight: '700',
+    },
+    categoryChipTextActive: {
+      color: isDark ? '#EAF4FF' : colors.primary,
     },
   });

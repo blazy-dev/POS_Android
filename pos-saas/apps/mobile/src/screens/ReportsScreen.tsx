@@ -8,6 +8,7 @@ import {
   StyleSheet,
   Text,
   View,
+  Alert,
 } from 'react-native';
 import { useSQLiteContext } from 'expo-sqlite';
 import * as Print from 'expo-print';
@@ -87,8 +88,8 @@ export function ReportsScreen({ onNavigate }: ReportsScreenProps) {
               ${topProducts.map(p => `
                 <tr>
                   <td>${p.name}</td>
-                  <td style="text-align: right;">${p.total_qty}</td>
-                  <td style="text-align: right;">$ ${p.revenue.toFixed(2)}</td>
+                  <td style="text-align: right;">${p.total_quantity}</td>
+                  <td style="text-align: right;">$ ${p.total_amount.toFixed(2)}</td>
                 </tr>
               `).join('')}
             </tbody>

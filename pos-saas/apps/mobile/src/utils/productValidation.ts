@@ -16,8 +16,6 @@ export const PRODUCT_UNITS = [
   { value: 'unit', label: 'Unidad' },
   { value: 'kg', label: 'Kilogramo' },
   { value: 'g', label: 'Gramo' },
-  { value: 'L', label: 'Litro' },
-  { value: 'ml', label: 'Mililitro' },
   { value: 'pack', label: 'Pack' },
 ] as const;
 

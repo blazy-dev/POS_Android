@@ -49,11 +49,11 @@ const getStyles = (colors: ThemeColors, isDark: boolean) =>
     },
     grid: {
       flexDirection: 'row',
-      flexWrap: 'wrap',
       gap: spacing.sm,
     },
     chip: {
-      paddingHorizontal: 14,
+      flex: 1,
+      alignItems: 'center',
       paddingVertical: 10,
       borderRadius: radius.md,
       borderWidth: 1,
