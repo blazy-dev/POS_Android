@@ -67,7 +67,9 @@ export interface SaleItemRecord {
   id: string; // UUID identificador único del detalle
   tenant_id: string; // ID de la empresa
   sale_id: string; // Relación con la tabla sales
-  product_id: string; // Relación con la tabla products
+  product_id: string | null; // Relación con la tabla products (NULLable)
+  product_name: string; // Nombre del producto vendido (inmutable)
+  product_unit: string; // Unidad de medida vendida (inmutable)
   quantity: number; // Cantidad vendida (puede ser fraccional, ej: 1.5 kg)
   unit_price: number; // Precio unitario cobrado al momento de la venta
   subtotal: number; // Cantidad * Precio Unitario

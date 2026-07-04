@@ -13,7 +13,7 @@ import type {
 } from './types';
 
 export const DATABASE_NAME = 'pos_local.db';
-export const DATABASE_VERSION = 4;
+export const DATABASE_VERSION = 5;
 
 const META_TABLE = 'app_meta';
 const SYNC_TABLE = 'sync_operations';
@@ -61,6 +61,27 @@ export async function initializeDatabase(db: SQLiteDatabase) {
       DROP TABLE IF EXISTS ${DEVICE_TABLE};
       DROP TABLE IF EXISTS ${META_TABLE};
     `);
+  }
+
+  // Migración incremental para la versión 5 (inmutabilidad de ventas)
+  if (currentVersion > 0 && currentVersion < 5) {
+    try {
+      // 1. Agregar las nuevas columnas para inmutabilidad descriptiva en la tabla local
+      await db.execAsync(`
+        ALTER TABLE ${SALE_ITEMS_TABLE} ADD COLUMN product_name TEXT DEFAULT '';
+        ALTER TABLE ${SALE_ITEMS_TABLE} ADD COLUMN product_unit TEXT DEFAULT 'unit';
+      `);
+      
+      // 2. Rellenar de forma retroactiva con los nombres y unidades actuales para los registros existentes
+      await db.execAsync(`
+        UPDATE ${SALE_ITEMS_TABLE}
+        SET product_name = (SELECT name FROM products WHERE id = product_id),
+            product_unit = (SELECT unit FROM products WHERE id = product_id)
+        WHERE product_name IS NULL OR product_name = '';
+      `);
+    } catch (err) {
+      console.warn('Error al aplicar migración incremental v5 (SQLite):', err);
+    }
   }
 
   // Ejecuta la creación del esquema DDL (Data Definition Language)
@@ -175,14 +196,16 @@ export async function initializeDatabase(db: SQLiteDatabase) {
       id TEXT PRIMARY KEY NOT NULL,
       tenant_id TEXT NOT NULL,
       sale_id TEXT NOT NULL,             -- FKey a cabecera de venta
-      product_id TEXT NOT NULL,          -- FKey al producto vendido
+      product_id TEXT,                   -- FKey al producto vendido (NULLable)
+      product_name TEXT NOT NULL,        -- Nombre del producto vendido (inmutable)
+      product_unit TEXT NOT NULL DEFAULT 'unit', -- Unidad de medida vendida (inmutable)
       quantity REAL NOT NULL,            -- Cantidad vendida
       unit_price REAL NOT NULL,          -- Precio cobrado
       subtotal REAL NOT NULL,            -- quantity * unit_price
       created_at TEXT NOT NULL,
       updated_at TEXT NOT NULL,
       FOREIGN KEY (sale_id) REFERENCES ${SALES_TABLE}(id) ON DELETE CASCADE,
-      FOREIGN KEY (product_id) REFERENCES ${PRODUCTS_TABLE}(id)
+      FOREIGN KEY (product_id) REFERENCES ${PRODUCTS_TABLE}(id) ON DELETE SET NULL
     );
 
     CREATE INDEX IF NOT EXISTS idx_sale_items_sale_id

@@ -35,6 +35,8 @@ export async function createSale(db: SQLiteDatabase, input: CreateSaleInput) {
     throw new Error('La venta debe incluir al menos un producto.');
   }
 
+  const saleItemsPayload: any[] = [];
+
   await db.withExclusiveTransactionAsync(async (txn) => {
     let total = 0;
 
@@ -44,8 +46,9 @@ export async function createSale(db: SQLiteDatabase, input: CreateSaleInput) {
         sale_price: number;
         stock: number;
         name: string;
+        unit: string;
       }>(
-        `SELECT id, sale_price, stock, name
+        `SELECT id, sale_price, stock, name, unit
          FROM products
          WHERE id = $product_id AND tenant_id = $tenant_id AND is_active = 1`,
         { $product_id: item.productId, $tenant_id: tenantId },
@@ -71,6 +74,8 @@ export async function createSale(db: SQLiteDatabase, input: CreateSaleInput) {
           tenant_id,
           sale_id,
           product_id,
+          product_name,
+          product_unit,
           quantity,
           unit_price,
           subtotal,
@@ -81,6 +86,8 @@ export async function createSale(db: SQLiteDatabase, input: CreateSaleInput) {
           $tenant_id,
           $sale_id,
           $product_id,
+          $product_name,
+          $product_unit,
           $quantity,
           $unit_price,
           $subtotal,
@@ -92,13 +99,29 @@ export async function createSale(db: SQLiteDatabase, input: CreateSaleInput) {
           $tenant_id: tenantId,
           $sale_id: saleId,
           $product_id: item.productId,
+          $product_name: product.name,
+          $product_unit: product.unit,
           $quantity: item.quantity,
           $unit_price: product.sale_price,
-          $subtotal: subtotal, // Corrección: mapeo de clave sqlite $subtotal a la variable local subtotal
+          $subtotal: subtotal,
           $created_at: now,
           $updated_at: now,
         },
       );
+
+      saleItemsPayload.push({
+        id: saleItemId,
+        tenant_id: tenantId,
+        sale_id: saleId,
+        product_id: item.productId,
+        product_name: product.name,
+        product_unit: product.unit,
+        quantity: item.quantity,
+        unit_price: product.sale_price,
+        subtotal: subtotal,
+        created_at: now,
+        updated_at: now,
+      });
 
       await txn.runAsync(
         `UPDATE products
@@ -184,7 +207,7 @@ export async function createSale(db: SQLiteDatabase, input: CreateSaleInput) {
         $cash_register_id: input.cashRegisterId ?? null,
         $customer_id: input.customerId ?? null,
         $user_id: input.userId ?? null,
-        $total: total, // Corrección: mapeo de la clave sqlite $total a la variable local total
+        $total: total,
         $payment_method: input.paymentMethod,
         $status: 'completed',
         $device_id: deviceId,
@@ -207,7 +230,7 @@ export async function createSale(db: SQLiteDatabase, input: CreateSaleInput) {
       customer_id: input.customerId ?? null,
       cash_register_id: input.cashRegisterId ?? null,
       device_id: deviceId,
-      items: input.items,
+      items: saleItemsPayload,
     },
   });
 

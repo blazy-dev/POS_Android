@@ -288,9 +288,11 @@ export async function runSync(db: SQLiteDatabase): Promise<SyncResult> {
               if (p.items && Array.isArray(p.items)) {
                 for (const item of p.items) {
                   await txn.runAsync(
-                    `INSERT INTO sale_items (id, tenant_id, sale_id, product_id, quantity, unit_price, subtotal, created_at, updated_at)
-                     VALUES ($id, $tenant_id, $sale_id, $product_id, $quantity, $unit_price, $subtotal, $created_at, $updated_at)
+                    `INSERT INTO sale_items (id, tenant_id, sale_id, product_id, product_name, product_unit, quantity, unit_price, subtotal, created_at, updated_at)
+                     VALUES ($id, $tenant_id, $sale_id, $product_id, $product_name, $product_unit, $quantity, $unit_price, $subtotal, $created_at, $updated_at)
                      ON CONFLICT(id) DO UPDATE SET
+                       product_name = excluded.product_name,
+                       product_unit = excluded.product_unit,
                        quantity = excluded.quantity,
                        unit_price = excluded.unit_price,
                        subtotal = excluded.subtotal,
@@ -299,7 +301,9 @@ export async function runSync(db: SQLiteDatabase): Promise<SyncResult> {
                       $id: item.id,
                       $tenant_id: p.tenant_id ?? 'local',
                       $sale_id: item.sale_id ?? p.id,
-                      $product_id: item.product_id ?? '',
+                      $product_id: item.product_id || null,
+                      $product_name: item.product_name || item.productName || 'Producto Sincronizado',
+                      $product_unit: item.product_unit || item.productUnit || 'unit',
                       $quantity: Number(item.quantity) || 0,
                       $unit_price: Number(item.unit_price) || 0,
                       $subtotal: Number(item.subtotal) || 0,

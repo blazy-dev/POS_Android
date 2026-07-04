@@ -74,18 +74,17 @@ export async function getTopSellingProducts(
 ): Promise<TopProductRecord[]> {
   return db.getAllAsync<TopProductRecord>(
     `SELECT 
-       p.id,
-       p.name,
-       p.unit,
-       p.sale_price,
+       si.product_id AS id,
+       si.product_name AS name,
+       si.product_unit AS unit,
+       si.unit_price AS sale_price,
        COALESCE(SUM(si.quantity), 0) AS total_quantity,
        COALESCE(SUM(si.subtotal), 0) AS total_amount
      FROM sale_items si
-     JOIN products p ON si.product_id = p.id
      JOIN sales s ON si.sale_id = s.id
      WHERE s.status = 'completed'
        AND s.tenant_id = $tenant_id
-     GROUP BY p.id
+     GROUP BY si.product_id, si.product_name, si.product_unit, si.unit_price
      ORDER BY total_quantity DESC
      LIMIT $limit`,
     { $tenant_id: tenantId, $limit: limit },
@@ -118,8 +117,8 @@ export async function getCashRegisterSessions(
   db: SQLiteDatabase,
   limit = 20,
   tenantId = 'local',
-): Promise<CashRegisterSessionRecord[]> {
-  return db.getAllAsync<CashRegisterSessionRecord>(
+): Promise<any[]> {
+  return db.getAllAsync<any>(
     `SELECT 
        cr.id,
        cr.opened_at,
@@ -187,13 +186,12 @@ export async function getSessionSalesWithItems(
   }>(
     `SELECT 
        si.sale_id,
-       p.name AS product_name,
-       p.unit AS product_unit,
+       si.product_name,
+       si.product_unit,
        si.quantity,
        si.unit_price,
        si.subtotal
      FROM sale_items si
-     JOIN products p ON si.product_id = p.id
      JOIN sales s ON si.sale_id = s.id
      WHERE s.cash_register_id = $registerId
      ORDER BY si.created_at ASC`,
