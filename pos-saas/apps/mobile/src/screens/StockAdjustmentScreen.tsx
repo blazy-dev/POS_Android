@@ -37,7 +37,7 @@ export function StockAdjustmentScreen({
   // Estados del formulario de ajuste
   const [adjustmentType, setAdjustmentType] = useState<'in' | 'out'>('in');
   const [quantity, setQuantity] = useState('');
-  const [reason, setReason] = useState('');
+  const [reason, setReason] = useState('Compra/Reposición');
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
 
@@ -172,7 +172,10 @@ export function StockAdjustmentScreen({
                 styles.typeInButton,
                 adjustmentType === 'in' && styles.typeInActive,
               ]}
-              onPress={() => setAdjustmentType('in')}
+              onPress={() => {
+                setAdjustmentType('in');
+                setReason('Compra/Reposición');
+              }}
             >
               <Text
                 style={[
@@ -191,7 +194,10 @@ export function StockAdjustmentScreen({
                 styles.typeOutButton,
                 adjustmentType === 'out' && styles.typeOutActive,
               ]}
-              onPress={() => setAdjustmentType('out')}
+              onPress={() => {
+                setAdjustmentType('out');
+                setReason('Ajuste manual');
+              }}
             >
               <Text
                 style={[
@@ -215,27 +221,24 @@ export function StockAdjustmentScreen({
             required
           />
 
-          {/* Input Motivo */}
-          <FormField
-            label="Motivo o referencia"
-            value={reason}
-            onChangeText={setReason}
-            placeholder="Ej: Reposición de mercadería"
-            hint="Opcional. Describe el motivo (ej. Pérdida, Reposición, Control de stock)."
-          />
-
-          {/* Botones de Ajustes Rápidos de Motivo */}
+          {/* Selector de Chips de Motivo */}
+          <Text style={[styles.inputLabel, { marginBottom: 8 }]}>Motivo del ajuste</Text>
           <View style={styles.reasonsRow}>
             {['Ajuste manual', 'Rotura/Pérdida', 'Compra/Reposición'].map(
-              (presetReason) => (
-                <Pressable
-                  key={presetReason}
-                  onPress={() => setReason(presetReason)}
-                  style={styles.reasonChip}
-                >
-                  <Text style={styles.reasonChipText}>{presetReason}</Text>
-                </Pressable>
-              ),
+              (presetReason) => {
+                const isSelected = reason === presetReason;
+                return (
+                  <Pressable
+                    key={presetReason}
+                    onPress={() => setReason(presetReason)}
+                    style={[styles.reasonChip, isSelected && styles.reasonChipActive]}
+                  >
+                    <Text style={[styles.reasonChipText, isSelected && styles.reasonChipTextActive]}>
+                      {presetReason}
+                    </Text>
+                  </Pressable>
+                );
+              }
             )}
           </View>
 
@@ -483,8 +486,8 @@ const getStyles = (colors: ThemeColors, isDark: boolean) =>
       marginTop: -4,
     },
     reasonChip: {
-      paddingHorizontal: 10,
-      paddingVertical: 6,
+      paddingHorizontal: 12,
+      paddingVertical: 8,
       borderRadius: radius.md,
       backgroundColor: isDark
         ? 'rgba(255, 255, 255, 0.04)'
@@ -492,10 +495,19 @@ const getStyles = (colors: ThemeColors, isDark: boolean) =>
       borderWidth: 1,
       borderColor: colors.border,
     },
+    reasonChipActive: {
+      backgroundColor: isDark
+        ? 'rgba(138, 199, 255, 0.12)'
+        : 'rgba(4, 151, 191, 0.08)',
+      borderColor: colors.primary,
+    },
     reasonChipText: {
       color: colors.textMuted,
-      fontSize: 11,
+      fontSize: 12,
       fontWeight: '700',
+    },
+    reasonChipTextActive: {
+      color: colors.primary,
     },
     errorText: {
       color: isDark ? '#FFB4B4' : '#D32F2F',
