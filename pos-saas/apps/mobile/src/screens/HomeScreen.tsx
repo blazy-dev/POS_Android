@@ -69,29 +69,47 @@ export function HomeScreen({ onNavigate }: HomeScreenProps) {
   // Estados para la rotación animada de Efectivo / Transferencia
   const [metricsMode, setMetricsMode] = useState<'cash' | 'transfer'>('cash');
   const fadeAnim = useMemo(() => new Animated.Value(1), []);
+  const slideAnim = useMemo(() => new Animated.Value(0), []);
 
   useEffect(() => {
     const interval = setInterval(() => {
-      // 1. Desvanecer hacia afuera (fade out)
-      Animated.timing(fadeAnim, {
-        toValue: 0,
-        duration: 300,
-        useNativeDriver: true,
-      }).start(() => {
+      // 1. Salida: Deslizar hacia la izquierda (-40) y desvanecer a 0
+      Animated.parallel([
+        Animated.timing(slideAnim, {
+          toValue: -40,
+          duration: 250,
+          useNativeDriver: true,
+        }),
+        Animated.timing(fadeAnim, {
+          toValue: 0,
+          duration: 250,
+          useNativeDriver: true,
+        }),
+      ]).start(() => {
         // 2. Alternar entre efectivo y transferencia
         setMetricsMode((prev) => (prev === 'cash' ? 'transfer' : 'cash'));
         
-        // 3. Desvanecer hacia adentro (fade in)
-        Animated.timing(fadeAnim, {
-          toValue: 1,
-          duration: 300,
-          useNativeDriver: true,
-        }).start();
+        // Colocar la tarjeta a la derecha (40) antes de que entre
+        slideAnim.setValue(40);
+        
+        // 3. Entrada: Deslizar de regreso a 0 y desvanecer a 1
+        Animated.parallel([
+          Animated.timing(slideAnim, {
+            toValue: 0,
+            duration: 250,
+            useNativeDriver: true,
+          }),
+          Animated.timing(fadeAnim, {
+            toValue: 1,
+            duration: 250,
+            useNativeDriver: true,
+          }),
+        ]).start();
       });
-    }, 4000); // Rota cada 4 segundos
+    }, 4500); // Rota cada 4.5 segundos
 
     return () => clearInterval(interval);
-  }, [fadeAnim]);
+  }, [fadeAnim, slideAnim]);
 
   useEffect(() => {
     let mounted = true;
@@ -190,12 +208,14 @@ export function HomeScreen({ onNavigate }: HomeScreenProps) {
           />
         </View>
         <View style={styles.metricsGrid}>
-          <MetricCard
-            label="Productos"
-            value={String(productsCount)}
-            icon="cube-outline"
-          />
-          <Animated.View style={{ flex: 1, opacity: fadeAnim }}>
+          <View style={{ flex: 1 }}>
+            <MetricCard
+              label="Productos"
+              value={String(productsCount)}
+              icon="cube-outline"
+            />
+          </View>
+          <Animated.View style={{ flex: 1, opacity: fadeAnim, transform: [{ translateX: slideAnim }] }}>
             <MetricCard
               label={metricsMode === 'cash' ? 'Efectivo' : 'Transferencia'}
               value={
