@@ -30,6 +30,7 @@ import { createSale, listRecentSales } from '../modules/sales';
 import { FormField } from '../components/form/FormField';
 import { Button } from '../components/ui/Button';
 import { EmptyState } from '../components/ui/EmptyState';
+import { playSuccessSound, playErrorSound } from '../utils/sound';
 
 function getQuickCashOptions(total: number): number[] {
   const exact = Math.ceil(total);
@@ -137,6 +138,7 @@ export function SalesScreen() {
         setSearchQuery('');
         setSearchResults([]);
       } else {
+        void playErrorSound();
         setErrorMsg(`Producto con código ${trimmed} no encontrado.`);
         setTimeout(() => setErrorMsg(null), 3000);
       }
@@ -175,6 +177,7 @@ export function SalesScreen() {
     const currentQty = existing ? existing.quantity : 0;
 
     if (product.stock < currentQty + 1) {
+      void playErrorSound();
       setErrorMsg(
         `Stock insuficiente para ${product.name} (Disponible: ${product.stock}).`,
       );
@@ -194,8 +197,7 @@ export function SalesScreen() {
       return [...current, { product, quantity: 1 }];
     });
 
-    setSuccessMsg(`Agregado: ${product.name}`);
-    setTimeout(() => setSuccessMsg(null), 2000);
+    void playSuccessSound();
   };
 
   // Carrito: modificar cantidad
@@ -813,8 +815,10 @@ const getStyles = (colors: ThemeColors, isDark: boolean) =>
     centerContainer: {
       flexGrow: 1,
       padding: spacing.xl,
-      justifyContent: 'center',
+      paddingTop: spacing.xxl + 12, // Espacio prudencial desde arriba
+      justifyContent: 'flex-start',
       gap: spacing.lg,
+      paddingBottom: 120, // Altura segura para el navbar
     },
     headerRow: {
       marginBottom: -10,
@@ -1217,6 +1221,8 @@ const getStyles = (colors: ThemeColors, isDark: boolean) =>
       borderTopWidth: 1,
       borderTopColor: colors.border,
       gap: 12,
+      // PATRÓN NAVBAR FLOTANTE: evita que el botón de cobro y totales quede tapado
+      paddingBottom: 110,
     },
     totalRow: {
       flexDirection: 'row',

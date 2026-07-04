@@ -205,22 +205,6 @@ export function HomeScreen({ onNavigate }: HomeScreenProps) {
           <Text style={styles.sectionTitle}>Acciones</Text>
         </View>
 
-        <ActionCard
-          label="Nueva venta"
-          description="Ir al punto de venta y registrar cobrar"
-          icon="cart-outline"
-          onPress={() => onNavigate('sales')}
-        />
-        <ActionCard
-          label={isCashier ? 'Catálogo de Productos' : 'Gestión de Productos'}
-          description={
-            isCashier
-              ? 'Buscar y ver precios y stock'
-              : 'Alta, edición y stock de productos'
-          }
-          icon="cube-outline"
-          onPress={() => onNavigate('products')}
-        />
         {!isCashier && (
           <ActionCard
             label="Reportes y Estadísticas"
@@ -242,7 +226,7 @@ const getStyles = (colors: ThemeColors, isDark: boolean) =>
     },
     container: {
       padding: spacing.xl,
-      paddingBottom: 32,
+      paddingBottom: 120, // espacio seguro sobre la pill flotante
       gap: spacing.md,
     },
     header: {

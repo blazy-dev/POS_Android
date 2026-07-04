@@ -118,12 +118,12 @@ export function RootNavigator() {
         <SyncBar />
       </View>
 
-      {/* Área del contenedor principal de la pantalla activa - Ocupa todo el alto */}
+      {/* Área del contenedor principal de la pantalla activa */}
       <View style={styles.screenArea}>
         <Screen onNavigate={setRoute} />
       </View>
 
-      {/* Barra de navegación inferior (Tab Bar) como píldora flotante absoluta transparente */}
+      {/* Barra de navegación inferior: píldora flotante */}
       <View
         style={[
           styles.tabBar,
@@ -137,6 +137,36 @@ export function RootNavigator() {
           const isSales = item.key === 'sales';
           const activeColor = isSales ? colors.success : colors.primary;
 
+          // Tab especial "Ventas": círculo flotante que escapa de la píldora
+          if (isSales) {
+            return (
+              <Pressable
+                key={item.key}
+                onPress={() => setRoute(item.key)}
+                style={styles.tabItemSales}
+              >
+                <View
+                  style={[
+                    styles.salesBubble,
+                    {
+                      backgroundColor: active
+                        ? colors.success
+                        : isDark
+                        ? 'rgba(39,39,42,0.92)'
+                        : 'rgba(244,244,245,0.92)',
+                    },
+                  ]}
+                >
+                  <Ionicons
+                    name={active ? item.iconActive : item.icon}
+                    size={22}
+                    color={active ? '#ffffff' : colors.textMuted}
+                  />
+                </View>
+              </Pressable>
+            );
+          }
+
           return (
             <Pressable
               key={item.key}
@@ -145,7 +175,7 @@ export function RootNavigator() {
             >
               <Ionicons
                 name={active ? item.iconActive : item.icon}
-                size={isSales ? 26 : 21}
+                size={18}
                 color={active ? activeColor : colors.textMuted}
               />
               <Text
@@ -153,7 +183,6 @@ export function RootNavigator() {
                   styles.tabLabel,
                   active && styles.tabLabelActive,
                   active && { color: activeColor },
-                  isSales && { fontSize: 10.5 },
                 ]}
               >
                 {item.label}
@@ -182,7 +211,6 @@ const getStyles = (colors: ThemeColors, isDark: boolean) =>
     },
     screenArea: {
       flex: 1,
-      paddingBottom: 110, // Asegura que el final del scroll pase holgadamente la píldora flotante
     },
     syncBar: {
       flexDirection: 'row',
@@ -200,29 +228,54 @@ const getStyles = (colors: ThemeColors, isDark: boolean) =>
       left: 16,
       right: 16,
       flexDirection: 'row',
-      paddingVertical: 10,
+      height: 52,
       paddingHorizontal: 16,
       borderRadius: radius.full,
-      backgroundColor: isDark ? 'rgba(24, 24, 27, 0.25)' : 'rgba(255, 255, 255, 0.30)', // Aún más transparente y translúcido
+      backgroundColor: isDark ? 'rgba(18, 18, 20, 0.82)' : 'rgba(250, 250, 250, 0.85)',
       borderWidth: 1,
       borderColor: colors.border,
       alignItems: 'center',
       justifyContent: 'space-between',
       shadowColor: '#000',
-      shadowOpacity: 0.05,
-      shadowRadius: 8,
-      shadowOffset: { width: 0, height: 2 },
-      elevation: 3,
+      shadowOpacity: 0.08,
+      shadowRadius: 12,
+      shadowOffset: { width: 0, height: 4 },
+      elevation: 8,
+      overflow: 'visible',
     },
     tabItem: {
       flex: 1,
       alignItems: 'center',
       justifyContent: 'center',
-      paddingVertical: 4,
+      paddingVertical: 3,
       gap: 2,
     },
     tabItemActive: {
       // Light highlight
+    },
+    // Tab Ventas: centrado en el eje vertical del tabBar
+    tabItemSales: {
+      flex: 1,
+      alignItems: 'center',
+      justifyContent: 'center', // El círculo se centra en la barra y sobresale arriba y abajo
+    },
+    // Círculo centrado que sobresale simétricamente por arriba y por abajo de la píldora
+    salesBubble: {
+      width: 62,
+      height: 62,
+      borderRadius: 31,
+      alignItems: 'center',
+      justifyContent: 'center',
+      marginVertical: -5, // (62 - 52) / 2 = 5 → centrado simétrico con barra de 52px
+      borderWidth: 3,
+      borderColor: colors.background, // Separa el círculo de la pill visualmente
+      // iOS: glow uniforme con shadowOffset {0,0}
+      shadowColor: colors.success,
+      shadowOpacity: 0.5,
+      shadowRadius: 16,
+      shadowOffset: { width: 0, height: 0 },
+      // Android: elevation:0 → sin sombra direccional (no hay forma de hacerla uniforme con elevation)
+      elevation: 0,
     },
     activeIndicator: {
       width: 4,

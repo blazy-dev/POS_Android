@@ -411,7 +411,9 @@ const getStyles = (colors: ThemeColors, isDark: boolean) =>
     container: {
       padding: spacing.xl,
       gap: spacing.lg,
-      paddingBottom: 40,
+      // PATRÓN NAVBAR FLOTANTE: paddingBottom ≥ 120 para que el último campo
+      // no quede tapado por la pill. Ver RootNavigator.tsx → tabBar.height.
+      paddingBottom: 120,
     },
     section: {
       gap: spacing.md,

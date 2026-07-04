@@ -10,9 +10,12 @@ import {
   View,
 } from 'react-native';
 import { useSQLiteContext } from 'expo-sqlite';
+import * as Print from 'expo-print';
+import * as Sharing from 'expo-sharing';
 import { radius, spacing, ThemeColors } from '../theme/tokens';
 import { useTheme } from '../context/ThemeContext';
 import { useAuth } from '../context/AuthContext';
+import { Button } from '../components/ui/Button';
 import {
   getDailySalesSummary,
   getTopSellingProducts,
@@ -60,7 +63,188 @@ export function ReportsScreen({ onNavigate }: ReportsScreenProps) {
     Record<string, boolean>
   >({});
 
+  const [isExporting, setIsExporting] = useState(false);
   const tenantId = user?.tenant_id || 'local';
+
+  const handleExportReportPDF = async () => {
+    if (isExporting) return;
+    setIsExporting(true);
+    try {
+      const currentDate = new Date().toLocaleString();
+      
+      const topProductsHtml = topProducts.length === 0
+        ? '<p style="color: #71717a; font-style: italic;">No hay datos de ventas registrados hoy.</p>'
+        : `
+          <table>
+            <thead>
+              <tr>
+                <th>Producto</th>
+                <th style="text-align: right;">Cant. Vendida</th>
+                <th style="text-align: right;">Ingresos</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${topProducts.map(p => `
+                <tr>
+                  <td>${p.name}</td>
+                  <td style="text-align: right;">${p.total_qty}</td>
+                  <td style="text-align: right;">$ ${p.revenue.toFixed(2)}</td>
+                </tr>
+              `).join('')}
+            </tbody>
+          </table>
+        `;
+
+      const lowStockHtml = lowStock.length === 0
+        ? '<p style="color: #71717a; font-style: italic;">No hay productos con stock crítico en este momento.</p>'
+        : `
+          <table>
+            <thead>
+              <tr>
+                <th>Producto</th>
+                <th style="text-align: right;">Stock Actual</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${lowStock.map(p => `
+                <tr>
+                  <td>${p.name}</td>
+                  <td style="text-align: right; color: #ef4444; font-weight: 700;">${p.stock} ${p.unit}</td>
+                </tr>
+              `).join('')}
+            </tbody>
+          </table>
+        `;
+
+      const htmlContent = `
+        <!DOCTYPE html>
+        <html>
+        <head>
+          <meta charset="utf-8">
+          <style>
+            body {
+              font-family: system-ui, -apple-system, sans-serif;
+              margin: 40px;
+              color: #18181b;
+            }
+            h1 {
+              font-size: 24px;
+              font-weight: 800;
+              margin-bottom: 4px;
+              letter-spacing: -0.5px;
+            }
+            .date-subtitle {
+              font-size: 13px;
+              color: #71717a;
+              margin-top: 0;
+              margin-bottom: 24px;
+            }
+            .grid {
+              display: grid;
+              grid-template-columns: repeat(2, 1fr);
+              gap: 16px;
+              margin-bottom: 28px;
+            }
+            .metric-card {
+              border: 1px solid #e4e4e7;
+              border-radius: 8px;
+              padding: 16px;
+              background-color: #fafafa;
+            }
+            .metric-label {
+              font-size: 11px;
+              font-weight: 700;
+              color: #71717a;
+              text-transform: uppercase;
+              letter-spacing: 0.5px;
+            }
+            .metric-value {
+              font-size: 22px;
+              font-weight: 800;
+              color: #18181b;
+              margin-top: 4px;
+            }
+            h2 {
+              font-size: 16px;
+              font-weight: 800;
+              margin-top: 24px;
+              margin-bottom: 12px;
+              border-bottom: 1px solid #e4e4e7;
+              padding-bottom: 6px;
+            }
+            table {
+              width: 100%;
+              border-collapse: collapse;
+              margin-bottom: 20px;
+            }
+            th {
+              background-color: #f4f4f5;
+              color: #27272a;
+              font-size: 10px;
+              font-weight: 700;
+              text-transform: uppercase;
+              padding: 8px 12px;
+              border-bottom: 2px solid #e4e4e7;
+              text-align: left;
+            }
+            td {
+              font-size: 12px;
+              padding: 10px 12px;
+              border-bottom: 1px solid #e4e4e7;
+            }
+            tr:nth-child(even) {
+              background-color: #fafafa;
+            }
+            tr {
+              page-break-inside: avoid;
+            }
+          </style>
+        </head>
+        <body>
+          <h1>Reporte de Operaciones POS</h1>
+          <p class="date-subtitle">Generado el ${currentDate}</p>
+
+          <div class="grid">
+            <div class="metric-card">
+              <div class="metric-label">Ingresos Totales</div>
+              <div class="metric-value">$ ${summary.sales_total.toLocaleString('es-AR')}</div>
+            </div>
+            <div class="metric-card">
+              <div class="metric-label">Transacciones</div>
+              <div class="metric-value">${summary.transaction_count}</div>
+            </div>
+            <div class="metric-card">
+              <div class="metric-label">Efectivo</div>
+              <div class="metric-value">$ ${summary.cash_total.toLocaleString('es-AR')}</div>
+            </div>
+            <div class="metric-card">
+              <div class="metric-label">Transferencias</div>
+              <div class="metric-value">$ ${summary.transfer_total.toLocaleString('es-AR')}</div>
+            </div>
+          </div>
+
+          <h2>Top 5 Productos Más Vendidos</h2>
+          ${topProductsHtml}
+
+          <h2>Alertas de Stock Crítico</h2>
+          ${lowStockHtml}
+        </body>
+        </html>
+      `;
+
+      const { uri } = await Print.printToFileAsync({ html: htmlContent });
+      await Sharing.shareAsync(uri, {
+        mimeType: 'application/pdf',
+        dialogTitle: 'Exportar reporte diario',
+        UTI: 'com.adobe.pdf',
+      });
+    } catch (error) {
+      console.error(error);
+      Alert.alert('Error', 'Ocurrió un error al generar o compartir el reporte PDF.');
+    } finally {
+      setIsExporting(false);
+    }
+  };
 
   async function toggleSessionExpand(sessionId: string) {
     const isExpanded = !!expandedSessions[sessionId];
@@ -515,6 +699,17 @@ export function ReportsScreen({ onNavigate }: ReportsScreenProps) {
             )}
           </View>
         ) : null}
+
+        {/* Botón global para exportar reporte diario a PDF */}
+        <View style={{ paddingHorizontal: spacing.xl, paddingBottom: 16 }}>
+          <Button
+            label={isExporting ? 'Exportando reporte...' : 'Exportar Reporte Diario (PDF)'}
+            icon="document-text-outline"
+            onPress={handleExportReportPDF}
+            disabled={isExporting}
+            loading={isExporting}
+          />
+        </View>
       </ScrollView>
     </SafeAreaView>
   );
@@ -617,7 +812,14 @@ const getStyles = (colors: ThemeColors, isDark: boolean) =>
     },
     scrollContainer: {
       padding: spacing.xl,
-      paddingBottom: 40,
+      // ─────────────────────────────────────────────────────────────────────
+      // PATRÓN NAVBAR FLOTANTE: cualquier ScrollView o FlatList de la app
+      // necesita paddingBottom ≥ 120 para que el último elemento no quede
+      // tapado por la píldora flotante del Tab Bar (height:52 + offset:16 +
+      // safe-area + margen). Si se cambia la altura de la pill en
+      // RootNavigator.tsx → tabBar.height, actualizar este valor también.
+      // ─────────────────────────────────────────────────────────────────────
+      paddingBottom: 120,
     },
     tabContent: {
       gap: spacing.lg,

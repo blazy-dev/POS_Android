@@ -242,23 +242,28 @@ export function SyncScreen() {
               </Text>
             </View>
           ) : (
-            <View style={styles.logsListContainer}>
-              {logs.map((item, index) => {
-                let textStyle = styles.logInfo;
-                if (item.type === 'success') textStyle = styles.logSuccess;
-                if (item.type === 'error') textStyle = styles.logError;
-                if (item.type === 'warning') textStyle = styles.logWarning;
+          <ScrollView
+            style={styles.logsListContainer}
+            contentContainerStyle={styles.logsListContent}
+            nestedScrollEnabled
+            showsVerticalScrollIndicator={false}
+          >
+            {logs.map((item, index) => {
+              let textStyle = styles.logInfo;
+              if (item.type === 'success') textStyle = styles.logSuccess;
+              if (item.type === 'error') textStyle = styles.logError;
+              if (item.type === 'warning') textStyle = styles.logWarning;
 
-                return (
-                  <View key={index} style={styles.logRow}>
-                    <Text style={styles.logTimestamp}>[{item.timestamp}]</Text>
-                    <Text style={[styles.logMessage, textStyle]}>
-                      {item.message}
-                    </Text>
-                  </View>
-                );
-              })}
-            </View>
+              return (
+                <View key={index} style={styles.logRow}>
+                  <Text style={styles.logTimestamp}>[{item.timestamp}]</Text>
+                  <Text style={[styles.logMessage, textStyle]}>
+                    {item.message}
+                  </Text>
+                </View>
+              );
+            })}
+          </ScrollView>
           )}
         </View>
       </ScrollView>
@@ -275,7 +280,7 @@ const getStyles = (colors: ThemeColors, isDark: boolean) =>
     container: {
       padding: spacing.xl,
       gap: spacing.lg,
-      paddingBottom: 40,
+      paddingBottom: 120, // espacio seguro sobre la pill flotante
     },
     header: {
       gap: 6,
@@ -466,8 +471,11 @@ const getStyles = (colors: ThemeColors, isDark: boolean) =>
       fontSize: 12,
     },
     logsListContainer: {
+      maxHeight: 420, // Aumentado de 280: muestra más líneas a futuro
+    },
+    logsListContent: {
       gap: 8,
-      maxHeight: 280,
+      paddingBottom: 4,
     },
     logRow: {
       flexDirection: 'row',

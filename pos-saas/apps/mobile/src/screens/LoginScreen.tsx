@@ -7,6 +7,7 @@ import {
   Text,
   View,
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useSQLiteContext } from 'expo-sqlite';
 import { useAuth } from '../context/AuthContext';
@@ -19,6 +20,7 @@ export function LoginScreen() {
   const { login, loginWithGoogle, loading } = useAuth();
   const { colors, isDark } = useTheme();
   const styles = useMemo(() => getStyles(colors, isDark), [colors, isDark]);
+  const insets = useSafeAreaInsets();
   const [pin, setPin] = useState('');
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [tenantName, setTenantName] = useState<string>('');
@@ -36,24 +38,18 @@ export function LoginScreen() {
     loadTenantName();
   }, [db]);
 
-  // Maneja las pulsaciones de teclas del teclado numérico
+  // Maneja las pulsaciones de teclas del teclado numÃ©rico
   const handlePressKey = async (digit: string) => {
     if (loading) return;
     setErrorMsg(null);
-
     const nextPin = pin + digit;
-    if (nextPin.length <= 4) {
-      setPin(nextPin);
-    }
-
-    // Al ingresar los 4 dígitos, valida automáticamente contra la DB
+    if (nextPin.length <= 4) setPin(nextPin);
     if (nextPin.length === 4) {
       const success = await login(db, nextPin);
       if (!success) {
-        // Efecto visual: limpia el PIN y muestra error
         setTimeout(() => {
           setPin('');
-          setErrorMsg('PIN incorrecto. Reintentá.');
+          setErrorMsg('PIN incorrecto. ReintentÃ¡.');
         }, 300);
       }
     }
@@ -71,154 +67,134 @@ export function LoginScreen() {
     setPin('');
   };
 
-  // Renderiza los círculos indicadores de longitud del PIN
-  const renderPinDots = () => {
-    const dots = [];
-    for (let i = 0; i < 4; i++) {
-      const active = i < pin.length;
-      dots.push(
-        <View
-          key={i}
-          style={[
-            styles.dot,
-            active ? styles.dotActive : null,
-            errorMsg ? styles.dotError : null,
-          ]}
-        />,
-      );
-    }
-    return dots;
-  };
-
-  // Renderiza una tecla del teclado
-  const renderKeyButton = (value: string) => {
-    return (
-      <Pressable
-        key={value}
-        style={({ pressed }) => [
-          styles.keyButton,
-          pressed ? styles.keyButtonPressed : null,
-        ]}
-        onPress={() => handlePressKey(value)}
-      >
-        <Text style={styles.keyButtonText}>{value}</Text>
-      </Pressable>
-    );
-  };
+  // Renderiza una tecla numÃ©rica del teclado
+  const renderKeyButton = (value: string) => (
+    <Pressable
+      key={value}
+      style={({ pressed }) => [styles.keyButton, pressed && styles.keyButtonPressed]}
+      onPress={() => handlePressKey(value)}
+    >
+      <Text style={styles.keyButtonText}>{value}</Text>
+    </Pressable>
+  );
 
   return (
     <SafeAreaView style={styles.safeArea}>
-      <View style={styles.container}>
-        {/* Cabecera con ícono de marca */}
+      <View style={[
+        styles.container,
+        { paddingBottom: Math.max(36, insets.bottom + 24) },
+      ]}>
+
+        {/* â”€â”€ Marca â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
         <View style={styles.header}>
           <View style={styles.logoContainer}>
-            <Ionicons
-              name="storefront-outline"
-              size={32}
-              color={colors.text}
-            />
+            <Ionicons name="storefront-outline" size={26} color={colors.text} />
           </View>
           <Text style={styles.brandName}>POS SaaS</Text>
           {tenantName ? (
-            <Text style={styles.tenantName}>{tenantName}</Text>
+            <View style={styles.tenantBadge}>
+              <Text style={styles.tenantBadgeText}>{tenantName}</Text>
+            </View>
           ) : null}
-          <Text style={styles.subtitle}>
-            Ingresá tu PIN de 4 dígitos
-          </Text>
+          <Text style={styles.subtitle}>Ingresa tu PIN para continuar</Text>
         </View>
 
-        {/* Indicadores de PIN */}
-        <View style={styles.pinContainer}>
-          <View style={styles.dotsRow}>{renderPinDots()}</View>
-          {loading ? (
-            <ActivityIndicator
-              size="small"
-              color={colors.text}
-              style={styles.spinner}
-            />
-          ) : errorMsg ? (
-            <Text style={styles.errorText}>{errorMsg}</Text>
-          ) : (
-            <Text style={styles.hintText}>
-              PIN demo: admin 1234 · cajero 4321
-            </Text>
-          )}
+        {/* â”€â”€ PIN + Teclado â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
+        <View style={styles.pinSection}>
+          {/* Barras de progreso estilo Shadcn */}
+          <View style={styles.dotsRow}>
+            {[0, 1, 2, 3].map((i) => (
+              <View
+                key={i}
+                style={[
+                  styles.pinBar,
+                  i < pin.length && styles.pinBarActive,
+                  !!errorMsg && styles.pinBarError,
+                ]}
+              />
+            ))}
+          </View>
+
+          {/* Estado / error / hint */}
+          <View style={styles.statusRow}>
+            {loading ? (
+              <ActivityIndicator size="small" color={colors.text} />
+            ) : errorMsg ? (
+              <Text style={styles.errorText}>{errorMsg}</Text>
+            ) : (
+              <Text style={styles.hintText}>PIN demo: admin 1234 Â· cajero 4321</Text>
+            )}
+          </View>
+
+          {/* Teclado numÃ©rico */}
+          <View style={styles.keypad}>
+            {[['1', '2', '3'], ['4', '5', '6'], ['7', '8', '9']].map((row, ri) => (
+              <View key={ri} style={styles.keypadRow}>
+                {row.map((d) => renderKeyButton(d))}
+              </View>
+            ))}
+            <View style={styles.keypadRow}>
+              <Pressable
+                style={({ pressed }) => [
+                  styles.keyButton,
+                  styles.keyUtility,
+                  pressed && styles.keyUtilityPressed,
+                ]}
+                onPress={handleClear}
+              >
+                <Text style={styles.keyUtilityText}>C</Text>
+              </Pressable>
+
+              {renderKeyButton('0')}
+
+              <Pressable
+                style={({ pressed }) => [
+                  styles.keyButton,
+                  styles.keyUtility,
+                  pressed && styles.keyUtilityPressed,
+                ]}
+                onPress={handleBackspace}
+              >
+                <Ionicons name="backspace-outline" size={20} color={colors.textMuted} />
+              </Pressable>
+            </View>
+          </View>
         </View>
 
-        {/* Teclado Numérico */}
-        <View style={styles.keypad}>
-          <View style={styles.keypadRow}>
-            {renderKeyButton('1')}
-            {renderKeyButton('2')}
-            {renderKeyButton('3')}
-          </View>
-          <View style={styles.keypadRow}>
-            {renderKeyButton('4')}
-            {renderKeyButton('5')}
-            {renderKeyButton('6')}
-          </View>
-          <View style={styles.keypadRow}>
-            {renderKeyButton('7')}
-            {renderKeyButton('8')}
-            {renderKeyButton('9')}
-          </View>
-          <View style={styles.keypadRow}>
-            <Pressable
-              style={({ pressed }) => [
-                styles.keyButton,
-                styles.keyUtilityButton,
-                pressed ? styles.keyUtilityPressed : null,
-              ]}
-              onPress={handleClear}
-            >
-              <Text style={styles.keyUtilityText}>C</Text>
-            </Pressable>
-
-            {renderKeyButton('0')}
-
-            <Pressable
-              style={({ pressed }) => [
-                styles.keyButton,
-                styles.keyUtilityButton,
-                pressed ? styles.keyUtilityPressed : null,
-              ]}
-              onPress={handleBackspace}
-            >
-              <Ionicons name="backspace-outline" size={20} color={colors.textMuted} />
-            </Pressable>
-          </View>
-        </View>
-
-        {/* Separador y Google Login */}
-        <View style={styles.adminSection}>
+        {/* â”€â”€ Acceso con Google â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
+        <View style={styles.authSection}>
           <View style={styles.divider}>
-            <View style={styles.line} />
+            <View style={styles.dividerLine} />
             <Text style={styles.dividerText}>Acceso Propietario</Text>
-            <View style={styles.line} />
+            <View style={styles.dividerLine} />
           </View>
 
           <Pressable
             style={({ pressed }) => [
               styles.googleButton,
-              pressed ? styles.googleButtonPressed : null,
+              pressed && styles.googleButtonPressed,
+              loading && styles.googleButtonDisabled,
             ]}
             onPress={async () => {
               const success = await loginWithGoogle(db);
-              if (!success) {
-                setErrorMsg('Error al iniciar sesión con Google.');
-              }
+              if (!success) setErrorMsg('Error al iniciar sesiÃ³n con Google.');
             }}
             disabled={loading}
           >
-            <View style={styles.googleIconContainer}>
-              <Ionicons name="logo-google" size={16} color="#18181b" />
+            <View style={styles.googleIconBox}>
+              <Ionicons name="logo-google" size={15} color="#18181b" />
             </View>
             <Text style={styles.googleButtonText}>
               {loading ? 'Cargando...' : 'Ingresar con Google'}
             </Text>
-            <Ionicons name="arrow-forward-outline" size={14} color={colors.textMuted} />
+            <Ionicons
+              name="arrow-forward-outline"
+              size={14}
+              color={isDark ? '#71717a' : '#a1a1aa'}
+            />
           </Pressable>
         </View>
+
       </View>
     </SafeAreaView>
   );
@@ -233,85 +209,97 @@ const getStyles = (colors: ThemeColors, isDark: boolean) =>
     container: {
       flex: 1,
       justifyContent: 'space-between',
-      padding: spacing.xl,
-      paddingVertical: 32,
+      paddingHorizontal: spacing.xl,
+      paddingVertical: 36,
     },
+
+    // â”€â”€ Marca â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
     header: {
       alignItems: 'center',
-      marginTop: 16,
-      gap: 6,
+      gap: 8,
     },
     logoContainer: {
-      width: 60,
-      height: 60,
-      borderRadius: radius.sm,
+      width: 56,
+      height: 56,
+      borderRadius: 14,
       backgroundColor: colors.surface,
       borderWidth: 1,
       borderColor: colors.border,
       alignItems: 'center',
       justifyContent: 'center',
-      marginBottom: 8,
+      marginBottom: 4,
     },
     brandName: {
       color: colors.text,
-      fontSize: fontSize['2xl'],
-      fontWeight: fontWeight.bold,
+      fontSize: 26,
+      fontWeight: '800',
+      letterSpacing: -0.5,
     },
-    tenantName: {
-      color: colors.text,
-      fontSize: fontSize.base,
-      fontWeight: fontWeight.semibold,
+    // Tenant como badge pill â€” mÃ¡s Shadcn que texto plano
+    tenantBadge: {
+      paddingHorizontal: 10,
+      paddingVertical: 3,
+      borderRadius: 999,
+      backgroundColor: isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.05)',
+      borderWidth: 1,
+      borderColor: colors.border,
+    },
+    tenantBadgeText: {
+      color: colors.textMuted,
+      fontSize: 12,
+      fontWeight: '600',
     },
     subtitle: {
       color: colors.textMuted,
-      fontSize: fontSize.base,
+      fontSize: 14,
       textAlign: 'center',
-      marginTop: 4,
+      marginTop: 2,
     },
-    pinContainer: {
+
+    // â”€â”€ PIN â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    pinSection: {
       alignItems: 'center',
-      gap: 16,
-      marginVertical: 16,
+      gap: 20,
     },
     dotsRow: {
       flexDirection: 'row',
-      gap: 20,
+      gap: 12,
     },
-    dot: {
-      width: 14,
-      height: 14,
-      borderRadius: 7,
-      borderWidth: 1,
-      borderColor: colors.border,
-      backgroundColor: 'transparent',
+    // Barras horizontales planas â€” estÃ©tica Shadcn (reemplazan los cÃ­rculos)
+    pinBar: {
+      width: 44,
+      height: 4,
+      borderRadius: 2,
+      backgroundColor: isDark ? 'rgba(255,255,255,0.12)' : 'rgba(0,0,0,0.10)',
     },
-    dotActive: {
+    pinBarActive: {
       backgroundColor: colors.text,
-      borderColor: colors.text,
     },
-    dotError: {
+    pinBarError: {
       backgroundColor: colors.danger,
-      borderColor: colors.danger,
     },
-    spinner: {
+    statusRow: {
       height: 18,
+      alignItems: 'center',
+      justifyContent: 'center',
     },
     errorText: {
       color: colors.danger,
-      fontSize: fontSize.md,
-      fontWeight: fontWeight.bold,
+      fontSize: 13,
+      fontWeight: '700',
     },
     hintText: {
       color: colors.textMuted,
-      fontSize: fontSize.xs,
+      fontSize: 11,
       fontStyle: 'italic',
-      opacity: 0.6,
+      opacity: 0.65,
     },
+
+    // â”€â”€ Teclado â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
     keypad: {
       gap: spacing.sm,
-      maxWidth: 260,
+      width: 264,
       alignSelf: 'center',
-      width: '100%',
     },
     keypadRow: {
       flexDirection: 'row',
@@ -320,8 +308,8 @@ const getStyles = (colors: ThemeColors, isDark: boolean) =>
     },
     keyButton: {
       flex: 1,
-      height: 52,
-      borderRadius: radius.sm,
+      height: 56,
+      borderRadius: radius.md,
       backgroundColor: colors.surface,
       borderWidth: 1,
       borderColor: colors.border,
@@ -329,81 +317,81 @@ const getStyles = (colors: ThemeColors, isDark: boolean) =>
       justifyContent: 'center',
     },
     keyButtonPressed: {
-      backgroundColor: isDark ? '#27272a' : '#f4f4f5',
+      backgroundColor: isDark ? '#27272a' : '#e4e4e7',
+      borderColor: isDark ? '#3f3f46' : '#d4d4d8',
     },
     keyButtonText: {
       color: colors.text,
-      fontSize: fontSize.xl,
-      fontWeight: fontWeight.bold,
+      fontSize: 22,
+      fontWeight: '600',
     },
-    keyUtilityButton: {
+    // Botones de utilidad (C y borrar): ghost, sin fondo
+    keyUtility: {
       backgroundColor: 'transparent',
       borderColor: 'transparent',
     },
     keyUtilityPressed: {
-      backgroundColor: isDark ? 'rgba(255, 255, 255, 0.04)' : 'rgba(0, 0, 0, 0.03)',
+      backgroundColor: isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.04)',
     },
     keyUtilityText: {
       color: colors.textMuted,
-      fontSize: fontSize.lg,
-      fontWeight: fontWeight.bold,
+      fontSize: 16,
+      fontWeight: '700',
     },
-    adminSection: {
-      alignItems: 'center',
-      width: '100%',
-      marginTop: spacing.sm,
+
+    // â”€â”€ Google â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    authSection: {
+      gap: spacing.sm,
     },
     divider: {
       flexDirection: 'row',
       alignItems: 'center',
       gap: 10,
-      width: 260,
-      marginBottom: spacing.sm,
     },
-    line: {
+    dividerLine: {
       flex: 1,
       height: 1,
       backgroundColor: colors.border,
     },
     dividerText: {
       color: colors.textMuted,
-      fontSize: fontSize.xs,
-      fontWeight: fontWeight.bold,
+      fontSize: 11,
+      fontWeight: '700',
       textTransform: 'uppercase',
       letterSpacing: 0.8,
     },
+    // Estilo primario Shadcn: fondo sÃ³lido oscuro en light mode, surface en dark
     googleButton: {
       height: 48,
-      borderRadius: radius.sm,
-      backgroundColor: colors.surface,
+      borderRadius: radius.md,
+      backgroundColor: isDark ? colors.surface : '#18181b',
       borderWidth: 1,
-      borderColor: colors.border,
+      borderColor: isDark ? colors.border : '#18181b',
       flexDirection: 'row',
       alignItems: 'center',
-      justifyContent: 'center',
-      gap: 12,
-      width: 260,
+      paddingHorizontal: 16,
+      gap: 10,
     },
     googleButtonPressed: {
-      backgroundColor: isDark ? '#27272a' : '#f4f4f5',
+      backgroundColor: '#27272a',
+      borderColor: '#27272a',
+    },
+    googleButtonDisabled: {
+      opacity: 0.5,
     },
     googleButtonText: {
-      color: colors.text,
-      fontSize: fontSize.base,
-      fontWeight: fontWeight.semibold,
+      color: isDark ? colors.text : '#fafafa',
+      fontSize: 14,
+      fontWeight: '600',
       flex: 1,
     },
-    googleIconContainer: {
-      width: 24,
-      height: 24,
-      borderRadius: radius.sm - 2,
+    // Icono Google siempre en caja blanca para contrastar con cualquier fondo
+    googleIconBox: {
+      width: 22,
+      height: 22,
+      borderRadius: 4,
       backgroundColor: '#ffffff',
       alignItems: 'center',
       justifyContent: 'center',
-    },
-    googleG: {
-      fontSize: 16,
-      fontWeight: '800' as const,
-      color: '#4285F4',
     },
   });

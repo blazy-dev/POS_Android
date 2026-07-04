@@ -12,6 +12,8 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useSQLiteContext } from 'expo-sqlite';
+import * as Print from 'expo-print';
+import * as Sharing from 'expo-sharing';
 import type { ProductRecord } from '../database/types';
 import {
   findProductByBarcode,
@@ -20,6 +22,7 @@ import {
 } from '../modules/products';
 import { ProductFormScreen } from './ProductFormScreen';
 import { StockAdjustmentScreen } from './StockAdjustmentScreen';
+import { LabelPrintingScreen } from './LabelPrintingScreen';
 import { radius, spacing, fontSize, fontWeight, shadow, ThemeColors } from '../theme/tokens';
 import { useTheme } from '../context/ThemeContext';
 import { useAuth } from '../context/AuthContext';
@@ -27,7 +30,7 @@ import { Button } from '../components/ui/Button';
 import { EmptyState } from '../components/ui/EmptyState';
 import { Badge } from '../components/ui/Badge';
 
-type ProductsView = 'list' | 'form' | 'adjust';
+type ProductsView = 'list' | 'form' | 'adjust' | 'labels';
 
 export function ProductsScreen() {
   const db = useSQLiteContext();
@@ -41,6 +44,9 @@ export function ProductsScreen() {
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [searchMessage, setSearchMessage] = useState<string | null>(null);
+  const [currentPage, setCurrentPage] = useState(1);
+
+  const PAGE_SIZE = 10;
 
   // Estado para rastrear el producto seleccionado
   const [selectedProduct, setSelectedProduct] = useState<
@@ -48,8 +54,120 @@ export function ProductsScreen() {
   >(undefined);
   // Estado para controlar la visibilidad del menú de opciones rápidas
   const [actionMenuVisible, setActionMenuVisible] = useState(false);
+  const [isExporting, setIsExporting] = useState(false);
 
   const tenantId = user?.tenant_id || 'local';
+
+  // Genera y comparte el PDF del catálogo completo de productos
+  const handleExportProductsPDF = async () => {
+    if (isExporting) return;
+    setIsExporting(true);
+    try {
+      if (products.length === 0) {
+        Alert.alert('Aviso', 'No hay productos en el catálogo para exportar.');
+        setIsExporting(false);
+        return;
+      }
+
+      const currentDate = new Date().toLocaleString();
+      const rowsHtml = products
+        .map(
+          (p) => `
+        <tr>
+          <td>${p.barcode || '—'}</td>
+          <td>${p.name}</td>
+          <td style="text-align: right;">${p.stock} ${p.unit}</td>
+          <td style="text-align: right;">$ ${p.sale_price.toFixed(2)}</td>
+        </tr>
+      `
+        )
+        .join('');
+
+      const htmlContent = `
+        <!DOCTYPE html>
+        <html>
+        <head>
+          <meta charset="utf-8">
+          <style>
+            body {
+              font-family: system-ui, -apple-system, sans-serif;
+              margin: 40px;
+              color: #18181b;
+            }
+            h1 {
+              font-size: 24px;
+              font-weight: 800;
+              margin-bottom: 4px;
+              letter-spacing: -0.5px;
+            }
+            p {
+              font-size: 13px;
+              color: #71717a;
+              margin-top: 0;
+              margin-bottom: 24px;
+            }
+            table {
+              width: 100%;
+              border-collapse: collapse;
+              margin-top: 10px;
+            }
+            th {
+              background-color: #f4f4f5;
+              color: #27272a;
+              font-size: 11px;
+              font-weight: 700;
+              text-transform: uppercase;
+              letter-spacing: 0.5px;
+              text-align: left;
+              padding: 8px 12px;
+              border-bottom: 2px solid #e4e4e7;
+            }
+            td {
+              font-size: 12px;
+              padding: 10px 12px;
+              border-bottom: 1px solid #e4e4e7;
+            }
+            tr:nth-child(even) {
+              background-color: #fafafa;
+            }
+            tr {
+              page-break-inside: avoid;
+            }
+          </style>
+        </head>
+        <body>
+          <h1>Catálogo de Productos</h1>
+          <p>Generado localmente el ${currentDate} · Total: ${products.length} productos</p>
+          <table>
+            <thead>
+              <tr>
+                <th style="width: 25%;">Código</th>
+                <th style="width: 45%;">Nombre</th>
+                <th style="width: 15%; text-align: right;">Stock</th>
+                <th style="width: 15%; text-align: right;">Precio</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${rowsHtml}
+            </tbody>
+          </table>
+        </body>
+        </html>
+      `;
+
+      const { uri } = await Print.printToFileAsync({ html: htmlContent });
+      await Sharing.shareAsync(uri, {
+        mimeType: 'application/pdf',
+        dialogTitle: 'Exportar catálogo de productos',
+        UTI: 'com.adobe.pdf',
+      });
+    } catch (error) {
+      console.error(error);
+      Alert.alert('Error', 'Ocurrió un error al generar o compartir el PDF.');
+    } finally {
+      setIsExporting(false);
+    }
+  };
 
   async function refreshProducts() {
     const rows = await listProducts(db, tenantId);
@@ -138,16 +256,21 @@ export function ProductsScreen() {
 
   const filteredProducts = products.filter((product) => {
     const query = searchQuery.trim().toLowerCase();
-
-    if (!query) {
-      return true;
-    }
-
+    if (!query) return true;
     return (
       product.name.toLowerCase().includes(query) ||
       (product.barcode?.toLowerCase().includes(query) ?? false)
     );
   });
+
+  const totalPages = Math.ceil(filteredProducts.length / PAGE_SIZE) || 1;
+  
+  // Asegurar que la página actual no quede huérfana si los productos cambian
+  const activePage = Math.min(currentPage, totalPages);
+
+  const startIndex = (activePage - 1) * PAGE_SIZE;
+  const endIndex = startIndex + PAGE_SIZE;
+  const visibleProducts = filteredProducts.slice(startIndex, endIndex);
 
   if (view === 'form') {
     return (
@@ -180,6 +303,15 @@ export function ProductsScreen() {
     );
   }
 
+  if (view === 'labels') {
+    return (
+      <LabelPrintingScreen
+        products={products}
+        onBack={() => setView('list')}
+      />
+    );
+  }
+
   return (
     <SafeAreaView style={styles.safeArea}>
       <ScrollView contentContainerStyle={styles.container}>
@@ -207,6 +339,7 @@ export function ProductsScreen() {
             onChangeText={(value) => {
               setSearchQuery(value);
               setSearchMessage(null);
+              setCurrentPage(1); // Resetear paginación al buscar
             }}
             onSubmitEditing={() => {
               void handleBarcodeSearch(searchQuery);
@@ -234,8 +367,13 @@ export function ProductsScreen() {
 
         <View style={styles.card}>
           <Text style={styles.cardTitle}>
-            {searchQuery.trim() ? 'Resultados' : 'Todos los productos'} (
-            {filteredProducts.length})
+            {searchQuery.trim() ? 'Resultados' : 'Todos los productos'}
+            {' '}({filteredProducts.length})
+            {filteredProducts.length > PAGE_SIZE && (
+              <Text style={styles.cardSubcount}>
+                {` — pág. ${activePage} de ${totalPages}`}
+              </Text>
+            )}
           </Text>
 
           {loading ? (
@@ -253,35 +391,92 @@ export function ProductsScreen() {
               }
             />
           ) : (
-            filteredProducts.map((product) => (
-              <Pressable
-                key={product.id}
-                style={styles.productRow}
-                onPress={() => {
-                  if (isCashier) return;
-                  setSelectedProduct(product);
-                  setActionMenuVisible(true);
-                }}
-              >
-                <View style={styles.productInfo}>
-                  <Text style={styles.productName}>{product.name}</Text>
-                  <Text style={styles.productMeta}>
-                    Stock: {product.stock} {product.unit} ·{' '}
-                    {product.barcode || 'Sin código'}
+            <>
+              {visibleProducts.map((product) => (
+                <Pressable
+                  key={product.id}
+                  style={styles.productRow}
+                  onPress={() => {
+                    if (isCashier) return;
+                    setSelectedProduct(product);
+                    setActionMenuVisible(true);
+                  }}
+                >
+                  <View style={styles.productInfo}>
+                    <Text style={styles.productName}>{product.name}</Text>
+                    <Text style={styles.productMeta}>
+                      Stock: {product.stock} {product.unit} ·{' '}
+                      {product.barcode || 'Sin código'}
+                    </Text>
+                  </View>
+                  <View style={styles.priceContainer}>
+                    <Text style={styles.productPrice}>
+                      $ {product.sale_price.toFixed(2)}
+                    </Text>
+                    {!isCashier && (
+                      <Text style={styles.editIndicator}>Gestionar →</Text>
+                    )}
+                  </View>
+                </Pressable>
+              ))}
+
+              {/* Botones de navegación Anterior / Siguiente */}
+              {filteredProducts.length > PAGE_SIZE && (
+                <View style={styles.paginationRow}>
+                  <Pressable
+                    style={[
+                      styles.loadMoreButton,
+                      activePage === 1 && { opacity: 0.5 }
+                    ]}
+                    disabled={activePage === 1}
+                    onPress={() => setCurrentPage((p) => Math.max(1, p - 1))}
+                  >
+                    <Text style={styles.loadMoreText}>Anterior</Text>
+                  </Pressable>
+                  
+                  <Text style={styles.paginationCount}>
+                    {startIndex + 1}-{Math.min(endIndex, filteredProducts.length)} de {filteredProducts.length}
                   </Text>
+
+                  <Pressable
+                    style={[
+                      styles.loadMoreButton,
+                      activePage === totalPages && { opacity: 0.5 }
+                    ]}
+                    disabled={activePage === totalPages}
+                    onPress={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
+                  >
+                    <Text style={styles.loadMoreText}>Siguiente</Text>
+                  </Pressable>
                 </View>
-                <View style={styles.priceContainer}>
-                  <Text style={styles.productPrice}>
-                    $ {product.sale_price.toFixed(2)}
-                  </Text>
-                  {!isCashier && (
-                    <Text style={styles.editIndicator}>Gestionar →</Text>
-                  )}
-                </View>
-              </Pressable>
-            ))
+              )}
+            </>
           )}
         </View>
+
+        {!isCashier && (
+          <View style={styles.toolsCard}>
+            <Text style={styles.toolsTitle}>Herramientas del catálogo</Text>
+            <View style={styles.toolsGrid}>
+              <Button
+                label={isExporting ? 'Exportando...' : 'Descargar PDF'}
+                icon="document-text-outline"
+                variant="outline"
+                onPress={handleExportProductsPDF}
+                disabled={isExporting}
+                loading={isExporting}
+                style={styles.toolBtn}
+              />
+              <Button
+                label="Imprimir etiquetas"
+                icon="barcode-outline"
+                variant="outline"
+                onPress={() => setView('labels')}
+                style={styles.toolBtn}
+              />
+            </View>
+          </View>
+        )}
       </ScrollView>
 
       {/* Menú de opciones rápidas al seleccionar un producto */}
@@ -367,6 +562,7 @@ const getStyles = (colors: ThemeColors, isDark: boolean) =>
     },
     container: {
       padding: spacing.xl,
+      paddingBottom: 120, // espacio seguro sobre la pill flotante
       gap: spacing.md,
     },
     kicker: {
@@ -497,6 +693,39 @@ const getStyles = (colors: ThemeColors, isDark: boolean) =>
       fontSize: 10,
       fontWeight: '600',
     },
+    // ── Paginación Load More ──────────────────────────────────────────────
+    paginationRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      paddingTop: 12,
+      marginTop: 4,
+      borderTopWidth: 1,
+      borderTopColor: colors.border,
+    },
+    paginationCount: {
+      color: colors.textMuted,
+      fontSize: 12,
+      fontWeight: '600',
+    },
+    loadMoreButton: {
+      paddingVertical: 6,
+      paddingHorizontal: 14,
+      borderRadius: radius.sm,
+      backgroundColor: isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.05)',
+      borderWidth: 1,
+      borderColor: colors.border,
+    },
+    loadMoreText: {
+      color: colors.text,
+      fontSize: 13,
+      fontWeight: '700',
+    },
+    cardSubcount: {
+      color: colors.textMuted,
+      fontSize: 12,
+      fontWeight: '400',
+    },
     modalOverlay: {
       flex: 1,
       backgroundColor: 'rgba(0, 0, 0, 0.4)',
@@ -558,5 +787,27 @@ const getStyles = (colors: ThemeColors, isDark: boolean) =>
       color: colors.textMuted,
       fontSize: 14,
       fontWeight: '700',
+    },
+    // ── Herramientas del Catálogo ─────────────────────────────────────────
+    toolsCard: {
+      padding: spacing.lg,
+      borderRadius: radius.lg,
+      backgroundColor: colors.surface,
+      borderWidth: 1,
+      borderColor: colors.border,
+      gap: spacing.md,
+      marginTop: spacing.sm,
+    },
+    toolsTitle: {
+      color: colors.text,
+      fontSize: 15,
+      fontWeight: '800',
+    },
+    toolsGrid: {
+      flexDirection: 'column',
+      gap: spacing.sm,
+    },
+    toolBtn: {
+      width: '100%',
     },
   });
