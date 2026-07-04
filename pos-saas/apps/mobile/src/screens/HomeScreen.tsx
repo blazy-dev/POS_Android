@@ -215,7 +215,7 @@ export function HomeScreen({ onNavigate }: HomeScreenProps) {
               icon="cube-outline"
             />
           </View>
-          <Animated.View style={{ flex: 1, opacity: fadeAnim, transform: [{ translateX: slideAnim }] }}>
+          <View style={{ flex: 1 }}>
             <MetricCard
               label={metricsMode === 'cash' ? 'Efectivo' : 'Transferencia'}
               value={
@@ -224,8 +224,12 @@ export function HomeScreen({ onNavigate }: HomeScreenProps) {
                   : `$${dailySummary.transfer_total.toLocaleString('es-AR', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`
               }
               icon={metricsMode === 'cash' ? 'cash-outline' : 'card-outline'}
+              animatedStyle={{
+                opacity: fadeAnim,
+                transform: [{ translateX: slideAnim }],
+              }}
             />
-          </Animated.View>
+          </View>
         </View>
 
         {/* Alertas de stock bajo */}
