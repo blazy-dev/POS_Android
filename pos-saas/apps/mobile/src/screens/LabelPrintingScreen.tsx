@@ -210,98 +210,134 @@ export function LabelPrintingScreen({ products, onBack }: LabelPrintingScreenPro
         }
       });
 
-      const previewHeight = config.labelSize === 'custom'
+            const previewHeight = config.labelSize === 'custom'
         ? Math.round(250 * (config.customHeight / config.customWidth))
         : (config.labelSize === 'large' ? 166 : 150);
       
-      // Dimensiones físicas de la plancha
-      let specWidth = '70mm';
-      let specHeight = '42mm';
-      let cols = 3;
-      let gap = '8mm';
+      // Obtener ancho y alto físico de la etiqueta seleccionada
+      let wMm = 70;
+      let hMm = 42;
 
       if (config.labelSize === 'small') {
-        specWidth = '50mm';
-        specHeight = '30mm';
-        cols = 4;
-        gap = '6mm';
+        wMm = 50;
+        hMm = 30;
       } else if (config.labelSize === 'large') {
-        specWidth = '90mm';
-        specHeight = '60mm';
-        cols = 2;
-        gap = '10mm';
+        wMm = 90;
+        hMm = 60;
       } else if (config.labelSize === 'custom') {
-        specWidth = `${config.customWidth}mm`;
-        specHeight = `${config.customHeight}mm`;
-        // Elegir columnas de forma lógica según el ancho de la etiqueta
-        if (config.customWidth > 80) {
-          cols = 2;
-          gap = '10mm';
-        } else if (config.customWidth < 55) {
-          cols = 4;
-          gap = '5mm';
-        } else {
-          cols = 3;
-          gap = '8mm';
-        }
+        wMm = config.customWidth;
+        hMm = config.customHeight;
       }
 
-      // Cálculo de porcentajes para posicionamiento absoluto proporcional
-      const nameL = ((config.nameX / 250) * 100).toFixed(2);
-      const nameT = ((config.nameY / previewHeight) * 100).toFixed(2);
-      
-      const priceL = ((config.priceX / 250) * 100).toFixed(2);
-      const priceT = ((config.priceY / previewHeight) * 100).toFixed(2);
-      
-      const barcodeL = ((config.barcodeX / 250) * 100).toFixed(2);
-      const barcodeT = ((config.barcodeY / previewHeight) * 100).toFixed(2);
+      // Columnas, gap y márgenes dinámicos para que encaje perfectamente en la hoja A4 (210mm de ancho neto)
+      let cols = 3;
+      let gapMm = 6;
+      let marginPageMm = 10;
 
-      const logoL = ((config.logoX / 250) * 100).toFixed(2);
-      const logoT = ((config.logoY / previewHeight) * 100).toFixed(2);
+      if (wMm > 85) {
+        cols = 1;
+        gapMm = 0;
+        marginPageMm = 15;
+      } else if (wMm > 65) {
+        cols = 2;
+        gapMm = 8;
+        marginPageMm = 12;
+      } else if (wMm > 45) {
+        cols = 3;
+        gapMm = 6;
+        marginPageMm = 10;
+      } else {
+        cols = 4;
+        gapMm = 4;
+        marginPageMm = 8;
+      }
+
+      // Conversión de píxeles del preview a milímetros físicos en la etiqueta
+      const scaleX = wMm / 250;
+      const scaleY = hMm / previewHeight;
+
+      // Calcular posiciones en mm para el PDF
+      const nameLMm = (config.nameX * scaleX).toFixed(2);
+      const nameTMm = (config.nameY * scaleY).toFixed(2);
+      const nameSizeMm = (config.nameSize * scaleX).toFixed(2);
+
+      const priceLMm = (config.priceX * scaleX).toFixed(2);
+      const priceTMm = (config.priceY * scaleY).toFixed(2);
+      const priceSizeMm = (config.priceSize * scaleX).toFixed(2);
+
+      const barcodeLMm = (config.barcodeX * scaleX).toFixed(2);
+      const barcodeTMm = (config.barcodeY * scaleY).toFixed(2);
+      const barcodeHeightMm = (config.barcodeHeight * scaleY).toFixed(2);
+
+      const logoLMm = (config.logoX * scaleX).toFixed(2);
+      const logoTMm = (config.logoY * scaleY).toFixed(2);
+      const logoSizeMm = (config.logoSize * scaleX).toFixed(2);
 
       let gridCellsHtml = '';
       flatLabels.forEach((label) => {
-        const barcodeSvg = label.barcode ? generateBarcodeSVG(label.barcode, config.barcodeHeight) : '';
-        
+        // SVG en milímetros para evitar desbordes y pixelación
         let barcodeHtml = '';
         if (config.showBarcode) {
           if (label.barcode) {
+            const encoded = encodeCode128(label.barcode);
+            const barWidth = 1.8;
+            const svgWidthPx = encoded.length * barWidth;
+            const svgWidthMm = (svgWidthPx * scaleX).toFixed(2);
+            
+            // Limitar ancho máximo al espacio restante de la tarjeta
+            const maxBarcodeWidthMm = Math.max(10, wMm - parseFloat(barcodeLMm) - 2);
+
+            let rects = '';
+            for (let i = 0; i < encoded.length; i++) {
+              if (encoded[i] === '1') {
+                rects += `<rect x="${i * barWidth}" y="0" width="${barWidth}" height="${config.barcodeHeight}" fill="black" />`;
+              }
+            }
+            const barcodeSvg = `
+              <svg width="100%" height="100%" viewBox="0 0 ${svgWidthPx} ${config.barcodeHeight}" xmlns="http://www.w3.org/2000/svg">
+                ${rects}
+              </svg>
+            `;
+
             barcodeHtml = `
-              <div class="barcode-container" style="left: ${barcodeL}%; top: ${barcodeT}%;">
-                <div style="height: ${config.barcodeHeight}px; display: flex; align-items: center; overflow: hidden;">
+              <div class="barcode-container" style="left: ${barcodeLMm}mm; top: ${barcodeTMm}mm; width: ${svgWidthMm}mm; max-width: ${maxBarcodeWidthMm}mm; height: calc(${barcodeHeightMm}mm + 12px);">
+                <div style="height: ${barcodeHeightMm}mm; display: flex; align-items: center; overflow: hidden; width: 100%;">
                   ${barcodeSvg}
                 </div>
                 <div class="barcode-text">${label.barcode}</div>
               </div>
             `;
           } else {
-            barcodeHtml = `<div class="no-barcode" style="left: ${barcodeL}%; top: ${barcodeT}%;">Sin código</div>`;
+            barcodeHtml = `<div class="no-barcode" style="left: ${barcodeLMm}mm; top: ${barcodeTMm}mm;">Sin código</div>`;
           }
         }
 
         let logoHtml = '';
         if (config.logoType === 'stock') {
-          // SVG inline de carrito de compras premium
           logoHtml = `
-            <div class="logo-container" style="left: ${logoL}%; top: ${logoT}%; width: ${config.logoSize}px; height: ${config.logoSize}px; color: #0497bf;">
+            <div class="logo-container" style="left: ${logoLMm}mm; top: ${logoTMm}mm; width: ${logoSizeMm}mm; height: ${logoSizeMm}mm; color: #0497bf;">
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="width: 100%; height: 100%;"><circle cx="9" cy="21" r="1"></circle><circle cx="20" cy="21" r="1"></circle><path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"></path></svg>
             </div>
           `;
         } else if (config.logoType === 'own' && logoOwnUri) {
           logoHtml = `
-            <img src="${logoOwnUri}" style="left: ${logoL}%; top: ${logoT}%; width: ${config.logoSize}px; height: ${config.logoSize}px; object-fit: contain; position: absolute;" />
+            <img src="${logoOwnUri}" style="left: ${logoLMm}mm; top: ${logoTMm}mm; width: ${logoSizeMm}mm; height: ${logoSizeMm}mm; object-fit: contain; position: absolute;" />
           `;
         }
+
+        // Anchos máximos para textos
+        const maxNameWidthMm = Math.max(10, wMm - parseFloat(nameLMm) - 4);
+        const maxPriceWidthMm = Math.max(10, wMm - parseFloat(priceLMm) - 4);
 
         gridCellsHtml += `
           <div class="label-card">
             ${logoHtml}
             
-            <div class="label-name" style="left: ${nameL}%; top: ${nameT}%; font-size: ${config.nameSize}px;">
+            <div class="label-name" style="left: ${nameLMm}mm; top: ${nameTMm}mm; font-size: ${nameSizeMm}mm; width: ${maxNameWidthMm}mm;">
               ${label.name}
             </div>
             
-            <div class="label-price" style="left: ${priceL}%; top: ${priceT}%; font-size: ${config.priceSize}px;">
+            <div class="label-price" style="left: ${priceLMm}mm; top: ${priceTMm}mm; font-size: ${priceSizeMm}mm; width: ${maxPriceWidthMm}mm;">
               $ ${label.price}
             </div>
 
@@ -318,7 +354,7 @@ export function LabelPrintingScreen({ products, onBack }: LabelPrintingScreenPro
           <style>
             @page {
               size: A4;
-              margin: 12mm 10mm;
+              margin: ${marginPageMm}mm;
             }
             body {
               font-family: system-ui, -apple-system, sans-serif;
@@ -328,14 +364,15 @@ export function LabelPrintingScreen({ products, onBack }: LabelPrintingScreenPro
             }
             .grid {
               display: grid;
-              grid-template-columns: repeat(${cols}, 1fr);
-              gap: ${gap};
+              grid-template-columns: repeat(${cols}, ${wMm}mm);
+              gap: ${gapMm}mm;
+              justify-content: center;
             }
             .label-card {
               border: 1px dashed #71717a;
-              border-radius: 6px;
-              width: ${specWidth};
-              height: ${specHeight};
+              border-radius: 4px;
+              width: ${wMm}mm;
+              height: ${hMm}mm;
               box-sizing: border-box;
               position: relative;
               overflow: hidden;
@@ -352,17 +389,17 @@ export function LabelPrintingScreen({ products, onBack }: LabelPrintingScreenPro
               position: absolute;
               color: #18181b;
               font-weight: 700;
-              max-width: 90%;
+              width: 90%;
               white-space: nowrap;
               overflow: hidden;
               text-overflow: ellipsis;
-              line-height: 1.2;
+              line-height: 1.1;
             }
             .label-price {
               position: absolute;
               font-weight: 800;
               color: #18181b;
-              line-height: 1.1;
+              line-height: 1.0;
               white-space: nowrap;
             }
             .barcode-container {
