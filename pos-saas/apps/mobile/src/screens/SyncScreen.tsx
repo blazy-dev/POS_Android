@@ -7,7 +7,6 @@ import {
   ScrollView,
   StyleSheet,
   Text,
-  Switch,
   View,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
@@ -22,11 +21,7 @@ export function SyncScreen() {
     status,
     pendingCount,
     lastSyncAt,
-    isOfflineMode,
-    isServerErrorMode,
     triggerSync,
-    setOfflineMode,
-    setServerErrorMode,
   } = useSync();
 
   const { colors, isDark } = useTheme();
@@ -107,8 +102,7 @@ export function SyncScreen() {
           </View>
           <Text style={styles.title}>Sincronización</Text>
           <Text style={styles.subtitle}>
-            Monitoreá operaciones offline, forzá sincronizaciones y
-            simulá estados de red.
+            Monitoreá operaciones offline y forzá la sincronización local con el servidor en la nube.
           </Text>
         </View>
 
@@ -171,59 +165,6 @@ export function SyncScreen() {
             loading={status === 'syncing'}
             disabled={status === 'syncing'}
           />
-        </View>
-
-        {/* Panel de Simulación / Herramientas de Desarrollo */}
-        <View style={styles.devCard}>
-          <Text style={styles.sectionTitle}>
-            Simulador de Conectividad (Demo)
-          </Text>
-          <Text style={styles.sectionDescription}>
-            Usá estos controles para validar el comportamiento offline-first sin
-            necesidad de apagar el Wi-Fi del celular.
-          </Text>
-
-          <View style={styles.switchRow}>
-            <View style={styles.switchInfo}>
-              <Text style={styles.switchTitle}>Forzar Modo Offline</Text>
-              <Text style={styles.switchSubtitle}>
-                Desconecta artificialmente el cliente de la API.
-              </Text>
-            </View>
-            <Switch
-              value={isOfflineMode}
-              onValueChange={setOfflineMode}
-              trackColor={{
-                false: '#1B2A3E',
-                true: 'rgba(138, 199, 255, 0.4)',
-              }}
-              thumbColor={isOfflineMode ? colors.primary : '#4F647C'}
-            />
-          </View>
-
-          <View style={styles.divider} />
-
-          <View style={styles.switchRow}>
-            <View style={styles.switchInfo}>
-              <Text style={styles.switchTitle}>
-                Simular Caída del Servidor (HTTP 500)
-              </Text>
-              <Text style={styles.switchSubtitle}>
-                La API responderá con un error interno para probar los
-                reintentos locales.
-              </Text>
-            </View>
-            <Switch
-              value={isServerErrorMode}
-              onValueChange={setServerErrorMode}
-              trackColor={{
-                false: '#1B2A3E',
-                true: 'rgba(255, 180, 180, 0.4)',
-              }}
-              thumbColor={isServerErrorMode ? '#FFB4B4' : '#4F647C'}
-              disabled={isOfflineMode}
-            />
-          </View>
         </View>
 
         {/* Consola de Logs en Tiempo Real */}
