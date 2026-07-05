@@ -1,6 +1,8 @@
 import { useEffect, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
+  Alert,
+  Image,
   Pressable,
   SafeAreaView,
   ScrollView,
@@ -21,6 +23,7 @@ import { useSQLiteContext } from 'expo-sqlite';
 import { getAppMeta, setAppMeta } from '../database';
 import { Button } from '../components/ui/Button';
 import { Badge } from '../components/ui/Badge';
+import * as ImagePicker from 'expo-image-picker';
 
 const CURRENCIES = [
   { value: 'ARS', label: 'ARS ($)', desc: 'Peso Argentino' },
@@ -70,6 +73,7 @@ export function SettingsScreen() {
   const [showEmployees, setShowEmployees] = useState(false);
   const db = useSQLiteContext();
   const [tenantName, setTenantName] = useState<string>('');
+  const [logoUri, setLogoUri] = useState<string | null>(null);
 
   // Obtener datos del comercio
   async function fetchTenantDetails() {
@@ -114,8 +118,57 @@ export function SettingsScreen() {
     }
   }
 
+  async function handleSelectLogo() {
+    if (!user?.tenant_id) return;
+    
+    try {
+      const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+      if (status !== 'granted') {
+        Alert.alert('Permiso Denegado', 'Se requieren permisos de galería para subir un logo.');
+        return;
+      }
+      
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        allowsEditing: true,
+        aspect: [1, 1],
+        quality: 0.8,
+      });
+      
+      if (!result.canceled && result.assets && result.assets.length > 0) {
+        const selectedUri = result.assets[0].uri;
+        setLogoUri(selectedUri);
+        await setAppMeta(db, `tenant_logo_${user.tenant_id}`, selectedUri);
+        Alert.alert('Éxito', 'El logo se ha actualizado correctamente.');
+      }
+    } catch (err) {
+      console.error('Error al seleccionar imagen del logo:', err);
+      Alert.alert('Error', 'No se pudo seleccionar la imagen.');
+    }
+  }
+
+  async function handleDeleteLogo() {
+    if (!user?.tenant_id) return;
+    Alert.alert(
+      'Eliminar Logo',
+      '¿Estás seguro de que quieres quitar el logo de tu comercio?',
+      [
+        { text: 'Cancelar', style: 'cancel' },
+        {
+          text: 'Eliminar',
+          style: 'destructive',
+          onPress: async () => {
+            setLogoUri(null);
+            await setAppMeta(db, `tenant_logo_${user.tenant_id}`, '');
+            Alert.alert('Éxito', 'Se ha eliminado el logo del comercio.');
+          }
+        }
+      ]
+    );
+  }
+
   useEffect(() => {
-    async function loadCachedTenantName() {
+    async function loadCachedData() {
       if (user?.tenant_id) {
         try {
           const cached = await getAppMeta<string>(
@@ -125,14 +178,23 @@ export function SettingsScreen() {
           if (cached) {
             setTenantName(cached);
           }
+          
+          const cachedLogo = await getAppMeta<string>(
+            db,
+            `tenant_logo_${user.tenant_id}`,
+          );
+          if (cachedLogo) {
+            setLogoUri(cachedLogo);
+          }
         } catch (e) {
           console.error(e);
         }
       } else {
         setTenantName('');
+        setLogoUri(null);
       }
     }
-    void loadCachedTenantName();
+    void loadCachedData();
     void fetchTenantDetails();
   }, [user]);
 
@@ -384,6 +446,41 @@ export function SettingsScreen() {
                   <Text style={styles.detailLabel}>Zona Horaria:</Text>
                   <Text style={styles.detailValue}>{tenantInfo.timezone}</Text>
                 </View>
+
+                {isAdmin && (
+                  <>
+                    <View style={styles.divider} />
+                    <View style={styles.logoUploadSection}>
+                      <Text style={styles.logoSectionLabel}>Logo Comercial:</Text>
+                      <View style={styles.logoRowContainer}>
+                        {logoUri ? (
+                          <View style={styles.logoPreviewWrapper}>
+                            <Image source={{ uri: logoUri }} style={styles.logoImagePreview} />
+                            <Pressable onPress={handleDeleteLogo} style={styles.deleteLogoBadge}>
+                              <Ionicons name="close" size={14} color="#ffffff" />
+                            </Pressable>
+                          </View>
+                        ) : (
+                          <Pressable onPress={handleSelectLogo} style={styles.logoEmptyPlaceholder}>
+                            <Ionicons name="image-outline" size={24} color={colors.textMuted} />
+                            <Text style={styles.logoEmptyText}>Subir Logo</Text>
+                          </Pressable>
+                        )}
+                        <View style={styles.logoUploadInfo}>
+                          <Text style={styles.logoUploadHeading}>Logo del Establecimiento</Text>
+                          <Text style={styles.logoUploadDesc}>
+                            Se utilizará para personalizar las etiquetas impresas y el encabezado de inicio.
+                          </Text>
+                          {logoUri && (
+                            <Pressable onPress={handleSelectLogo} style={styles.changeLogoLink}>
+                              <Text style={styles.changeLogoLinkText}>Cambiar imagen</Text>
+                            </Pressable>
+                          )}
+                        </View>
+                      </View>
+                    </View>
+                  </>
+                )}
               </View>
             )}
           </View>
@@ -789,5 +886,91 @@ const getStyles = (colors: ThemeColors, isDark: boolean) =>
       color: isDark ? '#FFB4B4' : '#D32F2F',
       fontSize: 13,
       textAlign: 'center',
+    },
+    divider: {
+      height: 1,
+      backgroundColor: colors.border,
+      marginVertical: spacing.md,
+    },
+    logoUploadSection: {
+      marginTop: spacing.xs,
+      gap: spacing.sm,
+    },
+    logoSectionLabel: {
+      color: colors.textMuted,
+      fontSize: 12,
+      fontWeight: '700',
+    },
+    logoRowContainer: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: spacing.md,
+    },
+    logoPreviewWrapper: {
+      position: 'relative',
+    },
+    logoImagePreview: {
+      width: 68,
+      height: 68,
+      borderRadius: radius.md,
+      borderWidth: 1,
+      borderColor: colors.border,
+      backgroundColor: isDark ? 'rgba(255, 255, 255, 0.02)' : '#ffffff',
+      resizeMode: 'contain',
+    },
+    deleteLogoBadge: {
+      position: 'absolute',
+      top: -6,
+      right: -6,
+      backgroundColor: isDark ? '#ff5c5c' : colors.danger,
+      borderRadius: 12,
+      width: 20,
+      height: 20,
+      alignItems: 'center',
+      justifyContent: 'center',
+      shadowColor: '#000',
+      shadowOpacity: 0.15,
+      shadowRadius: 2,
+      elevation: 3,
+    },
+    logoEmptyPlaceholder: {
+      width: 68,
+      height: 68,
+      borderRadius: radius.md,
+      borderWidth: 1,
+      borderStyle: 'dashed',
+      borderColor: colors.textMuted,
+      alignItems: 'center',
+      justifyContent: 'center',
+      backgroundColor: isDark ? 'rgba(255, 255, 255, 0.01)' : 'rgba(0, 0, 0, 0.01)',
+      gap: 2,
+    },
+    logoEmptyText: {
+      fontSize: 9,
+      color: colors.textMuted,
+      fontWeight: '700',
+    },
+    logoUploadInfo: {
+      flex: 1,
+      gap: 2,
+    },
+    logoUploadHeading: {
+      color: colors.text,
+      fontSize: 13,
+      fontWeight: '800',
+    },
+    logoUploadDesc: {
+      color: colors.textMuted,
+      fontSize: 11,
+      lineHeight: 14,
+    },
+    changeLogoLink: {
+      alignSelf: 'flex-start',
+      marginTop: 2,
+    },
+    changeLogoLinkText: {
+      color: colors.primary,
+      fontSize: 12,
+      fontWeight: '700',
     },
   });

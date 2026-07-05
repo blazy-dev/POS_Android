@@ -20,7 +20,7 @@ import type { ProductRecord } from '../database/types';
 import { radius, spacing, fontSize, fontWeight, ThemeColors } from '../theme/tokens';
 import { useTheme } from '../context/ThemeContext';
 import { useAuth } from '../context/AuthContext';
-import { getAppMeta } from '../database';
+import { getAppMeta, setAppMeta } from '../database';
 import { Button } from '../components/ui/Button';
 
 // Encoder simple y puro CODE128 para generar códigos de barra en SVG inline (Offline-friendly)
@@ -132,22 +132,41 @@ export function LabelPrintingScreen({ products, onBack }: LabelPrintingScreenPro
   const [isGenerating, setIsGenerating] = useState(false);
   const [logoOwnUri, setLogoOwnUri] = useState<string | null>(null);
 
-  // Cargar el logo de la tienda si está disponible en app_metadata
+  // Cargar el logo de la tienda y la última configuración de etiquetas si están disponibles en app_metadata
   useEffect(() => {
-    async function loadStoreLogo() {
+    async function loadConfigAndLogo() {
       if (user?.tenant_id) {
         try {
+          // 1. Cargar Logo
           const logo = await getAppMeta<string>(db, `tenant_logo_${user.tenant_id}`);
           if (logo) {
             setLogoOwnUri(logo);
           }
+
+          // 2. Cargar Configuración de Etiquetas
+          const savedConfigStr = await getAppMeta<string>(db, `labels_config_${user.tenant_id}`);
+          if (savedConfigStr) {
+            const parsed = JSON.parse(savedConfigStr);
+            setConfig({
+              ...DEFAULT_CONFIG,
+              ...parsed,
+            });
+            if (parsed.customWidth) setCustomWidthStr(String(parsed.customWidth));
+            if (parsed.customHeight) setCustomHeightStr(String(parsed.customHeight));
+          }
         } catch (e) {
-          console.error('[DATABASE] Error cargando logo del comercio:', e);
+          console.error('[DATABASE] Error cargando configuración/logo del comercio:', e);
         }
       }
     }
-    void loadStoreLogo();
+    void loadConfigAndLogo();
   }, [user, db]);
+
+  const persistConfig = (newConfig: LabelConfig) => {
+    if (user?.tenant_id) {
+      void setAppMeta(db, `labels_config_${user.tenant_id}`, JSON.stringify(newConfig));
+    }
+  };
 
   // Filtrar catálogo para la selección
   const filteredProducts = useMemo(() => {
@@ -472,7 +491,11 @@ export function LabelPrintingScreen({ products, onBack }: LabelPrintingScreenPro
     }
     
     setCustomSizeError(null);
-    setConfig((prev) => ({ ...prev, customWidth: parsedWidth }));
+    setConfig((prev) => {
+      const next = { ...prev, customWidth: parsedWidth };
+      persistConfig(next);
+      return next;
+    });
   };
 
   const handleCustomHeightChange = (val: string) => {
@@ -496,7 +519,11 @@ export function LabelPrintingScreen({ products, onBack }: LabelPrintingScreenPro
     }
     
     setCustomSizeError(null);
-    setConfig((prev) => ({ ...prev, customHeight: parsedHeight }));
+    setConfig((prev) => {
+      const next = { ...prev, customHeight: parsedHeight };
+      persistConfig(next);
+      return next;
+    });
   };
 
   // Crear PanResponders personalizados para arrastrar los elementos con el dedo
@@ -543,7 +570,12 @@ export function LabelPrintingScreen({ products, onBack }: LabelPrintingScreenPro
           }
         });
       },
-      onPanResponderRelease: () => {},
+      onPanResponderRelease: () => {
+        setConfig((current) => {
+          persistConfig(current);
+          return current;
+        });
+      },
     });
   };
 
@@ -673,19 +705,22 @@ export function LabelPrintingScreen({ products, onBack }: LabelPrintingScreenPro
 
   const adjustValue = (element: 'name' | 'price' | 'barcode' | 'logo', delta: number) => {
     setConfig((prev) => {
+      let next = { ...prev };
       if (element === 'name') {
         const nextSize = Math.max(10, Math.min(24, prev.nameSize + delta));
-        return { ...prev, nameSize: nextSize };
+        next = { ...prev, nameSize: nextSize };
       } else if (element === 'price') {
         const nextSize = Math.max(12, Math.min(36, prev.priceSize + delta));
-        return { ...prev, priceSize: nextSize };
+        next = { ...prev, priceSize: nextSize };
       } else if (element === 'logo') {
         const nextSize = Math.max(16, Math.min(48, prev.logoSize + delta));
-        return { ...prev, logoSize: nextSize };
+        next = { ...prev, logoSize: nextSize };
       } else {
         const nextHeight = Math.max(15, Math.min(70, prev.barcodeHeight + delta));
-        return { ...prev, barcodeHeight: nextHeight };
+        next = { ...prev, barcodeHeight: nextHeight };
       }
+      persistConfig(next);
+      return next;
     });
   };
 
@@ -707,7 +742,11 @@ export function LabelPrintingScreen({ products, onBack }: LabelPrintingScreenPro
                 return (
                   <Pressable
                     key={size}
-                    onPress={() => setConfig(prev => ({ ...prev, labelSize: size }))}
+                    onPress={() => setConfig(prev => {
+                      const next = { ...prev, labelSize: size };
+                      persistConfig(next);
+                      return next;
+                    })}
                     style={[styles.gridSegmentButton, active && styles.gridSegmentButtonActive]}
                   >
                     <Text style={[styles.gridSegmentButtonText, active && styles.gridSegmentButtonTextActive]}>
@@ -773,7 +812,11 @@ export function LabelPrintingScreen({ products, onBack }: LabelPrintingScreenPro
                   <Pressable
                     key={type}
                     disabled={isOwnAndNoLogo}
-                    onPress={() => setConfig(prev => ({ ...prev, logoType: type }))}
+                    onPress={() => setConfig(prev => {
+                      const next = { ...prev, logoType: type };
+                      persistConfig(next);
+                      return next;
+                    })}
                     style={[
                       styles.segmentButton, 
                       active && styles.segmentButtonActive,
@@ -861,7 +904,11 @@ export function LabelPrintingScreen({ products, onBack }: LabelPrintingScreenPro
             <View style={styles.controlRow}>
               <Text style={styles.controlLabel}>Incluir Código de Barras</Text>
               <Pressable
-                onPress={() => setConfig(prev => ({ ...prev, showBarcode: !prev.showBarcode }))}
+                onPress={() => setConfig(prev => {
+                  const next = { ...prev, showBarcode: !prev.showBarcode };
+                  persistConfig(next);
+                  return next;
+                })}
                 style={[styles.switchToggle, config.showBarcode && styles.switchToggleActive]}
               >
                 <View style={[styles.switchHandle, config.showBarcode && styles.switchHandleActive]} />

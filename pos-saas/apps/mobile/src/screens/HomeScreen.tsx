@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { SafeAreaView, ScrollView, StyleSheet, Text, View, Animated } from 'react-native';
+import { SafeAreaView, ScrollView, StyleSheet, Text, View, Animated, Image } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useSQLiteContext } from 'expo-sqlite';
 import { ActionCard } from '../components/ActionCard';
@@ -8,6 +8,7 @@ import { Badge } from '../components/ui/Badge';
 import {
   getProductsCount,
   listPendingSyncOperations,
+  getAppMeta,
 } from '../database';
 import {
   getDailySalesSummary,
@@ -65,6 +66,8 @@ export function HomeScreen({ onNavigate }: HomeScreenProps) {
     sales_total: 0,
   });
   const [lowStock, setLowStock] = useState<LowStockProductRecord[]>([]);
+  const [logoUri, setLogoUri] = useState<string | null>(null);
+  const [storeName, setStoreName] = useState<string>('');
 
   // Estados para la rotación animada de Efectivo / Transferencia
   const [metricsMode, setMetricsMode] = useState<'cash' | 'transfer'>('cash');
@@ -130,6 +133,25 @@ export function HomeScreen({ onNavigate }: HomeScreenProps) {
       setPendingSyncCount(pendingOperations.length);
       setDailySummary(nextDailySummary);
       setLowStock(nextLowStock);
+
+      // Cargar metadatos comerciales locales de SQLite
+      if (user?.tenant_id) {
+        try {
+          const cachedName = await getAppMeta<string>(db, `tenant_${user.tenant_id}`);
+          if (cachedName && mounted) {
+            setStoreName(cachedName);
+          }
+          
+          const cachedLogo = await getAppMeta<string>(db, `tenant_logo_${user.tenant_id}`);
+          if (cachedLogo && mounted) {
+            setLogoUri(cachedLogo);
+          } else if (mounted) {
+            setLogoUri(null);
+          }
+        } catch (e) {
+          console.error('[HOME] Error cargando logo/nombre comercial:', e);
+        }
+      }
     }
 
     loadSummary().catch(() => {
@@ -154,6 +176,18 @@ export function HomeScreen({ onNavigate }: HomeScreenProps) {
         {/* Header con saludo y avatar */}
         <View style={styles.header}>
           <View style={styles.headerLeft}>
+            {(logoUri || storeName) && (
+              <View style={styles.storeHeaderBadge}>
+                {logoUri ? (
+                  <Image source={{ uri: logoUri }} style={styles.headerStoreLogo} />
+                ) : (
+                  <Ionicons name="storefront" size={12} color={colors.primary} />
+                )}
+                <Text style={styles.headerStoreName} numberOfLines={1}>
+                  {storeName || 'Mi Comercio'}
+                </Text>
+              </View>
+            )}
             <Text style={styles.greeting}>{greeting},</Text>
             <Text style={styles.userName}>{userName}</Text>
             <Text style={styles.dateText}>{formattedDate}</Text>
@@ -295,6 +329,34 @@ const getStyles = (colors: ThemeColors, isDark: boolean) =>
     headerLeft: {
       flex: 1,
       gap: 2,
+    },
+    storeHeaderBadge: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 6,
+      backgroundColor: isDark ? 'rgba(255, 255, 255, 0.04)' : 'rgba(0, 0, 0, 0.03)',
+      paddingHorizontal: 8,
+      paddingVertical: 4,
+      borderRadius: radius.md,
+      alignSelf: 'flex-start',
+      marginBottom: 6,
+      borderWidth: 1,
+      borderColor: colors.border,
+    },
+    headerStoreLogo: {
+      width: 18,
+      height: 18,
+      borderRadius: 9,
+      backgroundColor: isDark ? '#18181b' : '#ffffff',
+      resizeMode: 'contain',
+    },
+    headerStoreName: {
+      color: colors.primary,
+      fontSize: 11,
+      fontWeight: '800',
+      textTransform: 'uppercase',
+      letterSpacing: 0.3,
+      maxWidth: 160,
     },
     greeting: {
       color: colors.textMuted,
