@@ -45,7 +45,7 @@ export const apiConfig = {
   // Usar EXPO_PUBLIC_API_URL si está definida, sino fallback a localhost:3001
   // Para emulador Android: http://10.0.2.2:3001/api/v1
   // Para dispositivo físico: http://<IP_DE_TU_PC>:3001/api/v1
-  baseUrl: process.env.EXPO_PUBLIC_API_URL || 'http://192.168.0.10:3001/api/v1',
+  baseUrl: process.env.EXPO_PUBLIC_API_URL || 'http://107.170.73.166/api/v1',
   simulateOffline: false,
   simulateServerError: false,
   // Configuración de Supabase para Auth
