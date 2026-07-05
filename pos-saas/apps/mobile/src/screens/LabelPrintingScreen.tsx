@@ -695,17 +695,22 @@ export function LabelPrintingScreen({ products, onBack }: LabelPrintingScreenPro
         return (
           <View style={styles.tabContent}>
             <Text style={styles.subOptionTitle}>Tamaño Físico de la Etiqueta</Text>
-            <View style={styles.optionsSegment}>
+            <View style={styles.gridSegmentContainer}>
               {(['standard', 'small', 'large', 'custom'] as const).map((size) => {
-                const specs = { standard: 'Estándar', small: 'Chica', large: 'Grande', custom: 'Personalizada' };
+                const specs = { 
+                  standard: 'Estándar\n(70x42 mm)', 
+                  small: 'Chica\n(50x30 mm)', 
+                  large: 'Grande\n(90x60 mm)', 
+                  custom: 'Medida\nPersonalizada' 
+                };
                 const active = config.labelSize === size;
                 return (
                   <Pressable
                     key={size}
                     onPress={() => setConfig(prev => ({ ...prev, labelSize: size }))}
-                    style={[styles.segmentButton, active && styles.segmentButtonActive]}
+                    style={[styles.gridSegmentButton, active && styles.gridSegmentButtonActive]}
                   >
-                    <Text style={[styles.segmentButtonText, active && styles.segmentButtonTextActive]}>
+                    <Text style={[styles.gridSegmentButtonText, active && styles.gridSegmentButtonTextActive]}>
                       {specs[size]}
                     </Text>
                   </Pressable>
@@ -1148,6 +1153,40 @@ const getStyles = (colors: ThemeColors, isDark: boolean) =>
       fontWeight: '700',
       marginTop: 6,
       marginBottom: 2,
+    },
+    // Selector de Medidas 2x2 responsivo
+    gridSegmentContainer: {
+      flexDirection: 'row',
+      flexWrap: 'wrap',
+      gap: 8,
+      justifyContent: 'space-between',
+      marginTop: 4,
+    },
+    gridSegmentButton: {
+      width: '48%',
+      paddingVertical: 10,
+      paddingHorizontal: 8,
+      borderRadius: radius.md,
+      borderWidth: 1,
+      borderColor: colors.border,
+      backgroundColor: isDark ? 'rgba(255, 255, 255, 0.02)' : 'rgba(0, 0, 0, 0.02)',
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    gridSegmentButtonActive: {
+      backgroundColor: colors.primary,
+      borderColor: colors.primary,
+    },
+    gridSegmentButtonText: {
+      fontSize: 12,
+      fontWeight: '600',
+      color: colors.textMuted,
+      textAlign: 'center',
+      lineHeight: 16,
+    },
+    gridSegmentButtonTextActive: {
+      color: '#ffffff',
+      fontWeight: '800',
     },
     // Selector Segmentado
     optionsSegment: {
