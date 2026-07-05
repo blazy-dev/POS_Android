@@ -12,6 +12,7 @@ import {
   View,
   KeyboardAvoidingView,
   Platform,
+  Modal,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '../context/AuthContext';
@@ -691,7 +692,12 @@ export function SettingsScreen() {
       </ScrollView>
 
       {/* Modal interactivo de PIN para administrador de la plataforma */}
-      {showPinModal && (
+      <Modal
+        visible={showPinModal}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setShowPinModal(false)}
+      >
         <View style={styles.modalOverlay}>
           <KeyboardAvoidingView
             behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
@@ -725,7 +731,7 @@ export function SettingsScreen() {
             </View>
           </KeyboardAvoidingView>
         </View>
-      )}
+      </Modal>
     </SafeAreaView>
   );
 }
