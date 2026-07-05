@@ -19,11 +19,13 @@ import { supabase } from '../api/supabase';
 import { apiConfig, getCachedToken } from '../api/client';
 import { FormField } from '../components/form/FormField';
 import { EmployeeManagementScreen } from './EmployeeManagementScreen';
+import { LicenseAdminScreen } from './LicenseAdminScreen';
 import { useSQLiteContext } from 'expo-sqlite';
-import { getAppMeta, setAppMeta } from '../database';
+import { getAppMeta, setAppMeta, enqueueSyncOperation } from '../database';
 import { Button } from '../components/ui/Button';
 import { Badge } from '../components/ui/Badge';
 import * as ImagePicker from 'expo-image-picker';
+import { createLocalId } from '../utils/ids';
 
 const CURRENCIES = [
   { value: 'ARS', label: 'ARS ($)', desc: 'Peso Argentino' },
@@ -74,6 +76,15 @@ export function SettingsScreen() {
   const db = useSQLiteContext();
   const [tenantName, setTenantName] = useState<string>('');
   const [logoUri, setLogoUri] = useState<string | null>(null);
+
+  // Estados de Licencia
+  const [subStatus, setSubStatus] = useState<'demo' | 'active' | 'expired'>('demo');
+  const [subEndsAt, setSubEndsAt] = useState<number>(0);
+  
+  // Consola de Administrador
+  const [showPinModal, setShowPinModal] = useState(false);
+  const [adminPinInput, setAdminPinInput] = useState('');
+  const [showLicenseAdmin, setShowLicenseAdmin] = useState(false);
 
   // Obtener datos del comercio
   async function fetchTenantDetails() {
@@ -139,7 +150,21 @@ export function SettingsScreen() {
         const selectedUri = result.assets[0].uri;
         setLogoUri(selectedUri);
         await setAppMeta(db, `tenant_logo_${user.tenant_id}`, selectedUri);
-        Alert.alert('Éxito', 'El logo se ha actualizado correctamente.');
+        
+        // Encolar la subida del logo a Supabase Storage
+        const syncId = createLocalId('sync');
+        await enqueueSyncOperation(db, {
+          id: syncId,
+          entityType: 'tenant_logo_upload',
+          entityId: user.tenant_id,
+          kind: 'create',
+          payload: {
+            tenantId: user.tenant_id,
+            localFileUri: selectedUri,
+          },
+        });
+
+        Alert.alert('Éxito', 'El logo se ha configurado localmente y se sincronizará con la nube.');
       }
     } catch (err) {
       console.error('Error al seleccionar imagen del logo:', err);
@@ -167,6 +192,40 @@ export function SettingsScreen() {
     );
   }
 
+  function handleActivateByWhatsapp() {
+    if (!user?.tenant_id) return;
+    const phoneNumber = '5491132857002'; // Número del creador/plataforma en Argentina
+    const text = encodeURIComponent(
+      `¡Hola! Quiero activar la versión completa de mi comercio POS.\n\n` +
+      `• ID de Comercio: ${user.tenant_id}\n` +
+      `• Nombre del Comercio: ${tenantName || 'Mi Tienda'}`
+    );
+    const url = `https://wa.me/${phoneNumber}?text=${text}`;
+    
+    import('react-native').then(({ Linking }) => {
+      Linking.openURL(url).catch((err) => {
+        console.error('Error al abrir WhatsApp:', err);
+        Alert.alert('Error', 'No se pudo abrir WhatsApp automáticamente. Por favor, comunícate al ' + phoneNumber);
+      });
+    });
+  }
+
+  function handleOpenLicenseAdmin() {
+    setAdminPinInput('');
+    setShowPinModal(true);
+  }
+
+  function handleVerifyAdminPin() {
+    // Clave maestra para acceder a la consola global de administración de licencias
+    if (adminPinInput === 'ANTIGRAVITY_ADMIN_2026') {
+      setShowPinModal(false);
+      setShowLicenseAdmin(true);
+    } else {
+      Alert.alert('PIN Incorrecto', 'La clave ingresada no es válida para la administración global.');
+      setAdminPinInput('');
+    }
+  }
+
   useEffect(() => {
     async function loadCachedData() {
       if (user?.tenant_id) {
@@ -186,12 +245,29 @@ export function SettingsScreen() {
           if (cachedLogo) {
             setLogoUri(cachedLogo);
           }
+
+          // Cargar metadatos de la licencia
+          const cachedStatus = await getAppMeta<string>(
+            db,
+            `tenant_subscription_status_${user.tenant_id}`,
+          );
+          setSubStatus((cachedStatus as any) || 'demo');
+
+          const cachedEndsAt = await getAppMeta<string>(
+            db,
+            `tenant_subscription_ends_at_${user.tenant_id}`,
+          );
+          if (cachedEndsAt) {
+            setSubEndsAt(parseInt(cachedEndsAt, 10));
+          }
         } catch (e) {
           console.error(e);
         }
       } else {
         setTenantName('');
         setLogoUri(null);
+        setSubStatus('demo');
+        setSubEndsAt(0);
       }
     }
     void loadCachedData();
@@ -253,6 +329,10 @@ export function SettingsScreen() {
     } finally {
       setLoadingTenant(false);
     }
+  }
+
+  if (showLicenseAdmin) {
+    return <LicenseAdminScreen onClose={() => setShowLicenseAdmin(false)} />;
   }
 
   if (showEmployees) {
@@ -447,6 +527,43 @@ export function SettingsScreen() {
                   <Text style={styles.detailValue}>{tenantInfo.timezone}</Text>
                 </View>
 
+                <View style={styles.detailRow}>
+                  <Text style={styles.detailLabel}>Estado de Licencia:</Text>
+                  {subStatus === 'active' ? (
+                    <Badge variant="success" label="Versión Completa" />
+                  ) : (
+                    <Badge variant="warning" label="Versión Demo" />
+                  )}
+                </View>
+
+                {subStatus === 'active' && subEndsAt > 0 && subEndsAt < 4102444800000 && (
+                  <View style={styles.detailRow}>
+                    <Text style={styles.detailLabel}>Vencimiento:</Text>
+                    <Text style={styles.detailValue}>
+                      {new Date(subEndsAt).toLocaleDateString('es-AR', {
+                        day: '2-digit',
+                        month: '2-digit',
+                        year: 'numeric',
+                      })}
+                    </Text>
+                  </View>
+                )}
+
+                {subStatus !== 'active' && (
+                  <View style={styles.demoActivateBanner}>
+                    <Text style={styles.demoBannerText}>
+                      Tu cuenta está en la versión de prueba. Activá la versión completa para registrar ventas ilimitadas, más de 20 productos y más empleados.
+                    </Text>
+                    <Pressable
+                      style={styles.whatsappButton}
+                      onPress={handleActivateByWhatsapp}
+                    >
+                      <Ionicons name="logo-whatsapp" size={18} color="#FFFFFF" style={{ marginRight: 6 }} />
+                      <Text style={styles.whatsappButtonText}>Activar versión completa</Text>
+                    </Pressable>
+                  </View>
+                )}
+
                 {isAdmin && (
                   <>
                     <View style={styles.divider} />
@@ -559,7 +676,49 @@ export function SettingsScreen() {
           <Text style={styles.cardText}>Dispositivos vinculados</Text>
           <Text style={styles.cardText}>Impresora térmica y periféricos</Text>
         </View>
+
+        {/* Consola de Licencias Globales (Acceso exclusivo mediante PIN) */}
+        {isAdmin && (
+          <View style={styles.adminLinkContainer}>
+            <Pressable onPress={handleOpenLicenseAdmin} style={styles.adminLinkPressable}>
+              <Ionicons name="shield-checkmark" size={14} color={colors.textMuted} style={{ marginRight: 4 }} />
+              <Text style={styles.adminLinkText}>Administración Global de Licencias</Text>
+            </Pressable>
+          </View>
+        )}
       </ScrollView>
+
+      {/* Modal interactivo de PIN para administrador de la plataforma */}
+      {showPinModal && (
+        <View style={styles.modalOverlay}>
+          <View style={styles.pinModalContainer}>
+            <Ionicons name="key-outline" size={32} color={colors.primary} style={{ marginBottom: 12 }} />
+            <Text style={styles.pinModalTitle}>Acceso de Administración</Text>
+            <Text style={styles.pinModalSubtitle}>Ingresá la clave maestra para administrar las licencias de la plataforma:</Text>
+            
+            <TextInput
+              style={styles.pinTextInput}
+              value={adminPinInput}
+              onChangeText={setAdminPinInput}
+              placeholder="Clave Maestra"
+              placeholderTextColor={colors.textMuted}
+              secureTextEntry
+              keyboardType="default"
+              autoFocus
+            />
+
+            <View style={styles.pinModalActions}>
+              <Pressable style={styles.pinModalCancelButton} onPress={() => setShowPinModal(false)}>
+                <Text style={styles.pinModalCancelText}>Cancelar</Text>
+              </Pressable>
+              
+              <Pressable style={styles.pinModalConfirmButton} onPress={handleVerifyAdminPin}>
+                <Text style={styles.pinModalConfirmText}>Entrar</Text>
+              </Pressable>
+            </View>
+          </View>
+        </View>
+      )}
     </SafeAreaView>
   );
 }
@@ -972,5 +1131,140 @@ const getStyles = (colors: ThemeColors, isDark: boolean) =>
       color: colors.primary,
       fontSize: 12,
       fontWeight: '700',
+    },
+    demoActivateBanner: {
+      marginTop: 12,
+      padding: 12,
+      borderRadius: radius.md,
+      backgroundColor: isDark ? 'rgba(245, 158, 11, 0.08)' : 'rgba(245, 158, 11, 0.05)',
+      borderWidth: 1,
+      borderColor: isDark ? 'rgba(245, 158, 11, 0.2)' : 'rgba(245, 158, 11, 0.15)',
+      gap: 10,
+    },
+    demoBannerText: {
+      color: isDark ? '#fcd34d' : '#b45309',
+      fontSize: 12,
+      lineHeight: 16,
+      fontWeight: '600',
+    },
+    whatsappButton: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'center',
+      backgroundColor: '#25D366',
+      paddingVertical: 10,
+      borderRadius: radius.md,
+      shadowColor: '#000',
+      shadowOpacity: 0.1,
+      shadowRadius: 2,
+      elevation: 2,
+    },
+    whatsappButtonText: {
+      color: '#FFFFFF',
+      fontSize: 13,
+      fontWeight: '800',
+    },
+    adminLinkContainer: {
+      marginTop: 20,
+      marginBottom: 10,
+      alignItems: 'center',
+    },
+    adminLinkPressable: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      paddingVertical: 6,
+      paddingHorizontal: 12,
+      borderRadius: radius.sm,
+      backgroundColor: isDark ? 'rgba(255, 255, 255, 0.03)' : 'rgba(0, 0, 0, 0.02)',
+    },
+    adminLinkText: {
+      color: colors.textMuted,
+      fontSize: 11,
+      fontWeight: '700',
+    },
+    modalOverlay: {
+      position: 'absolute',
+      top: 0,
+      left: 0,
+      right: 0,
+      bottom: 0,
+      backgroundColor: 'rgba(0, 0, 0, 0.5)',
+      justifyContent: 'center',
+      alignItems: 'center',
+      zIndex: 9999,
+    },
+    pinModalContainer: {
+      width: '85%',
+      maxWidth: 320,
+      backgroundColor: colors.background,
+      borderRadius: radius.lg,
+      padding: spacing.lg,
+      alignItems: 'center',
+      borderWidth: 1,
+      borderColor: colors.border,
+      shadowColor: '#000',
+      shadowOpacity: 0.25,
+      shadowRadius: 10,
+      elevation: 10,
+    },
+    pinModalTitle: {
+      fontSize: 18,
+      fontWeight: '800',
+      color: colors.text,
+      marginBottom: 4,
+      textAlign: 'center',
+    },
+    pinModalSubtitle: {
+      fontSize: 12,
+      color: colors.textMuted,
+      textAlign: 'center',
+      marginBottom: 16,
+      lineHeight: 16,
+    },
+    pinTextInput: {
+      width: '100%',
+      backgroundColor: isDark ? 'rgba(255, 255, 255, 0.04)' : 'rgba(0, 0, 0, 0.03)',
+      borderRadius: radius.md,
+      paddingVertical: 12,
+      paddingHorizontal: 16,
+      fontSize: 16,
+      color: colors.text,
+      textAlign: 'center',
+      fontWeight: '700',
+      borderWidth: 1,
+      borderColor: colors.border,
+      marginBottom: 20,
+    },
+    pinModalActions: {
+      flexDirection: 'row',
+      gap: spacing.md,
+      width: '100%',
+    },
+    pinModalCancelButton: {
+      flex: 1,
+      paddingVertical: 10,
+      borderRadius: radius.md,
+      borderWidth: 1,
+      borderColor: colors.border,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    pinModalCancelText: {
+      color: colors.textMuted,
+      fontSize: 13,
+      fontWeight: '700',
+    },
+    pinModalConfirmButton: {
+      flex: 1,
+      paddingVertical: 10,
+      borderRadius: radius.md,
+      backgroundColor: colors.primary,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    pinModalConfirmText: {
+      color: '#FFFFFF',
+      fontSize: 13,
+      fontWeight: '800',
     },
   });

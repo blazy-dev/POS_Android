@@ -4,6 +4,7 @@ export {
   enqueueSyncOperation,
   getProductsCount,
   getSalesCount,
+  getEmployeesCount,
   getAppMeta,
   initializeDatabase,
   listCategories,

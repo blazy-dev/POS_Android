@@ -428,6 +428,18 @@ export async function getSalesCount(db: SQLiteDatabase, tenantId = 'local') {
 }
 
 /**
+ * Devuelve la cantidad total de empleados activos locales para un tenant.
+ */
+export async function getEmployeesCount(db: SQLiteDatabase, tenantId = 'local') {
+  const row = await db.getFirstAsync<{ count: number }>(
+    `SELECT COUNT(*) AS count FROM ${USERS_TABLE} WHERE tenant_id = $tenant_id AND is_active = 1`,
+    { $tenant_id: tenantId },
+  );
+
+  return row?.count ?? 0;
+}
+
+/**
  * Obtiene la lista completa de productos locales, ordenados por última actualización.
  */
 export async function listProducts(db: SQLiteDatabase, tenantId = 'local') {

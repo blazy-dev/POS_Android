@@ -2,9 +2,12 @@ import type { SQLiteDatabase } from 'expo-sqlite';
 import {
   enqueueSyncOperation,
   listRecentSales as listRecentSalesQuery,
+  getAppMeta,
+  setAppMeta,
 } from '../../database';
 import { createLocalId } from '../../utils/ids';
 import { findProductByBarcode } from '../products';
+import * as FileSystem from 'expo-file-system/legacy';
 
 export interface SaleLineInput {
   productId: string;
@@ -236,7 +239,136 @@ export async function createSale(db: SQLiteDatabase, input: CreateSaleInput) {
     },
   });
 
+  // Ejecutar el proceso de purgado y archivado en segundo plano
+  void pruneAndArchiveSales(db, tenantId);
+
   return saleId;
+}
+
+export async function pruneAndArchiveSales(db: SQLiteDatabase, tenantId: string) {
+  try {
+    // 1. Obtener estado de suscripción del tenant
+    const statusMeta = await getAppMeta<string>(db, `tenant_subscription_status_${tenantId}`);
+    const isPremium = statusMeta === 'active';
+
+    if (isPremium) {
+      // --- CASO PREMIUM: Retención de 90 días con archivado a CSV ---
+      const cutoffTime = Date.now() - 90 * 24 * 60 * 60 * 1000;
+      const cutoffIso = new Date(cutoffTime).toISOString();
+
+      // Buscar si existen ventas con antigüedad > 90 días
+      const oldSales = await db.getAllAsync<{ id: string; created_at: string; total: number; payment_method: string }>(
+        `SELECT id, created_at, total, payment_method FROM sales WHERE tenant_id = $tenant_id AND created_at < $cutoff`,
+        { $tenant_id: tenantId, $cutoff: cutoffIso }
+      );
+
+      if (oldSales.length > 0) {
+        // Consultar el detalle de los ítems de estas ventas para consolidar un CSV completo
+        const saleIds = oldSales.map(s => `'${s.id}'`).join(',');
+        const oldItems = await db.getAllAsync<{ sale_id: string; product_name: string; quantity: number; unit_price: number; subtotal: number }>(
+          `SELECT sale_id, product_name, quantity, unit_price, subtotal FROM sale_items WHERE sale_id IN (${saleIds})`
+        );
+
+        // Agrupar ventas antiguas por Año y Mes
+        const salesByMonth: Record<string, typeof oldSales> = {};
+        oldSales.forEach((sale) => {
+          const date = new Date(sale.created_at);
+          const year = date.getFullYear();
+          const month = String(date.getMonth() + 1).padStart(2, '0');
+          const key = `${year}_${month}`;
+          if (!salesByMonth[key]) salesByMonth[key] = [];
+          salesByMonth[key].push(sale);
+        });
+
+        // Generar un archivo CSV por cada mes y subirlo
+        for (const [monthKey, monthSales] of Object.entries(salesByMonth)) {
+          let csvContent = 'ID Venta,Fecha,Metodo Pago,Total Venta,Producto,Cantidad,Precio Unitario,Subtotal\n';
+          
+          monthSales.forEach((sale) => {
+            const items = oldItems.filter(item => item.sale_id === sale.id);
+            if (items.length > 0) {
+              items.forEach((item) => {
+                csvContent += `"${sale.id}","${sale.created_at}","${sale.payment_method}",${sale.total},"${item.product_name.replace(/"/g, '""')}",${item.quantity},${item.unit_price},${item.subtotal}\n`;
+              });
+            } else {
+              csvContent += `"${sale.id}","${sale.created_at}","${sale.payment_method}",${sale.total},"Sin items",0,0,0\n`;
+            }
+          });
+
+          // Guardar archivo CSV local
+          const folderUri = `${FileSystem.documentDirectory}archivos_ventas`;
+          const fileUri = `${folderUri}/sales_${monthKey}.csv`;
+
+          const dirInfo = await FileSystem.getInfoAsync(folderUri);
+          if (!dirInfo.exists) {
+            await FileSystem.makeDirectoryAsync(folderUri, { intermediates: true });
+          }
+
+          await FileSystem.writeAsStringAsync(fileUri, csvContent);
+
+          // Encolar la subida del CSV a Supabase Storage (offline-first sync operation)
+          // La operación de sync se encargará de subir el archivo al bucket 'tenant-sales-archives'
+          const syncId = createLocalId('sync');
+          await enqueueSyncOperation(db, {
+            id: syncId,
+            entityType: 'sales_archive',
+            entityId: monthKey,
+            kind: 'create',
+            payload: {
+              tenantId,
+              monthKey,
+              localFileUri: fileUri,
+              fileName: `sales_${monthKey}.csv`,
+            },
+          });
+        }
+
+        // Purgar de SQLite las ventas y detalles viejos
+        await db.withExclusiveTransactionAsync(async (txn) => {
+          await txn.runAsync(
+            `DELETE FROM sale_items WHERE tenant_id = $tenant_id AND sale_id IN (SELECT id FROM sales WHERE created_at < $cutoff)`,
+            { $tenant_id: tenantId, $cutoff: cutoffIso }
+          );
+          await txn.runAsync(
+            `DELETE FROM sales WHERE tenant_id = $tenant_id AND created_at < $cutoff`,
+            { $tenant_id: tenantId, $cutoff: cutoffIso }
+          );
+        });
+
+        console.log(`[PURGE] Purgadas ${oldSales.length} ventas antiguas en cuenta Premium.`);
+      }
+    } else {
+      // --- CASO DEMO: Retención estricta de los últimos 3 días operativos ---
+      // Obtener la fecha más reciente de transacciones de este tenant
+      const latestSale = await db.getFirstAsync<{ max_date: string }>(
+        `SELECT MAX(created_at) AS max_date FROM sales WHERE tenant_id = $tenant_id`,
+        { $tenant_id: tenantId }
+      );
+
+      if (latestSale?.max_date) {
+        // El umbral es exactamente 3 días antes de la venta más reciente
+        const latestTime = new Date(latestSale.max_date).getTime();
+        const cutoffTime = latestTime - 3 * 24 * 60 * 60 * 1000;
+        const cutoffIso = new Date(cutoffTime).toISOString();
+
+        // Borrar ítems y ventas que sean anteriores al umbral
+        await db.withExclusiveTransactionAsync(async (txn) => {
+          await txn.runAsync(
+            `DELETE FROM sale_items WHERE tenant_id = $tenant_id AND sale_id IN (SELECT id FROM sales WHERE created_at < $cutoff)`,
+            { $tenant_id: tenantId, $cutoff: cutoffIso }
+          );
+          await txn.runAsync(
+            `DELETE FROM sales WHERE tenant_id = $tenant_id AND created_at < $cutoff`,
+            { $tenant_id: tenantId, $cutoff: cutoffIso }
+          );
+        });
+        
+        console.log(`[PURGE] Purgadas ventas antiguas fuera del límite de 3 días de la versión Demo.`);
+      }
+    }
+  } catch (err) {
+    console.error('[PURGE] Error durante purga/archivado de ventas:', err);
+  }
 }
 
 export async function createDemoSale(db: SQLiteDatabase, tenantId = 'local') {

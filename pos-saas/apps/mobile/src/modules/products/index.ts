@@ -2,6 +2,8 @@ import type { SQLiteDatabase } from 'expo-sqlite';
 import {
   enqueueSyncOperation,
   listProducts as listProductsQuery,
+  getAppMeta,
+  getProductsCount,
 } from '../../database';
 import type { ProductRecord } from '../../database/types';
 import { createLocalId } from '../../utils/ids';
@@ -54,6 +56,16 @@ export async function isBarcodeTaken(
 export async function saveProduct(db: SQLiteDatabase, input: ProductInput) {
   const now = new Date().toISOString();
   const tenantId = input.tenantId ?? 'local';
+
+  // Validar límite de la versión Demo (máx. 20 productos)
+  const statusMeta = await getAppMeta<string>(db, `tenant_subscription_status_${tenantId}`);
+  if (statusMeta !== 'active') {
+    const productsCount = await getProductsCount(db, tenantId);
+    if (productsCount >= 20) {
+      throw new Error('Límite de la versión Demo alcanzado: no puedes crear más de 20 productos. Activa la versión completa para registrar productos de forma ilimitada.');
+    }
+  }
+
   const productId = createLocalId('product');
   const stock = input.stock ?? 0;
   const barcode = normalizeBarcode(input.barcode);

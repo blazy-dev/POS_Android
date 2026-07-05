@@ -6,13 +6,50 @@ import {
   pullSyncChanges,
   addSyncLog,
   SyncOperationPayload,
+  supabase,
 } from '../api';
+import * as FileSystem from 'expo-file-system/legacy';
 
 export interface SyncResult {
   success: boolean;
   pushedCount: number;
   pulledCount: number;
   errorMessage?: string;
+}
+
+/**
+ * Decodifica una cadena Base64 a un ArrayBuffer puro de JavaScript de forma autocontenida
+ * y compatible con cualquier entorno React Native (incluyendo Hermes).
+ */
+export function decodeBase64ToArrayBuffer(base64: string): ArrayBuffer {
+  const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/';
+  const lookup = new Uint8Array(256);
+  for (let i = 0; i < chars.length; i++) {
+    lookup[chars.charCodeAt(i)] = i;
+  }
+  
+  const cleanBase64 = base64.replace(/=+$/, '').replace(/[\r\n]/g, '');
+  const len = cleanBase64.length;
+  const bufferLength = Math.floor(len * 0.75);
+  const arrayBuffer = new ArrayBuffer(bufferLength);
+  const bytes = new Uint8Array(arrayBuffer);
+  
+  let p = 0;
+  for (let i = 0; i < len; i += 4) {
+    const encoded1 = lookup[cleanBase64.charCodeAt(i)];
+    const encoded2 = lookup[cleanBase64.charCodeAt(i + 1)];
+    const encoded3 = lookup[cleanBase64.charCodeAt(i + 2)];
+    const encoded4 = lookup[cleanBase64.charCodeAt(i + 3)];
+    
+    bytes[p++] = (encoded1 << 2) | (encoded2 >> 4);
+    if (p < bufferLength) {
+      bytes[p++] = ((encoded2 & 15) << 4) | (encoded3 >> 2);
+    }
+    if (p < bufferLength) {
+      bytes[p++] = ((encoded3 & 3) << 6) | (encoded4 & 63);
+    }
+  }
+  return arrayBuffer;
 }
 
 /**
@@ -62,59 +99,148 @@ export async function runSync(db: SQLiteDatabase): Promise<SyncResult> {
     );
 
     if (pendingOps.length > 0) {
-      console.log(`[SYNC] PUSH: ${pendingOps.length} operaciones pendientes`);
-      // Mapeamos los datos al formato que espera la API
-      const operationsToSend: SyncOperationPayload[] = pendingOps.map((op) => ({
-        id: op.id,
-        entity_type: op.entity_type,
-        entity_id: op.entity_id,
-        operation: op.operation,
-        payload: JSON.parse(op.payload),
-      }));
+      console.log(`[SYNC] PUSH: ${pendingOps.length} operaciones pendientes en total`);
+      
+      // Separamos operaciones de base de datos (NestJS) y de archivos en la nube (Supabase Storage)
+      const apiOps = pendingOps.filter(
+        (op) => op.entity_type !== 'sales_archive' && op.entity_type !== 'tenant_logo_upload'
+      );
+      const storageOps = pendingOps.filter(
+        (op) => op.entity_type === 'sales_archive' || op.entity_type === 'tenant_logo_upload'
+      );
 
-      // Llamamos a la API
-      const pushRes = await pushSyncOperations(operationsToSend);
+      // --- 1. Sincronizar operaciones normales de Base de Datos ---
+      if (apiOps.length > 0) {
+        console.log(`[SYNC] PUSH API: ${apiOps.length} operaciones a enviar`);
+        const operationsToSend: SyncOperationPayload[] = apiOps.map((op) => ({
+          id: op.id,
+          entity_type: op.entity_type,
+          entity_id: op.entity_id,
+          operation: op.operation,
+          payload: JSON.parse(op.payload),
+        }));
 
-      const failedIds = pushRes.failedIds || [];
+        const pushRes = await pushSyncOperations(operationsToSend);
+        const failedIds = pushRes.failedIds || [];
 
-      await db.withExclusiveTransactionAsync(async (txn) => {
-        for (const op of pendingOps) {
-          const didFail =
-            failedIds.includes(op.id) ||
-            (!pushRes.success && failedIds.length === 0);
-          if (didFail) {
-            const nextRetries = op.retries + 1;
-            const nextStatus = nextRetries >= 10 ? 'failed' : 'pending';
-            await txn.runAsync(
-              `UPDATE sync_operations 
-               SET retries = $retries, status = $status, updated_at = $now 
-               WHERE id = $id`,
-              {
-                $retries: nextRetries,
-                $status: nextStatus,
-                $now: now,
-                $id: op.id,
-              },
-            );
-          } else {
-            pushedCount++;
-            await txn.runAsync(
-              `UPDATE sync_operations 
-               SET status = 'synced', updated_at = $now 
-               WHERE id = $id`,
-              { $now: now, $id: op.id },
-            );
+        await db.withExclusiveTransactionAsync(async (txn) => {
+          for (const op of apiOps) {
+            const didFail = failedIds.includes(op.id) || (!pushRes.success && failedIds.length === 0);
+            if (didFail) {
+              const nextRetries = op.retries + 1;
+              const nextStatus = nextRetries >= 10 ? 'failed' : 'pending';
+              await txn.runAsync(
+                `UPDATE sync_operations 
+                 SET retries = $retries, status = $status, updated_at = $now 
+                 WHERE id = $id`,
+                { $retries: nextRetries, $status: nextStatus, $now: now, $id: op.id }
+              );
+            } else {
+              pushedCount++;
+              await txn.runAsync(
+                `UPDATE sync_operations 
+                 SET status = 'synced', updated_at = $now 
+                 WHERE id = $id`,
+                { $now: now, $id: op.id }
+              );
+            }
           }
-        }
-      });
+        });
 
-      if (!pushRes.success && failedIds.length === 0) {
-        throw new Error(pushRes.error ?? 'Fallo en el procesamiento de Push');
-      } else if (failedIds.length > 0) {
-        addSyncLog(
-          'warning',
-          `PUSH parcial: ${failedIds.length} de ${pendingOps.length} operaciones fallaron.`,
-        );
+        if (!pushRes.success && failedIds.length === 0) {
+          console.warn('[SYNC] Error en PUSH API:', pushRes.error);
+        }
+      }
+
+      // --- 2. Sincronizar archivos a Supabase Storage (Logos y CSVs de Ventas) ---
+      for (const op of storageOps) {
+        console.log(`[SYNC] PUSH STORAGE: Procesando ${op.entity_type} (ID: ${op.id})`);
+        try {
+          const payload = JSON.parse(op.payload);
+
+          // Verificar existencia del archivo antes de subirlo
+          const fileInfo = await FileSystem.getInfoAsync(payload.localFileUri);
+          if (!fileInfo.exists) {
+            console.warn(`[SYNC] Archivo local no existe en ruta: ${payload.localFileUri}. Marcando sync como fallido.`);
+            await db.runAsync(
+              `UPDATE sync_operations SET status = 'failed', updated_at = $now WHERE id = $id`,
+              { $now: now, $id: op.id }
+            );
+            continue;
+          }
+
+          // Leer el archivo en Base64 y convertir a ArrayBuffer
+          const base64Str = await FileSystem.readAsStringAsync(payload.localFileUri, { encoding: 'base64' });
+          const arrayBuffer = decodeBase64ToArrayBuffer(base64Str);
+
+          if (op.entity_type === 'sales_archive') {
+            // Subir CSV consolidado mensual al bucket privado
+            const { error } = await supabase.storage
+              .from('tenant-sales-archives')
+              .upload(`archives/${payload.tenantId}/${payload.fileName}`, arrayBuffer, {
+                contentType: 'text/csv',
+                upsert: true,
+              });
+
+            if (error) throw error;
+          } else if (op.entity_type === 'tenant_logo_upload') {
+            // Subir logo comercial al bucket público
+            const { error } = await supabase.storage
+              .from('tenant-logos')
+              .upload(`logos/${payload.tenantId}_logo.png`, arrayBuffer, {
+                contentType: 'image/png',
+                upsert: true,
+              });
+
+            if (error) throw error;
+
+            // Obtener la URL pública del logo subido
+            const { data } = supabase.storage
+              .from('tenant-logos')
+              .getPublicUrl(`logos/${payload.tenantId}_logo.png`);
+
+            if (data?.publicUrl) {
+              const publicUrl = data.publicUrl;
+              console.log(`[SYNC] Logo subido con éxito. URL Pública: ${publicUrl}`);
+              // Actualizar localmente en SQLite el metadato del logo a la URL de la nube
+              await db.runAsync(
+                `INSERT OR REPLACE INTO app_metadata (key, value, updated_at) 
+                 VALUES ($key, $value, $now)`,
+                {
+                  $key: `tenant_logo_${payload.tenantId}`,
+                  $value: publicUrl,
+                  $now: now,
+                }
+              );
+            }
+          }
+
+          // Marcar operación de almacenamiento como sincronizada exitosamente
+          pushedCount++;
+          await db.runAsync(
+            `UPDATE sync_operations SET status = 'synced', updated_at = $now WHERE id = $id`,
+            { $now: now, $id: op.id }
+          );
+
+          // Opcional: Eliminar archivo temporal local una vez subido con éxito a la nube
+          if (op.entity_type === 'sales_archive') {
+            try {
+              await FileSystem.deleteAsync(payload.localFileUri, { idempotent: true });
+            } catch (fsErr) {
+              console.warn('[SYNC] No se pudo eliminar archivo local purgado:', fsErr);
+            }
+          }
+        } catch (err: any) {
+          console.error(`[SYNC] Error al subir archivo a Supabase Storage para operacion ${op.id}:`, err);
+          const nextRetries = op.retries + 1;
+          const nextStatus = nextRetries >= 10 ? 'failed' : 'pending';
+          await db.runAsync(
+            `UPDATE sync_operations 
+             SET retries = $retries, status = $status, updated_at = $now 
+             WHERE id = $id`,
+            { $retries: nextRetries, $status: nextStatus, $now: now, $id: op.id }
+          );
+        }
       }
     } else {
       addSyncLog('info', 'No hay cambios locales pendientes por subir.');

@@ -1,5 +1,5 @@
 import type { SQLiteDatabase } from 'expo-sqlite';
-import { enqueueSyncOperation, getAppMeta } from '../../database';
+import { enqueueSyncOperation, getAppMeta, getEmployeesCount } from '../../database';
 import type { UserRecord } from '../../database/types';
 import { createLocalId } from '../../utils/ids';
 
@@ -83,6 +83,18 @@ export async function saveEmployee(
 ): Promise<string> {
   const now = new Date().toISOString();
   const tenantId = input.tenantId ?? 'local';
+
+  // Validar límite de la versión Demo (máx. 2 empleados activos)
+  if (!employeeId) {
+    const statusMeta = await getAppMeta<string>(db, `tenant_subscription_status_${tenantId}`);
+    if (statusMeta !== 'active') {
+      const count = await getEmployeesCount(db, tenantId);
+      if (count >= 2) {
+        throw new Error('Límite de la versión Demo alcanzado: no puedes crear más de 2 empleados. Activa la versión completa para gestionar personal de forma ilimitada.');
+      }
+    }
+  }
+
   const id = employeeId ?? createLocalId('user');
 
   if (input.pin && (await isPinTaken(db, input.pin, tenantId, employeeId))) {
