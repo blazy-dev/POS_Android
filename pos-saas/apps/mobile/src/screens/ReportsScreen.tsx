@@ -11,6 +11,7 @@ import {
   Alert,
 } from 'react-native';
 import { useSQLiteContext } from 'expo-sqlite';
+import { Ionicons } from '@expo/vector-icons';
 import * as Print from 'expo-print';
 import * as Sharing from 'expo-sharing';
 import { radius, spacing, ThemeColors } from '../theme/tokens';
@@ -672,22 +673,34 @@ export function ReportsScreen({ onNavigate }: ReportsScreenProps) {
                         <Text style={styles.stockPrice}>
                           Precio Venta: $ {item.sale_price.toFixed(2)}
                         </Text>
-                        <Text style={{ fontSize: 11, color: colors.textMuted, marginTop: 4 }}>
-                          Toca para ajustar stock
-                        </Text>
                       </View>
-                      <View style={styles.stockValueContainer}>
-                        <Text
-                          style={[
-                            styles.stockValue,
-                            isZero
-                              ? styles.stockValueZero
-                              : styles.stockValueLow,
-                          ]}
-                        >
-                          {item.stock}
-                        </Text>
-                        <Text style={styles.stockUnit}>{item.unit}</Text>
+                      
+                      <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.md }}>
+                        {/* Ícono de Martillito de Ajuste Rápido */}
+                        <View style={{
+                          padding: 8,
+                          borderRadius: 99,
+                          backgroundColor: isDark ? 'rgba(138, 199, 255, 0.08)' : 'rgba(0, 102, 204, 0.05)',
+                          borderWidth: 1,
+                          borderColor: isDark ? 'rgba(138, 199, 255, 0.15)' : 'rgba(0, 102, 204, 0.1)',
+                        }}>
+                          <Ionicons name="hammer-outline" size={16} color={colors.primary} />
+                        </View>
+
+                        {/* Stock Value */}
+                        <View style={styles.stockValueContainer}>
+                          <Text
+                            style={[
+                              styles.stockValue,
+                              isZero
+                                ? styles.stockValueZero
+                                : styles.stockValueLow,
+                            ]}
+                          >
+                            {item.stock}
+                          </Text>
+                          <Text style={styles.stockUnit}>{item.unit}</Text>
+                        </View>
                       </View>
                     </Pressable>
                   );
