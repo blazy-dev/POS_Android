@@ -142,6 +142,7 @@ export interface SaleWithItems {
   payment_method: string;
   created_at: string;
   status: string;
+  user_name: string | null;
   items: Array<{
     product_name: string;
     product_unit: string;
@@ -165,11 +166,13 @@ export async function getSessionSalesWithItems(
     payment_method: string;
     created_at: string;
     status: string;
+    user_name: string | null;
   }>(
-    `SELECT id, total, payment_method, created_at, status 
-     FROM sales 
-     WHERE cash_register_id = $registerId 
-     ORDER BY created_at DESC`,
+    `SELECT s.id, s.total, s.payment_method, s.created_at, s.status, u.name AS user_name
+     FROM sales s
+     LEFT JOIN users u ON s.user_id = u.id
+     WHERE s.cash_register_id = $registerId 
+     ORDER BY s.created_at DESC`,
     { $registerId: registerId },
   );
 
@@ -203,4 +206,23 @@ export async function getSessionSalesWithItems(
     ...sale,
     items: items.filter((item) => item.sale_id === sale.id),
   }));
+}
+
+/**
+ * Obtiene la lista de transacciones del día actual con su respectivo operador.
+ */
+export async function getDailySalesList(
+  db: SQLiteDatabase,
+  tenantId = 'local',
+): Promise<any[]> {
+  return db.getAllAsync<any>(
+    `SELECT s.id, s.total, s.payment_method, s.created_at, s.status, u.name AS user_name
+     FROM sales s
+     LEFT JOIN users u ON s.user_id = u.id
+     WHERE date(s.created_at, 'localtime') = date('now', 'localtime')
+       AND s.status = 'completed'
+       AND s.tenant_id = $tenant_id
+     ORDER BY s.created_at DESC`,
+    { $tenant_id: tenantId },
+  );
 }

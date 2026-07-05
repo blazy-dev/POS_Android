@@ -207,6 +207,55 @@ taskkill /PID <PID> /F
 
 ---
 
+## 🎯 Fuente de verdad del código en desarrollo
+
+El proyecto debe correrse desde el repositorio clonado en tu máquina. Asegurate de que Expo, los asistentes de IA y cualquier editor estén apuntando a la **misma copia del proyecto**.
+
+Si los cambios de código no se reflejan en la app:
+
+1. Verificá que Expo esté corriendo desde este directorio:
+   ```powershell
+   cd "C:\Users\juanj\Desktop\Proyecto POS global\POS_Android\pos-saas\apps\mobile"
+   ```
+2. Confirmá que el archivo editado sea el mismo que se ve en la terminal de Metro cuando se recarga.
+3. Si usás asistentes de IA, verificá que editen la copia activa del proyecto (la que usa Expo).
+
+---
+
+## 📱 Conexión desde dispositivo físico
+
+Para correr la app en un teléfono real, Expo ofrece dos modos:
+
+### Modo LAN (por defecto)
+
+El celular y la computadora deben estar en la **misma red WiFi**. Metro publica una URL local:
+
+```
+exp://192.168.x.x:8081
+```
+
+Si la red bloquea conexiones entre dispositivos (empresas, redes públicas, VPN), este modo falla.
+
+### Modo Túnel (recomendado cuando LAN falla)
+
+Usa ngrok para crear un túnel público. Ejecutá:
+
+```powershell
+cd "pos-saas\apps\mobile"
+pnpm run start:tunnel
+# o directamente:
+npx expo start --tunnel
+```
+
+Luego escaneá el QR con Expo Go. **El modo túnel requiere conexión a Internet** tanto en la PC como en el celular.
+
+Si el túnel no conecta (`ngrok tunnel took too long to connect`), probá:
+- Reiniciar la PC.
+- Verificar que ngrok no esté bloqueado por firewall/antivirus.
+- Usar una red alternativa.
+
+---
+
 ## ⚡ Troubleshooting común
 
 | Problema | Causa | Solución |
@@ -219,3 +268,6 @@ taskkill /PID <PID> /F
 | Sync falla con `Unique constraint` en email | Operación de sync con email duplicado | El upsert de usuarios ya usa `where: { email }` como clave única |
 | `Prisma could not connect during startup` / `Can't reach database server` | El backend no puede llegar a PostgreSQL en Supabase | Revisar `DATABASE_URL`, red local, firewall y disponibilidad del host `db.<proyecto>.supabase.co` |
 | `Error al verificar token de Supabase en canActivate` con `P1001` | El JWT se valida, pero Prisma no puede leer el usuario local | No es un error del login; es conectividad del backend a la DB |
+| Los cambios de código no se ven en el celular | El bundler está sirviendo una copia distinta del proyecto o hay caché vieja | Verificar la [fuente de verdad del código](#-fuente-de-verdad-del-código-en-desarrollo) y correr `npx expo start --clear` |
+| Expo muestra "Something went wrong" al cargar | Error de JavaScript en runtime o falla de conexión al bundler | Revisar la terminal de Metro para ver el error real; si usás túnel, asegurate de que ngrok haya conectado |
+| Botón o pantalla nueva no aparece después de recargar | Caché del bundler de Metro | Cerrar Expo Go, ejecutar `npx expo start --clear` y volver a escanear el QR |

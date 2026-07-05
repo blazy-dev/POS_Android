@@ -18,12 +18,14 @@ import { radius, spacing, ThemeColors } from '../theme/tokens';
 import { useTheme } from '../context/ThemeContext';
 import { useAuth } from '../context/AuthContext';
 import { Button } from '../components/ui/Button';
+import { getAppMeta } from '../database';
 import {
   getDailySalesSummary,
   getTopSellingProducts,
   getLowStockProducts,
   getCashRegisterSessions,
   getSessionSalesWithItems,
+  getDailySalesList,
   DailySalesSummary,
   TopProductRecord,
   LowStockProductRecord,
@@ -66,6 +68,7 @@ export function ReportsScreen({ onNavigate }: ReportsScreenProps) {
     Record<string, boolean>
   >({});
 
+  const [isSubActive, setIsSubActive] = useState<boolean>(true);
   const [isExporting, setIsExporting] = useState(false);
   const tenantId = user?.tenant_id || 'local';
 
@@ -74,6 +77,34 @@ export function ReportsScreen({ onNavigate }: ReportsScreenProps) {
     setIsExporting(true);
     try {
       const currentDate = new Date().toLocaleString();
+      const salesList = await getDailySalesList(db, tenantId);
+      
+      const salesListHtml = salesList.length === 0
+        ? '<p style="color: #71717a; font-style: italic;">No hay transacciones registradas hoy.</p>'
+        : `
+          <table>
+            <thead>
+              <tr>
+                <th>Hora</th>
+                <th>Ticket</th>
+                <th>Operador</th>
+                <th>Método</th>
+                <th style="text-align: right;">Total</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${salesList.map(s => `
+                <tr>
+                  <td>${new Date(s.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</td>
+                  <td>${s.id.substring(0, 8)}...</td>
+                  <td>${s.user_name || 'Desconocido'}</td>
+                  <td>${s.payment_method === 'cash' ? 'Efectivo' : 'Transferencia'}</td>
+                  <td style="text-align: right;">$ ${s.total.toFixed(2)}</td>
+                </tr>
+              `).join('')}
+            </tbody>
+          </table>
+        `;
       
       const topProductsHtml = topProducts.length === 0
         ? '<p style="color: #71717a; font-style: italic;">No hay datos de ventas registrados hoy.</p>'
@@ -214,6 +245,9 @@ export function ReportsScreen({ onNavigate }: ReportsScreenProps) {
               <div class="metric-label">Transferencias</div>
               <div class="metric-value">$ ${summary.transfer_total.toLocaleString('es-AR')}</div>
             </div>
+          <h2>Ventas del Día (${salesList.length})</h2>
+          ${salesListHtml}
+
           <h2>Top 5 Productos Más Vendidos</h2>
           ${topProductsHtml}
 
@@ -255,6 +289,13 @@ export function ReportsScreen({ onNavigate }: ReportsScreenProps) {
       setLoading(true);
       setErrorMsg(null);
 
+      // Cargar metadatos de suscripción
+      const cachedStatus = await getAppMeta<string>(db, `tenant_subscription_status_${tenantId}`);
+      const endsAtStr = await getAppMeta<string>(db, `tenant_subscription_ends_at_${tenantId}`);
+      const endsAt = endsAtStr ? parseInt(endsAtStr, 10) : 0;
+      const active = cachedStatus === 'active' && (endsAt === 0 || endsAt > Date.now());
+      setIsSubActive(active);
+
       const [nextSummary, nextTopProducts, nextLowStock, nextSessions] =
         await Promise.all([
           getDailySalesSummary(db, tenantId),
@@ -266,7 +307,18 @@ export function ReportsScreen({ onNavigate }: ReportsScreenProps) {
       setSummary(nextSummary);
       setTopProducts(nextTopProducts);
       setLowStock(nextLowStock);
-      setSessions(nextSessions);
+
+      if (active) {
+        setSessions(nextSessions);
+      } else {
+        // Límite de 3 días operativos
+        const limitTime = Date.now() - 3 * 24 * 60 * 60 * 1000;
+        const filteredSessions = nextSessions.filter((s) => {
+          const openedTime = new Date(s.opened_at).getTime();
+          return openedTime >= limitTime;
+        });
+        setSessions(filteredSessions);
+      }
     } catch (err) {
       console.error('Error al cargar reportes:', err);
       setErrorMsg('No se pudieron cargar los datos del reporte local.');
@@ -466,8 +518,17 @@ export function ReportsScreen({ onNavigate }: ReportsScreenProps) {
           <View style={styles.tabContent}>
             <Text style={styles.sectionTitle}>Historial de Turnos de Caja</Text>
             <Text style={styles.sectionSubtitle}>
-              Últimas 20 sesiones de apertura y cierre de caja.
+              Últimas sesiones de apertura y cierre de caja.
             </Text>
+
+            {!isSubActive && (
+              <View style={styles.demoWarningBanner}>
+                <Ionicons name="lock-closed" size={18} color="#b45309" style={{ marginRight: 8 }} />
+                <Text style={styles.demoWarningBannerText}>
+                  Versión Demo: Solo se visualiza el historial de los últimos 3 días operativos.
+                </Text>
+              </View>
+            )}
 
             {sessions.length === 0 ? (
               <Text style={styles.emptyText}>
@@ -612,6 +673,9 @@ export function ReportsScreen({ onNavigate }: ReportsScreenProps) {
                                   </View>
 
                                   <View style={styles.saleItemDetails}>
+                                    <Text style={styles.saleOperatorText}>
+                                      👤 Operador: {sale.user_name || 'Desconocido'}
+                                    </Text>
                                     {sale.items.map((prod, idx) => (
                                       <Text
                                         key={idx}
@@ -1240,9 +1304,32 @@ const getStyles = (colors: ThemeColors, isDark: boolean) =>
       borderLeftWidth: 2,
       borderLeftColor: colors.border,
     },
+    saleOperatorText: {
+      color: colors.primary,
+      fontSize: 12,
+      fontWeight: '700',
+      marginBottom: 6,
+    },
     saleDetailProductRow: {
       color: colors.textMuted,
       fontSize: 11,
       lineHeight: 15,
+    },
+    demoWarningBanner: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      backgroundColor: isDark ? 'rgba(245, 158, 11, 0.08)' : 'rgba(245, 158, 11, 0.05)',
+      borderWidth: 1,
+      borderColor: isDark ? 'rgba(245, 158, 11, 0.2)' : 'rgba(245, 158, 11, 0.15)',
+      borderRadius: radius.md,
+      padding: spacing.md,
+      marginBottom: spacing.md,
+    },
+    demoWarningBannerText: {
+      flex: 1,
+      color: isDark ? '#fcd34d' : '#b45309',
+      fontSize: 12,
+      fontWeight: '600',
+      lineHeight: 16,
     },
   });
