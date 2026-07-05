@@ -81,25 +81,28 @@ En la pantalla de Ajustes, si la cuenta posee el estado `'demo'` o `'expired'`, 
 
 ## 4. Consola Global de Administración de Licencias
 
-Para facilitar la renovación manual de licencias sin necesidad de pasarela de cobro integrada, se incluye un panel de control interno oculto en la aplicación móvil:
+Para facilitar la renovación y control manual de las licencias sin pasarela de cobros, se incluye un panel de administración en la aplicación móvil con las siguientes particularidades:
 
-### A. Mecanismo de Acceso Seguro
-1. En la pantalla de **Ajustes**, al final de la sección, habrá un botón discreto: *"Consola Global de Licencias"*.
-2. Este botón sólo será visible para usuarios con rol de administrador (`user.role === 'admin'`).
-3. Al presionarse, se abrirá un modal flotante pidiendo una **Clave Maestra de Plataforma** (`"ANTIGRAVITY_ADMIN_2026"`).
-4. Si la clave coincide, se da acceso a la pantalla `LicenseAdminScreen`.
+### A. Acceso Super Restringido (Seguridad del Correo)
+1. El enlace discreto *"Administración Global de Licencias"* al final de la pantalla de Ajustes **sólo se renderiza** si el correo del usuario logueado en la aplicación (`user.email`) es exactamente:
+   `tecno.juy.ar@gmail.com`
+2. Si el email coincide, al presionar el enlace se abre un modal de seguridad que solicita la **Clave Maestra de Plataforma** (`"ANTIGRAVITY_ADMIN_2026"`).
+3. **KeyboardAvoidingView**: Para evitar que el teclado nativo tape el modal o dificulte la escritura del PIN maestro en pantallas móviles, el modal se envuelve en un componente `<KeyboardAvoidingView>` que desplaza verticalmente los elementos de forma automática al abrirse el teclado.
 
-### B. Funcionalidades del Panel:
-* **Buscador**: Permite listar y buscar comercios locales o remotos (mediante consulta Supabase).
-* **Ficha del Comercio**:
-  * Muestra el ID del Comercio, Nombre comercial, correo del propietario, y estado de licencia actual.
-* **Botón "Sumar 30 días de suscripción"**:
-  * Toma la fecha actual (o la fecha de vencimiento actual si aún es válida para no recortar días ya pagados) y le suma 30 días en milisegundos.
-  * Cambia el estado del comercio a `'active'`.
-  * Guarda los metadatos locales en SQLite.
-  * Encola una operación en la tabla de sincronización offline (`sync_operations`) para actualizar de forma asíncrona la tabla central de Supabase, asegurando que todos los dispositivos vinculados al comercio reciban la renovación de forma automática al sincronizarse.
-* **Botón "Habilitar Licencia Permanente"**:
-  * Establece la fecha de expiración a un valor infinito (por ejemplo, año 2100), removiendo permanentemente los límites.
+### B. Funcionalidades y Usabilidad del Panel:
+* **Diseño y Altura de Seguridad**: La lista de comercios posee un estilo con `paddingBottom: 130` para asegurar que las tarjetas de comercios no queden tapadas por la píldora flotante e inferior de navegación.
+* **Paginación Local (Límite 15)**: Con el objetivo de optimizar la memoria y agilizar la navegación en dispositivos antiguos, el listado segmenta los comercios mostrando **un máximo de 15 por página**. Cuenta con botones de navegación *"Anterior"* y *"Siguiente"* en el pie de página.
+* **Buscador**: Permite filtrar la lista en tiempo real por el nombre del comercio o su UUID de tenant.
+* **Ficha del Comercio**: Muestra el nombre del negocio, UUID del tenant, correo del dueño y su estado (Demo, Completo o Expirado).
+* **Acción: "Sumar 30 días de suscripción"**:
+  * Toma la fecha actual (o la de vencimiento actual si aún está activa) y le suma 30 días.
+  * Cambia el estado a `'active'`, persiste en SQLite local y encola la actualización en la cola de sincronización offline.
+* **Acción: "Licencia Permanente"**:
+  * Otorga una licencia ilimitada fijando una fecha lejana (año 2100).
+* **Acción: "Revertir a Demo"**:
+  * Permite retornar cualquier comercio premium o expirado al estado de prueba `'demo'`.
+  * Restablece el vencimiento (`endsAt` = 0) e inicializa el período de trial de 3 días contados a partir del momento actual (`tenant_trial_start` = hora actual).
+  * Persiste en SQLite local y encola el evento en `sync_operations` para reflejarse en la nube.
 
 ---
 

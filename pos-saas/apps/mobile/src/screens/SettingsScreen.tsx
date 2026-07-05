@@ -10,6 +10,8 @@ import {
   Text,
   TextInput,
   View,
+  KeyboardAvoidingView,
+  Platform,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '../context/AuthContext';
@@ -677,8 +679,8 @@ export function SettingsScreen() {
           <Text style={styles.cardText}>Impresora térmica y periféricos</Text>
         </View>
 
-        {/* Consola de Licencias Globales (Acceso exclusivo mediante PIN) */}
-        {isAdmin && (
+        {/* Consola de Licencias Globales (Acceso exclusivo mediante PIN para el desarrollador principal) */}
+        {user?.email === 'tecno.juy.ar@gmail.com' && (
           <View style={styles.adminLinkContainer}>
             <Pressable onPress={handleOpenLicenseAdmin} style={styles.adminLinkPressable}>
               <Ionicons name="shield-checkmark" size={14} color={colors.textMuted} style={{ marginRight: 4 }} />
@@ -691,32 +693,37 @@ export function SettingsScreen() {
       {/* Modal interactivo de PIN para administrador de la plataforma */}
       {showPinModal && (
         <View style={styles.modalOverlay}>
-          <View style={styles.pinModalContainer}>
-            <Ionicons name="key-outline" size={32} color={colors.primary} style={{ marginBottom: 12 }} />
-            <Text style={styles.pinModalTitle}>Acceso de Administración</Text>
-            <Text style={styles.pinModalSubtitle}>Ingresá la clave maestra para administrar las licencias de la plataforma:</Text>
-            
-            <TextInput
-              style={styles.pinTextInput}
-              value={adminPinInput}
-              onChangeText={setAdminPinInput}
-              placeholder="Clave Maestra"
-              placeholderTextColor={colors.textMuted}
-              secureTextEntry
-              keyboardType="default"
-              autoFocus
-            />
-
-            <View style={styles.pinModalActions}>
-              <Pressable style={styles.pinModalCancelButton} onPress={() => setShowPinModal(false)}>
-                <Text style={styles.pinModalCancelText}>Cancelar</Text>
-              </Pressable>
+          <KeyboardAvoidingView
+            behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+            style={styles.keyboardAvoidingView}
+          >
+            <View style={styles.pinModalContainer}>
+              <Ionicons name="key-outline" size={32} color={colors.primary} style={{ marginBottom: 12 }} />
+              <Text style={styles.pinModalTitle}>Acceso de Administración</Text>
+              <Text style={styles.pinModalSubtitle}>Ingresá la clave maestra para administrar las licencias de la plataforma:</Text>
               
-              <Pressable style={styles.pinModalConfirmButton} onPress={handleVerifyAdminPin}>
-                <Text style={styles.pinModalConfirmText}>Entrar</Text>
-              </Pressable>
+              <TextInput
+                style={styles.pinTextInput}
+                value={adminPinInput}
+                onChangeText={setAdminPinInput}
+                placeholder="Clave Maestra"
+                placeholderTextColor={colors.textMuted}
+                secureTextEntry
+                keyboardType="default"
+                autoFocus
+              />
+
+              <View style={styles.pinModalActions}>
+                <Pressable style={styles.pinModalCancelButton} onPress={() => setShowPinModal(false)}>
+                  <Text style={styles.pinModalCancelText}>Cancelar</Text>
+                </Pressable>
+                
+                <Pressable style={styles.pinModalConfirmButton} onPress={handleVerifyAdminPin}>
+                  <Text style={styles.pinModalConfirmText}>Entrar</Text>
+                </Pressable>
+              </View>
             </View>
-          </View>
+          </KeyboardAvoidingView>
         </View>
       )}
     </SafeAreaView>
@@ -1266,5 +1273,10 @@ const getStyles = (colors: ThemeColors, isDark: boolean) =>
       color: '#FFFFFF',
       fontSize: 13,
       fontWeight: '800',
+    },
+    keyboardAvoidingView: {
+      width: '100%',
+      alignItems: 'center',
+      justifyContent: 'center',
     },
   });

@@ -17,7 +17,6 @@ import { getAppMeta, setAppMeta, enqueueSyncOperation } from '../database';
 import { Badge } from '../components/ui/Badge';
 import { ThemeColors, radius, spacing, fontSize, fontWeight } from '../theme/tokens';
 import { createLocalId } from '../utils/ids';
-import { supabase } from '../api/supabase';
 
 interface LicenseAdminScreenProps {
   onClose: () => void;
@@ -31,6 +30,8 @@ interface TenantItem {
   endsAt: number;
 }
 
+const ITEMS_PER_PAGE = 15;
+
 export function LicenseAdminScreen({ onClose }: LicenseAdminScreenProps) {
   const { colors, isDark } = useTheme();
   const styles = useMemo(() => getStyles(colors, isDark), [colors, isDark]);
@@ -39,6 +40,7 @@ export function LicenseAdminScreen({ onClose }: LicenseAdminScreenProps) {
   const [loading, setLoading] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [tenants, setTenants] = useState<TenantItem[]>([]);
+  const [currentPage, setCurrentPage] = useState(0);
 
   // Carga inicial de comercios registrados en SQLite
   async function loadTenants() {
@@ -84,6 +86,11 @@ export function LicenseAdminScreen({ onClose }: LicenseAdminScreenProps) {
     void loadTenants();
   }, []);
 
+  // Resetear la paginación al realizar búsquedas
+  useEffect(() => {
+    setCurrentPage(0);
+  }, [searchQuery]);
+
   // Filtrar lista de comercios según búsqueda
   const filteredTenants = useMemo(() => {
     const query = searchQuery.trim().toLowerCase();
@@ -92,6 +99,14 @@ export function LicenseAdminScreen({ onClose }: LicenseAdminScreenProps) {
       (t) => t.name.toLowerCase().includes(query) || t.id.toLowerCase().includes(query)
     );
   }, [tenants, searchQuery]);
+
+  // Paginación local de 15 comercios por página
+  const totalPages = Math.ceil(filteredTenants.length / ITEMS_PER_PAGE);
+  
+  const paginatedTenants = useMemo(() => {
+    const start = currentPage * ITEMS_PER_PAGE;
+    return filteredTenants.slice(start, start + ITEMS_PER_PAGE);
+  }, [filteredTenants, currentPage]);
 
   // Sumar 30 días de suscripción a un comercio específico
   async function handleAdd30Days(tenant: TenantItem) {
@@ -183,6 +198,55 @@ export function LicenseAdminScreen({ onClose }: LicenseAdminScreenProps) {
     );
   }
 
+  // Revertir comercio a versión Demo
+  async function handleRevertToDemo(tenant: TenantItem) {
+    Alert.alert(
+      'Revertir a Demo',
+      `¿Confirmás revertir a versión Demo al comercio "${tenant.name}"?\nSe restablecerán los 3 días de trial a partir de hoy.`,
+      [
+        { text: 'Cancelar', style: 'cancel' },
+        {
+          text: 'Revertir',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              setLoading(true);
+              const now = Date.now();
+
+              // Modificar estados locales en SQLite
+              await setAppMeta(db, `tenant_subscription_status_${tenant.id}`, 'demo');
+              await setAppMeta(db, `tenant_subscription_ends_at_${tenant.id}`, '0');
+              await setAppMeta(db, `tenant_trial_start_${tenant.id}`, String(now));
+
+              // Encolar sync para propagar la reversión a Supabase
+              const syncId = createLocalId('sync');
+              await enqueueSyncOperation(db, {
+                id: syncId,
+                entityType: 'tenant_subscription',
+                entityId: tenant.id,
+                kind: 'update',
+                payload: {
+                  tenantId: tenant.id,
+                  status: 'demo',
+                  endsAt: 0,
+                  trialStart: now,
+                },
+              });
+
+              Alert.alert('Éxito', `El comercio "${tenant.name}" fue revertido a versión Demo.`);
+              void loadTenants();
+            } catch (err) {
+              console.error('[ADMIN] Error al revertir a demo:', err);
+              Alert.alert('Error', 'No se pudo revertir el comercio a demo.');
+            } finally {
+              setLoading(false);
+            }
+          },
+        },
+      ]
+    );
+  }
+
   return (
     <SafeAreaView style={styles.safeArea}>
       <View style={styles.header}>
@@ -214,79 +278,117 @@ export function LicenseAdminScreen({ onClose }: LicenseAdminScreenProps) {
           <ActivityIndicator size="large" color={colors.primary} />
         </View>
       ) : (
-        <ScrollView contentContainerStyle={styles.scrollContainer}>
-          {filteredTenants.length === 0 ? (
-            <View style={styles.emptyContainer}>
-              <Ionicons name="alert-circle-outline" size={48} color={colors.textMuted} />
-              <Text style={styles.emptyText}>No se encontraron comercios registrados</Text>
-            </View>
-          ) : (
-            filteredTenants.map((tenant) => {
-              const endsAtDate = tenant.endsAt > 0 ? new Date(tenant.endsAt) : null;
-              const isExpired = tenant.status === 'expired' || (tenant.endsAt > 0 && tenant.endsAt < Date.now() && tenant.endsAt < 4102444800000);
-              
-              return (
-                <View key={tenant.id} style={styles.tenantCard}>
-                  <View style={styles.tenantHeader}>
-                    <View style={{ flex: 1 }}>
-                      <Text style={styles.tenantName}>{tenant.name}</Text>
-                      <Text style={styles.tenantId} numberOfLines={1}>ID: {tenant.id}</Text>
-                    </View>
-                    
-                    <Badge
-                      variant={isExpired ? 'danger' : tenant.status === 'active' ? 'success' : 'warning'}
-                      label={isExpired ? 'Expirado' : tenant.status === 'active' ? 'Completo' : 'Demo'}
-                    />
-                  </View>
-
-                  <View style={styles.divider} />
-
-                  <View style={styles.detailsBlock}>
-                    <View style={styles.infoRow}>
-                      <Text style={styles.infoLabel}>Contacto Propietario:</Text>
-                      <Text style={styles.infoValue}>{tenant.ownerEmail}</Text>
-                    </View>
-                    
-                    {endsAtDate && (
-                      <View style={styles.infoRow}>
-                        <Text style={styles.infoLabel}>Vencimiento Licencia:</Text>
-                        <Text style={styles.infoValue}>
-                          {tenant.endsAt > 4102444800000 ? 'Permanente / Completa' : endsAtDate.toLocaleDateString('es-AR', {
-                            day: '2-digit',
-                            month: '2-digit',
-                            year: 'numeric',
-                            hour: '2-digit',
-                            minute: '2-digit',
-                          })}
-                        </Text>
+        <View style={{ flex: 1 }}>
+          <ScrollView contentContainerStyle={styles.scrollContainer}>
+            {paginatedTenants.length === 0 ? (
+              <View style={styles.emptyContainer}>
+                <Ionicons name="alert-circle-outline" size={48} color={colors.textMuted} />
+                <Text style={styles.emptyText}>No se encontraron comercios registrados</Text>
+              </View>
+            ) : (
+              paginatedTenants.map((tenant) => {
+                const endsAtDate = tenant.endsAt > 0 ? new Date(tenant.endsAt) : null;
+                const isExpired = tenant.status === 'expired' || (tenant.endsAt > 0 && tenant.endsAt < Date.now() && tenant.endsAt < 4102444800000);
+                
+                return (
+                  <View key={tenant.id} style={styles.tenantCard}>
+                    <View style={styles.tenantHeader}>
+                      <View style={{ flex: 1 }}>
+                        <Text style={styles.tenantName}>{tenant.name}</Text>
+                        <Text style={styles.tenantId} numberOfLines={1}>ID: {tenant.id}</Text>
                       </View>
-                    )}
-                  </View>
+                      
+                      <Badge
+                        variant={isExpired ? 'danger' : tenant.status === 'active' ? 'success' : 'warning'}
+                        label={isExpired ? 'Expirado' : tenant.status === 'active' ? 'Completo' : 'Demo'}
+                      />
+                    </View>
 
-                  <View style={styles.actionsRow}>
-                    <Pressable
-                      style={styles.actionButton}
-                      onPress={() => handleAdd30Days(tenant)}
-                      disabled={loading}
-                    >
-                      <Ionicons name="calendar-outline" size={16} color="#FFFFFF" style={{ marginRight: 6 }} />
-                      <Text style={styles.actionButtonText}>Sumar 30 días</Text>
-                    </Pressable>
+                    <View style={styles.divider} />
 
-                    <Pressable
-                      style={[styles.actionButton, styles.actionButtonSecondary]}
-                      onPress={() => handleActivatePermanently(tenant)}
-                      disabled={loading}
-                    >
-                      <Ionicons name="infinite-outline" size={16} color={colors.primary} style={{ marginRight: 6 }} />
-                      <Text style={styles.actionButtonSecondaryText}>Permanente</Text>
-                    </Pressable>
+                    <View style={styles.detailsBlock}>
+                      <View style={styles.infoRow}>
+                        <Text style={styles.infoLabel}>Contacto Propietario:</Text>
+                        <Text style={styles.infoValue}>{tenant.ownerEmail}</Text>
+                      </View>
+                      
+                      {endsAtDate && (
+                        <View style={styles.infoRow}>
+                          <Text style={styles.infoLabel}>Vencimiento Licencia:</Text>
+                          <Text style={styles.infoValue}>
+                            {tenant.endsAt > 4102444800000 ? 'Permanente / Completa' : endsAtDate.toLocaleDateString('es-AR', {
+                              day: '2-digit',
+                              month: '2-digit',
+                              year: 'numeric',
+                              hour: '2-digit',
+                              minute: '2-digit',
+                            })}
+                          </Text>
+                        </View>
+                      )}
+                    </View>
+
+                    <View style={styles.actionsRow}>
+                      <Pressable
+                        style={styles.actionButton}
+                        onPress={() => handleAdd30Days(tenant)}
+                        disabled={loading}
+                      >
+                        <Ionicons name="calendar-outline" size={16} color="#FFFFFF" style={{ marginRight: 6 }} />
+                        <Text style={styles.actionButtonText}>Sumar 30 días</Text>
+                      </Pressable>
+
+                      <Pressable
+                        style={[styles.actionButton, styles.actionButtonSecondary]}
+                        onPress={() => handleActivatePermanently(tenant)}
+                        disabled={loading}
+                      >
+                        <Ionicons name="infinite-outline" size={16} color={colors.primary} style={{ marginRight: 6 }} />
+                        <Text style={styles.actionButtonSecondaryText}>Permanente</Text>
+                      </Pressable>
+
+                      <Pressable
+                        style={[styles.actionButton, styles.actionButtonDanger]}
+                        onPress={() => handleRevertToDemo(tenant)}
+                        disabled={loading}
+                      >
+                        <Ionicons name="refresh-circle-outline" size={16} color="#FFFFFF" style={{ marginRight: 4 }} />
+                        <Text style={styles.actionButtonText}>Demo</Text>
+                      </Pressable>
+                    </View>
                   </View>
-                </View>
-              );
-            })
-          )}
-        </ScrollView>
+                );
+              })
+            )}
+
+            {/* Componente de Navegación de Paginación */}
+            {totalPages > 1 && (
+              <View style={styles.paginationRow}>
+                <Pressable
+                  style={[styles.paginationBtn, currentPage === 0 && styles.paginationBtnDisabled]}
+                  onPress={() => setCurrentPage((prev) => Math.max(0, prev - 1))}
+                  disabled={currentPage === 0}
+                >
+                  <Ionicons name="chevron-back" size={18} color={currentPage === 0 ? colors.textMuted : colors.primary} />
+                  <Text style={[styles.paginationBtnText, currentPage === 0 && styles.paginationBtnTextDisabled]}>Anterior</Text>
+                </Pressable>
+
+                <Text style={styles.paginationInfo}>
+                  Página {currentPage + 1} de {totalPages}
+                </Text>
+
+                <Pressable
+                  style={[styles.paginationBtn, currentPage >= totalPages - 1 && styles.paginationBtnDisabled]}
+                  onPress={() => setCurrentPage((prev) => Math.min(totalPages - 1, prev + 1))}
+                  disabled={currentPage >= totalPages - 1}
+                >
+                  <Text style={[styles.paginationBtnText, currentPage >= totalPages - 1 && styles.paginationBtnTextDisabled]}>Siguiente</Text>
+                  <Ionicons name="chevron-forward" size={18} color={currentPage >= totalPages - 1 ? colors.textMuted : colors.primary} />
+                </Pressable>
+              </View>
+            )}
+          </ScrollView>
+        </View>
       )}
     </SafeAreaView>
   );
@@ -357,7 +459,7 @@ const getStyles = (colors: ThemeColors, isDark: boolean) =>
     },
     scrollContainer: {
       padding: spacing.lg,
-      paddingBottom: 40,
+      paddingBottom: 130, // Padding inferior de 130px de seguridad
       gap: 14,
     },
     emptyContainer: {
@@ -425,11 +527,11 @@ const getStyles = (colors: ThemeColors, isDark: boolean) =>
     },
     actionsRow: {
       flexDirection: 'row',
-      gap: spacing.md,
+      gap: spacing.sm,
       marginTop: 6,
     },
     actionButton: {
-      flex: 1,
+      flex: 1.2,
       flexDirection: 'row',
       alignItems: 'center',
       justifyContent: 'center',
@@ -439,17 +541,60 @@ const getStyles = (colors: ThemeColors, isDark: boolean) =>
     },
     actionButtonText: {
       color: '#FFFFFF',
-      fontSize: 13,
+      fontSize: 11,
       fontWeight: '800',
     },
     actionButtonSecondary: {
+      flex: 1.2,
       backgroundColor: 'transparent',
       borderWidth: 1,
       borderColor: colors.primary,
     },
     actionButtonSecondaryText: {
       color: colors.primary,
-      fontSize: 13,
+      fontSize: 11,
       fontWeight: '800',
+    },
+    actionButtonDanger: {
+      flex: 0.8,
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'center',
+      backgroundColor: isDark ? '#E28743' : colors.warning,
+    },
+    paginationRow: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+      marginTop: 10,
+      paddingVertical: 14,
+      borderTopWidth: 1,
+      borderTopColor: colors.border,
+    },
+    paginationBtn: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 4,
+      paddingVertical: 8,
+      paddingHorizontal: 12,
+      borderRadius: radius.md,
+      backgroundColor: isDark ? 'rgba(255, 255, 255, 0.03)' : 'rgba(0, 0, 0, 0.02)',
+    },
+    paginationBtnDisabled: {
+      backgroundColor: 'transparent',
+      opacity: 0.4,
+    },
+    paginationBtnText: {
+      color: colors.primary,
+      fontSize: 12,
+      fontWeight: '700',
+    },
+    paginationBtnTextDisabled: {
+      color: colors.textMuted,
+    },
+    paginationInfo: {
+      fontSize: 12,
+      fontWeight: '600',
+      color: colors.text,
     },
   });
