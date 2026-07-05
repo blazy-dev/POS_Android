@@ -9,6 +9,7 @@ import {
   Text,
   TextInput,
   View,
+  PanResponder,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import * as Print from 'expo-print';
@@ -62,37 +63,37 @@ function generateBarcodeSVG(text: string, heightScale: 'sm' | 'md' | 'lg'): stri
 }
 
 export interface LabelConfig {
-  showLogo: boolean;
-  logoSize: 'sm' | 'md' | 'lg';
-  logoType: 'shopping' | 'business' | 'ticket';
-  logoPosition: 'top' | 'middle' | 'bottom';
+  labelSize: 'standard' | 'small' | 'large';
 
-  namePosition: 'top' | 'middle' | 'bottom';
-  nameSize: 'sm' | 'md' | 'lg';
+  nameSize: number;
+  nameX: number;
+  nameY: number;
 
   showBarcode: boolean;
-  barcodePosition: 'top' | 'middle' | 'bottom';
-  barcodeHeight: 'sm' | 'md' | 'lg';
+  barcodeHeight: number;
+  barcodeX: number;
+  barcodeY: number;
 
-  pricePosition: 'top' | 'middle' | 'bottom';
-  priceSize: 'sm' | 'md' | 'lg';
+  priceSize: number;
+  priceX: number;
+  priceY: number;
 }
 
 const DEFAULT_CONFIG: LabelConfig = {
-  showLogo: true,
-  logoSize: 'md',
-  logoType: 'shopping',
-  logoPosition: 'top',
+  labelSize: 'standard',
   
-  namePosition: 'top',
-  nameSize: 'md',
+  nameSize: 14,
+  nameX: 20,
+  nameY: 15,
   
   showBarcode: true,
-  barcodePosition: 'bottom',
-  barcodeHeight: 'md',
+  barcodeHeight: 35,
+  barcodeX: 20,
+  barcodeY: 90,
   
-  pricePosition: 'middle',
-  priceSize: 'lg',
+  priceSize: 22,
+  priceX: 20,
+  priceY: 45,
 };
 
 interface LabelPrintingScreenProps {
@@ -172,81 +173,58 @@ export function LabelPrintingScreen({ products, onBack }: LabelPrintingScreenPro
         }
       });
 
+      const previewHeight = config.labelSize === 'large' ? 166 : 150;
+      
+      // Medidas físicas reales
+      const sizeSpecs = {
+        standard: { w: '70mm', h: '42mm', cols: 3, gap: '8mm' },
+        small: { w: '50mm', h: '30mm', cols: 4, gap: '6mm' },
+        large: { w: '90mm', h: '60mm', cols: 2, gap: '10mm' },
+      };
+      
+      const spec = sizeSpecs[config.labelSize];
+
+      // Cálculo de porcentajes para posicionamiento absoluto proporcional
+      const nameL = ((config.nameX / 250) * 100).toFixed(2);
+      const nameT = ((config.nameY / previewHeight) * 100).toFixed(2);
+      
+      const priceL = ((config.priceX / 250) * 100).toFixed(2);
+      const priceT = ((config.priceY / previewHeight) * 100).toFixed(2);
+      
+      const barcodeL = ((config.barcodeX / 250) * 100).toFixed(2);
+      const barcodeT = ((config.barcodeY / previewHeight) * 100).toFixed(2);
+
       let gridCellsHtml = '';
       flatLabels.forEach((label) => {
-        const barcodeSvg = label.barcode ? generateBarcodeSVG(label.barcode, config.barcodeHeight) : '';
+        const barcodeSvg = label.barcode ? generateBarcodeSVG(label.barcode, 'md') : '';
         
-        const renderHtmlForPosition = (pos: 'top' | 'middle' | 'bottom') => {
-          let html = '';
-          
-          // 1. Logo
-          if (config.showLogo && config.logoPosition === pos) {
-            let logoSvg = '';
-            if (config.logoType === 'shopping') {
-              logoSvg = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="width: 100%; height: 100%;"><circle cx="9" cy="21" r="1"></circle><circle cx="20" cy="21" r="1"></circle><path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"></path></svg>`;
-            } else if (config.logoType === 'business') {
-              logoSvg = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="width: 100%; height: 100%;"><rect x="2" y="7" width="20" height="14" rx="2" ry="2"></rect><path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"></path></svg>`;
-            } else {
-              logoSvg = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="width: 100%; height: 100%;"><path d="M4 2v20l2-1 2 1 2-1 2 1 2-1 2 1 2-1 2 1V2l-2 1-2-1-2 1-2-1-2 1-2-1-2 1-2-1z"></path><path d="M6 6h12"></path><path d="M6 10h12"></path><path d="M6 14h8"></path></svg>`;
-            }
-            
-            const logoSizes = { sm: '16px', md: '24px', lg: '32px' };
-            html += `
-              <div class="logo-wrapper" style="width: ${logoSizes[config.logoSize]}; height: ${logoSizes[config.logoSize]}; color: #0497bf; display: flex; align-items: center; justify-content: center; margin: 2px 0;">
-                ${logoSvg}
-              </div>
-            `;
-          }
-          
-          // 2. Nombre
-          if (config.namePosition === pos) {
-            const fontSizes = { sm: '11px', md: '13px', lg: '16px' };
-            const fontWeights = { sm: '600', md: '700', lg: '800' };
-            html += `
-              <div class="label-name" style="font-size: ${fontSizes[config.nameSize]}; font-weight: ${fontWeights[config.nameSize]};">
-                ${label.name}
-              </div>
-            `;
-          }
-          
-          // 3. Precio
-          if (config.pricePosition === pos) {
-            const fontSizes = { sm: '14px', md: '20px', lg: '26px' };
-            html += `
-              <div class="label-price" style="font-size: ${fontSizes[config.priceSize]};">
-                $ ${label.price}
-              </div>
-            `;
-          }
-          
-          // 4. Código de barras
-          if (config.showBarcode && config.barcodePosition === pos) {
-            if (label.barcode) {
-              html += `
-                <div class="barcode-container">
+        let barcodeHtml = '';
+        if (config.showBarcode) {
+          if (label.barcode) {
+            barcodeHtml = `
+              <div class="barcode-container" style="left: ${barcodeL}%; top: ${barcodeT}%;">
+                <div style="height: ${config.barcodeHeight}px; display: flex; align-items: center; overflow: hidden;">
                   ${barcodeSvg}
-                  <div class="barcode-text">${label.barcode}</div>
                 </div>
-              `;
-            } else {
-              html += `<div class="no-barcode">Sin código</div>`;
-            }
+                <div class="barcode-text">${label.barcode}</div>
+              </div>
+            `;
+          } else {
+            barcodeHtml = `<div class="no-barcode" style="left: ${barcodeL}%; top: ${barcodeT}%;">Sin código</div>`;
           }
-          
-          return html;
-        };
+        }
 
         gridCellsHtml += `
           <div class="label-card">
-            <div class="position-group group-top">
-              ${renderHtmlForPosition('top')}
+            <div class="label-name" style="left: ${nameL}%; top: ${nameT}%; font-size: ${config.nameSize}px;">
+              ${label.name}
             </div>
-            <div class="position-group group-middle">
-              ${renderHtmlForPosition('middle')}
+            
+            <div class="label-price" style="left: ${priceL}%; top: ${priceT}%; font-size: ${config.priceSize}px;">
+              $ ${label.price}
             </div>
-            <div class="position-group group-bottom">
-              ${renderHtmlForPosition('bottom')}
-            </div>
+
+            ${barcodeHtml}
           </div>
         `;
       });
@@ -259,7 +237,7 @@ export function LabelPrintingScreen({ products, onBack }: LabelPrintingScreenPro
           <style>
             @page {
               size: A4;
-              margin: 15mm 10mm;
+              margin: 12mm 10mm;
             }
             body {
               font-family: system-ui, -apple-system, sans-serif;
@@ -269,58 +247,42 @@ export function LabelPrintingScreen({ products, onBack }: LabelPrintingScreenPro
             }
             .grid {
               display: grid;
-              grid-template-columns: repeat(3, 1fr);
-              gap: 8mm;
+              grid-template-columns: repeat(${spec.cols}, 1fr);
+              gap: ${spec.gap};
             }
             .label-card {
               border: 1px dashed #71717a;
               border-radius: 6px;
-              padding: 8px;
-              display: flex;
-              flex-direction: column;
-              align-items: center;
-              justify-content: space-between;
-              height: 42mm;
+              width: ${spec.w};
+              height: ${spec.h};
               box-sizing: border-box;
-              text-align: center;
+              position: relative;
+              overflow: hidden;
+              background-color: #ffffff;
               page-break-inside: avoid;
             }
-            .position-group {
-              display: flex;
-              flex-direction: column;
-              align-items: center;
-              width: 100%;
-            }
-            .group-top {
-              justify-content: flex-start;
-              gap: 2px;
-            }
-            .group-middle {
-              justify-content: center;
-              flex: 1;
-              gap: 2px;
-            }
-            .group-bottom {
-              justify-content: flex-end;
-              gap: 2px;
-            }
             .label-name {
+              position: absolute;
               color: #18181b;
-              max-height: 38px;
+              font-weight: 700;
+              max-width: 90%;
+              white-space: nowrap;
               overflow: hidden;
               text-overflow: ellipsis;
               line-height: 1.2;
             }
             .label-price {
+              position: absolute;
               font-weight: 800;
               color: #18181b;
               line-height: 1.1;
+              white-space: nowrap;
             }
             .barcode-container {
+              position: absolute;
               display: flex;
               flex-direction: column;
               align-items: center;
-              margin-top: 2px;
             }
             .barcode-text {
               font-size: 8px;
@@ -329,6 +291,7 @@ export function LabelPrintingScreen({ products, onBack }: LabelPrintingScreenPro
               margin-top: 1px;
             }
             .no-barcode {
+              position: absolute;
               font-size: 10px;
               color: #a1a1aa;
               font-style: italic;
@@ -357,117 +320,116 @@ export function LabelPrintingScreen({ products, onBack }: LabelPrintingScreenPro
     }
   };
 
-  const [designerTab, setDesignerTab] = useState<'logo' | 'text' | 'barcode'>('logo');
+  const [designerTab, setDesignerTab] = useState<'size' | 'text' | 'barcode'>('size');
 
-  // Método de apoyo para agrupar y pintar elementos de previsualización según su posición
-  const renderElementsForPosition = (pos: 'top' | 'middle' | 'bottom', previewProduct?: ProductRecord) => {
-    const elements: React.ReactNode[] = [];
-    const pName = previewProduct?.name || 'Milka Oreo 150g';
-    const pPrice = previewProduct ? `$ ${previewProduct.sale_price.toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : '$ 2.450,00';
-    const pBarcode = previewProduct?.barcode || '7791234567890';
+  // Crear PanResponders personalizados para arrastrar los elementos con el dedo
+  const createPanResponder = (element: 'name' | 'price' | 'barcode') => {
+    return PanResponder.create({
+      onStartShouldSetPanResponder: () => true,
+      onMoveShouldSetPanResponder: () => true,
+      onPanResponderGrant: () => {},
+      onPanResponderMove: (evt, gestureState) => {
+        const previewHeight = config.labelSize === 'large' ? 166 : 150;
+        const previewWidth = 250;
 
-    // 1. Logo
-    if (config.showLogo && config.logoPosition === pos) {
-      let logoIcon: keyof typeof Ionicons.glyphMap = 'cart-outline';
-      if (config.logoType === 'business') logoIcon = 'briefcase-outline';
-      if (config.logoType === 'ticket') logoIcon = 'receipt-outline';
-      
-      const sizeMap = { sm: 16, md: 24, lg: 32 };
-      elements.push(
-        <Ionicons
-          key="logo"
-          name={logoIcon}
-          size={sizeMap[config.logoSize]}
-          color={colors.primary}
-          style={{ marginVertical: 2 }}
-        />
-      );
-    }
+        setConfig((prev) => {
+          let nextX = 0;
+          let nextY = 0;
 
-    // 2. Nombre del Producto
-    if (config.namePosition === pos) {
-      const sizeMap = { sm: 11, md: 13, lg: 16 };
-      const weightMap = { sm: fontWeight.medium, md: fontWeight.bold, lg: fontWeight.extrabold };
-      elements.push(
-        <Text
-          key="name"
-          numberOfLines={1}
-          style={{
-            fontSize: sizeMap[config.nameSize],
-            fontWeight: weightMap[config.nameSize] as any,
-            color: colors.text,
-            marginVertical: 2,
-            textAlign: 'center',
-          }}
-        >
-          {pName}
-        </Text>
-      );
-    }
-
-    // 3. Precio
-    if (config.pricePosition === pos) {
-      const sizeMap = { sm: 14, md: 20, lg: 26 };
-      elements.push(
-        <Text
-          key="price"
-          style={{
-            fontSize: sizeMap[config.priceSize],
-            fontWeight: '800',
-            color: colors.text,
-            marginVertical: 2,
-            textAlign: 'center',
-          }}
-        >
-          {pPrice}
-        </Text>
-      );
-    }
-
-    // 4. Código de Barras
-    if (config.showBarcode && config.barcodePosition === pos) {
-      const heightMap = { sm: 20, md: 35, lg: 50 };
-      elements.push(
-        <View key="barcode" style={{ alignItems: 'center', marginVertical: 2 }}>
-          <View style={{ flexDirection: 'row', height: heightMap[config.barcodeHeight], alignItems: 'center', opacity: 0.8 }}>
-            {[1, 2, 1, 3, 1, 2, 1, 2, 3, 1, 2, 1, 2, 1, 2, 1, 3, 1].map((w, idx) => (
-              <View
-                key={idx}
-                style={{
-                  width: w,
-                  height: '100%',
-                  backgroundColor: colors.text,
-                  marginHorizontal: 0.5,
-                }}
-              />
-            ))}
-          </View>
-          <Text style={{ fontSize: 8, fontFamily: 'monospace', color: colors.textMuted, marginTop: 1 }}>
-            {pBarcode}
-          </Text>
-        </View>
-      );
-    }
-
-    return elements;
+          if (element === 'name') {
+            nextX = Math.max(0, Math.min(previewWidth - 110, prev.nameX + gestureState.dx));
+            nextY = Math.max(0, Math.min(previewHeight - 24, prev.nameY + gestureState.dy));
+            gestureState.dx = 0;
+            gestureState.dy = 0;
+            return { ...prev, nameX: nextX, nameY: nextY };
+          } else if (element === 'price') {
+            nextX = Math.max(0, Math.min(previewWidth - 90, prev.priceX + gestureState.dx));
+            nextY = Math.max(0, Math.min(previewHeight - 32, prev.priceY + gestureState.dy));
+            gestureState.dx = 0;
+            gestureState.dy = 0;
+            return { ...prev, priceX: nextX, priceY: nextY };
+          } else {
+            nextX = Math.max(0, Math.min(previewWidth - 130, prev.barcodeX + gestureState.dx));
+            const currentBarcodeHeight = prev.barcodeHeight + 12;
+            nextY = Math.max(0, Math.min(previewHeight - currentBarcodeHeight, prev.barcodeY + gestureState.dy));
+            gestureState.dx = 0;
+            gestureState.dy = 0;
+            return { ...prev, barcodeX: nextX, barcodeY: nextY };
+          }
+        });
+      },
+      onPanResponderRelease: () => {},
+    });
   };
+
+  const namePanResponder = useMemo(() => createPanResponder('name'), [config.labelSize]);
+  const pricePanResponder = useMemo(() => createPanResponder('price'), [config.labelSize]);
+  const barcodePanResponder = useMemo(() => createPanResponder('barcode'), [config.labelSize, config.barcodeHeight]);
 
   const renderLabelPreview = () => {
     const previewProduct = queue.length > 0 ? queue[0].product : undefined;
+    const pName = previewProduct?.name || 'Milka Oreo 150g';
+    const pPrice = previewProduct ? `$ ${previewProduct.sale_price.toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : '$ 2.450,00';
+    const pBarcode = previewProduct?.barcode || '7791234567890';
+    
+    const previewHeight = config.labelSize === 'large' ? 166 : 150;
+
     return (
       <View style={styles.previewContainer}>
-        <Text style={styles.sectionLabel}>Previsualización (Etiqueta Demo):</Text>
+        <Text style={styles.sectionLabel}>Previsualización (Arrastrá con el dedo):</Text>
         <View style={styles.previewCardOuter}>
-          <View style={styles.previewCardInner}>
-            <View style={[styles.previewGroup, styles.groupTop]}>
-              {renderElementsForPosition('top', previewProduct)}
+          <View style={[styles.previewCardInner, { height: previewHeight }]}>
+            {/* Nombre del Producto */}
+            <View
+              {...namePanResponder.panHandlers}
+              style={[styles.draggableItem, { left: config.nameX, top: config.nameY }]}
+            >
+              <Text
+                numberOfLines={1}
+                style={[styles.previewNameText, { fontSize: config.nameSize, color: colors.text }]}
+              >
+                {pName}
+              </Text>
             </View>
-            <View style={[styles.previewGroup, styles.groupMiddle]}>
-              {renderElementsForPosition('middle', previewProduct)}
+
+            {/* Precio */}
+            <View
+              {...pricePanResponder.panHandlers}
+              style={[styles.draggableItem, { left: config.priceX, top: config.priceY }]}
+            >
+              <Text
+                style={[styles.previewPriceText, { fontSize: config.priceSize, color: colors.text }]}
+              >
+                {pPrice}
+              </Text>
             </View>
-            <View style={[styles.previewGroup, styles.groupBottom]}>
-              {renderElementsForPosition('bottom', previewProduct)}
-            </View>
+
+            {/* Código de barras */}
+            {config.showBarcode && (
+              <View
+                {...barcodePanResponder.panHandlers}
+                style={[styles.draggableItem, { left: config.barcodeX, top: config.barcodeY }]}
+              >
+                <View style={{ alignItems: 'center' }}>
+                  <View style={{ flexDirection: 'row', height: config.barcodeHeight, alignItems: 'center', opacity: 0.8 }}>
+                    {[1, 2, 1, 3, 1, 2, 1, 2, 3, 1, 2, 1, 2, 1, 2, 1, 3, 1].map((w, idx) => (
+                      <View
+                        key={idx}
+                        style={{
+                          width: w,
+                          height: '100%',
+                          backgroundColor: colors.text,
+                          marginHorizontal: 0.5,
+                        }}
+                      />
+                    ))}
+                  </View>
+                  <Text style={{ fontSize: 8, fontFamily: 'monospace', color: colors.textMuted, marginTop: 1 }}>
+                    {pBarcode}
+                  </Text>
+                </View>
+              </View>
+            )}
           </View>
         </View>
       </View>
@@ -476,8 +438,8 @@ export function LabelPrintingScreen({ products, onBack }: LabelPrintingScreenPro
 
   const renderConfigTabs = () => (
     <View style={styles.configTabBar}>
-      {(['logo', 'text', 'barcode'] as const).map((tab) => {
-        const labels = { logo: 'Logo', text: 'Textos', barcode: 'Código' };
+      {(['size', 'text', 'barcode'] as const).map((tab) => {
+        const labels = { size: 'Medidas', text: 'Textos', barcode: 'Código' };
         const active = designerTab === tab;
         return (
           <Pressable
@@ -494,166 +456,85 @@ export function LabelPrintingScreen({ products, onBack }: LabelPrintingScreenPro
     </View>
   );
 
+  const adjustValue = (element: 'name' | 'price' | 'barcode', delta: number) => {
+    setConfig((prev) => {
+      if (element === 'name') {
+        const nextSize = Math.max(10, Math.min(24, prev.nameSize + delta));
+        return { ...prev, nameSize: nextSize };
+      } else if (element === 'price') {
+        const nextSize = Math.max(12, Math.min(36, prev.priceSize + delta));
+        return { ...prev, priceSize: nextSize };
+      } else {
+        const nextHeight = Math.max(15, Math.min(70, prev.barcodeHeight + delta));
+        return { ...prev, barcodeHeight: nextHeight };
+      }
+    });
+  };
+
   const renderConfigPanel = () => {
     switch (designerTab) {
-      case 'logo':
+      case 'size':
         return (
           <View style={styles.tabContent}>
-            <View style={styles.controlRow}>
-              <Text style={styles.controlLabel}>Mostrar Logo en la etiqueta</Text>
-              <Pressable
-                onPress={() => setConfig(prev => ({ ...prev, showLogo: !prev.showLogo }))}
-                style={[styles.switchToggle, config.showLogo && styles.switchToggleActive]}
-              >
-                <View style={[styles.switchHandle, config.showLogo && styles.switchHandleActive]} />
-              </Pressable>
+            <Text style={styles.subOptionTitle}>Tamaño Físico de la Etiqueta</Text>
+            <View style={styles.optionsSegment}>
+              {(['standard', 'small', 'large'] as const).map((size) => {
+                const specs = { standard: '42x70 mm', small: '30x50 mm', large: '60x90 mm' };
+                const active = config.labelSize === size;
+                return (
+                  <Pressable
+                    key={size}
+                    onPress={() => setConfig(prev => ({ ...prev, labelSize: size }))}
+                    style={[styles.segmentButton, active && styles.segmentButtonActive]}
+                  >
+                    <Text style={[styles.segmentButtonText, active && styles.segmentButtonTextActive]}>
+                      {specs[size]}
+                    </Text>
+                  </Pressable>
+                );
+              })}
             </View>
-
-            {config.showLogo && (
-              <>
-                <View style={styles.divider} />
-                <Text style={styles.subOptionTitle}>Icono del Logo</Text>
-                <View style={styles.optionsSegment}>
-                  {(['shopping', 'business', 'ticket'] as const).map((type) => {
-                    const labels = { shopping: 'Carrito', business: 'Maleta', ticket: 'Ticket' };
-                    const active = config.logoType === type;
-                    return (
-                      <Pressable
-                        key={type}
-                        onPress={() => setConfig(prev => ({ ...prev, logoType: type }))}
-                        style={[styles.segmentButton, active && styles.segmentButtonActive]}
-                      >
-                        <Text style={[styles.segmentButtonText, active && styles.segmentButtonTextActive]}>
-                          {labels[type]}
-                        </Text>
-                      </Pressable>
-                    );
-                  })}
-                </View>
-
-                <Text style={styles.subOptionTitle}>Tamaño del Logo</Text>
-                <View style={styles.optionsSegment}>
-                  {(['sm', 'md', 'lg'] as const).map((size) => {
-                    const labels = { sm: 'Chico', md: 'Medio', lg: 'Grande' };
-                    const active = config.logoSize === size;
-                    return (
-                      <Pressable
-                        key={size}
-                        onPress={() => setConfig(prev => ({ ...prev, logoSize: size }))}
-                        style={[styles.segmentButton, active && styles.segmentButtonActive]}
-                      >
-                        <Text style={[styles.segmentButtonText, active && styles.segmentButtonTextActive]}>
-                          {labels[size]}
-                        </Text>
-                      </Pressable>
-                    );
-                  })}
-                </View>
-
-                <Text style={styles.subOptionTitle}>Posición del Logo</Text>
-                <View style={styles.optionsSegment}>
-                  {(['top', 'middle', 'bottom'] as const).map((pos) => {
-                    const labels = { top: 'Arriba', middle: 'Centro', bottom: 'Abajo' };
-                    const active = config.logoPosition === pos;
-                    return (
-                      <Pressable
-                        key={pos}
-                        onPress={() => setConfig(prev => ({ ...prev, logoPosition: pos }))}
-                        style={[styles.segmentButton, active && styles.segmentButtonActive]}
-                      >
-                        <Text style={[styles.segmentButtonText, active && styles.segmentButtonTextActive]}>
-                          {labels[pos]}
-                        </Text>
-                      </Pressable>
-                    );
-                  })}
-                </View>
-              </>
-            )}
+            <Text style={{ fontSize: 11, color: colors.textMuted, marginTop: 4 }}>
+              * Cambiar el tamaño ajusta automáticamente la grilla y la escala de la plancha PDF.
+            </Text>
           </View>
         );
 
       case 'text':
         return (
           <View style={styles.tabContent}>
-            <Text style={styles.sectionHeading}>Nombre del Producto</Text>
-            <Text style={styles.subOptionTitle}>Posición</Text>
-            <View style={styles.optionsSegment}>
-              {(['top', 'middle', 'bottom'] as const).map((pos) => {
-                const labels = { top: 'Arriba', middle: 'Centro', bottom: 'Abajo' };
-                const active = config.namePosition === pos;
-                return (
-                  <Pressable
-                    key={pos}
-                    onPress={() => setConfig(prev => ({ ...prev, namePosition: pos }))}
-                    style={[styles.segmentButton, active && styles.segmentButtonActive]}
-                  >
-                    <Text style={[styles.segmentButtonText, active && styles.segmentButtonTextActive]}>
-                      {labels[pos]}
-                    </Text>
-                  </Pressable>
-                );
-              })}
-            </View>
-
-            <Text style={styles.subOptionTitle}>Tamaño de Letra</Text>
-            <View style={styles.optionsSegment}>
-              {(['sm', 'md', 'lg'] as const).map((size) => {
-                const labels = { sm: 'Chica', md: 'Media', lg: 'Grande' };
-                const active = config.nameSize === size;
-                return (
-                  <Pressable
-                    key={size}
-                    onPress={() => setConfig(prev => ({ ...prev, nameSize: size }))}
-                    style={[styles.segmentButton, active && styles.segmentButtonActive]}
-                  >
-                    <Text style={[styles.segmentButtonText, active && styles.segmentButtonTextActive]}>
-                      {labels[size]}
-                    </Text>
-                  </Pressable>
-                );
-              })}
+            {/* Nombre del Producto */}
+            <View style={styles.incrementRow}>
+              <View style={styles.incrementInfo}>
+                <Text style={styles.incrementLabel}>Nombre del Producto</Text>
+                <Text style={styles.incrementValueText}>{config.nameSize} px</Text>
+              </View>
+              <View style={styles.incrementActions}>
+                <Pressable onPress={() => adjustValue('name', -1)} style={styles.adjustBtn}>
+                  <Ionicons name="remove" size={16} color={colors.text} />
+                </Pressable>
+                <Pressable onPress={() => adjustValue('name', 1)} style={styles.adjustBtn}>
+                  <Ionicons name="add" size={16} color={colors.text} />
+                </Pressable>
+              </View>
             </View>
 
             <View style={styles.divider} />
 
-            <Text style={styles.sectionHeading}>Precio de Venta</Text>
-            <Text style={styles.subOptionTitle}>Posición</Text>
-            <View style={styles.optionsSegment}>
-              {(['top', 'middle', 'bottom'] as const).map((pos) => {
-                const labels = { top: 'Arriba', middle: 'Centro', bottom: 'Abajo' };
-                const active = config.pricePosition === pos;
-                return (
-                  <Pressable
-                    key={pos}
-                    onPress={() => setConfig(prev => ({ ...prev, pricePosition: pos }))}
-                    style={[styles.segmentButton, active && styles.segmentButtonActive]}
-                  >
-                    <Text style={[styles.segmentButtonText, active && styles.segmentButtonTextActive]}>
-                      {labels[pos]}
-                    </Text>
-                  </Pressable>
-                );
-              })}
-            </View>
-
-            <Text style={styles.subOptionTitle}>Tamaño del Precio</Text>
-            <View style={styles.optionsSegment}>
-              {(['sm', 'md', 'lg'] as const).map((size) => {
-                const labels = { sm: 'Chico', md: 'Medio', lg: 'Grande' };
-                const active = config.priceSize === size;
-                return (
-                  <Pressable
-                    key={size}
-                    onPress={() => setConfig(prev => ({ ...prev, priceSize: size }))}
-                    style={[styles.segmentButton, active && styles.segmentButtonActive]}
-                  >
-                    <Text style={[styles.segmentButtonText, active && styles.segmentButtonTextActive]}>
-                      {labels[size]}
-                    </Text>
-                  </Pressable>
-                );
-              })}
+            {/* Precio */}
+            <View style={styles.incrementRow}>
+              <View style={styles.incrementInfo}>
+                <Text style={styles.incrementLabel}>Precio de Venta</Text>
+                <Text style={styles.incrementValueText}>{config.priceSize} px</Text>
+              </View>
+              <View style={styles.incrementActions}>
+                <Pressable onPress={() => adjustValue('price', -1)} style={styles.adjustBtn}>
+                  <Ionicons name="remove" size={16} color={colors.text} />
+                </Pressable>
+                <Pressable onPress={() => adjustValue('price', 1)} style={styles.adjustBtn}>
+                  <Ionicons name="add" size={16} color={colors.text} />
+                </Pressable>
+              </View>
             </View>
           </View>
         );
@@ -674,42 +555,19 @@ export function LabelPrintingScreen({ products, onBack }: LabelPrintingScreenPro
             {config.showBarcode && (
               <>
                 <View style={styles.divider} />
-                <Text style={styles.subOptionTitle}>Posición del Código</Text>
-                <View style={styles.optionsSegment}>
-                  {(['top', 'middle', 'bottom'] as const).map((pos) => {
-                    const labels = { top: 'Arriba', middle: 'Centro', bottom: 'Abajo' };
-                    const active = config.barcodePosition === pos;
-                    return (
-                      <Pressable
-                        key={pos}
-                        onPress={() => setConfig(prev => ({ ...prev, barcodePosition: pos }))}
-                        style={[styles.segmentButton, active && styles.segmentButtonActive]}
-                      >
-                        <Text style={[styles.segmentButtonText, active && styles.segmentButtonTextActive]}>
-                          {labels[pos]}
-                        </Text>
-                      </Pressable>
-                    );
-                  })}
-                </View>
-
-                <Text style={styles.subOptionTitle}>Altura de Barras</Text>
-                <View style={styles.optionsSegment}>
-                  {(['sm', 'md', 'lg'] as const).map((size) => {
-                    const labels = { sm: 'Bajo', md: 'Medio', lg: 'Alto' };
-                    const active = config.barcodeHeight === size;
-                    return (
-                      <Pressable
-                        key={size}
-                        onPress={() => setConfig(prev => ({ ...prev, barcodeHeight: size }))}
-                        style={[styles.segmentButton, active && styles.segmentButtonActive]}
-                      >
-                        <Text style={[styles.segmentButtonText, active && styles.segmentButtonTextActive]}>
-                          {labels[size]}
-                        </Text>
-                      </Pressable>
-                    );
-                  })}
+                <View style={styles.incrementRow}>
+                  <View style={styles.incrementInfo}>
+                    <Text style={styles.incrementLabel}>Altura de Barras</Text>
+                    <Text style={styles.incrementValueText}>{config.barcodeHeight} px</Text>
+                  </View>
+                  <View style={styles.incrementActions}>
+                    <Pressable onPress={() => adjustValue('barcode', -2)} style={styles.adjustBtn}>
+                      <Ionicons name="remove" size={16} color={colors.text} />
+                    </Pressable>
+                    <Pressable onPress={() => adjustValue('barcode', 2)} style={styles.adjustBtn}>
+                      <Ionicons name="add" size={16} color={colors.text} />
+                    </Pressable>
+                  </View>
                 </View>
               </>
             )}
@@ -899,30 +757,26 @@ const getStyles = (colors: ThemeColors, isDark: boolean) =>
     },
     previewCardInner: {
       width: 250,
-      height: 158, // altura proporcional de 42mm de góndola
       borderRadius: radius.md,
       borderWidth: 2,
       borderColor: colors.textMuted,
       borderStyle: 'dashed',
       backgroundColor: isDark ? 'rgba(255, 255, 255, 0.02)' : '#ffffff',
       padding: 10,
-      justifyContent: 'space-between',
-      alignItems: 'center',
+      position: 'relative',
       overflow: 'hidden',
     },
-    previewGroup: {
+    draggableItem: {
+      position: 'absolute',
       alignItems: 'center',
-      width: '100%',
-    },
-    groupTop: {
-      justifyContent: 'flex-start',
-    },
-    groupMiddle: {
       justifyContent: 'center',
-      flex: 1,
     },
-    groupBottom: {
-      justifyContent: 'flex-end',
+    previewNameText: {
+      fontWeight: '700',
+      maxWidth: 210,
+    },
+    previewPriceText: {
+      fontWeight: '800',
     },
     // Tabs de Configuración
     configTabBar: {
@@ -969,14 +823,6 @@ const getStyles = (colors: ThemeColors, isDark: boolean) =>
       fontSize: 14,
       fontWeight: '700',
     },
-    sectionHeading: {
-      color: colors.text,
-      fontSize: 13,
-      fontWeight: '800',
-      textTransform: 'uppercase',
-      letterSpacing: 0.4,
-      marginTop: 4,
-    },
     subOptionTitle: {
       color: colors.textMuted,
       fontSize: 11,
@@ -1012,6 +858,41 @@ const getStyles = (colors: ThemeColors, isDark: boolean) =>
     segmentButtonTextActive: {
       color: '#ffffff',
       fontWeight: '800',
+    },
+    // Controles Incrementales
+    incrementRow: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+      paddingVertical: 4,
+    },
+    incrementInfo: {
+      flex: 1,
+      gap: 2,
+    },
+    incrementLabel: {
+      color: colors.text,
+      fontSize: 14,
+      fontWeight: '700',
+    },
+    incrementValueText: {
+      color: colors.primary,
+      fontSize: 12,
+      fontWeight: '800',
+    },
+    incrementActions: {
+      flexDirection: 'row',
+      gap: 6,
+    },
+    adjustBtn: {
+      width: 36,
+      height: 36,
+      backgroundColor: isDark ? 'rgba(255, 255, 255, 0.06)' : 'rgba(0, 0, 0, 0.04)',
+      borderRadius: radius.sm,
+      borderWidth: 1,
+      borderColor: colors.border,
+      alignItems: 'center',
+      justifyContent: 'center',
     },
     // Switches de React Native custom
     switchToggle: {
