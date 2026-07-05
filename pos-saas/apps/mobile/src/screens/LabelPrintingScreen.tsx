@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import {
   Alert,
   FlatList,
@@ -10,13 +10,17 @@ import {
   TextInput,
   View,
   PanResponder,
+  Image,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import * as Print from 'expo-print';
 import * as Sharing from 'expo-sharing';
+import { useSQLiteContext } from 'expo-sqlite';
 import type { ProductRecord } from '../database/types';
 import { radius, spacing, fontSize, fontWeight, ThemeColors } from '../theme/tokens';
 import { useTheme } from '../context/ThemeContext';
+import { useAuth } from '../context/AuthContext';
+import { getAppMeta } from '../database';
 import { Button } from '../components/ui/Button';
 
 // Encoder simple y puro CODE128 para generar códigos de barra en SVG inline (Offline-friendly)
@@ -40,12 +44,10 @@ function encodeCode128(text: string): string {
   return result;
 }
 
-function generateBarcodeSVG(text: string, heightScale: 'sm' | 'md' | 'lg'): string {
+function generateBarcodeSVG(text: string, height: number): string {
   if (!text) return '';
   const encoded = encodeCode128(text);
   const barWidth = 1.8;
-  const heightMap = { sm: 20, md: 35, lg: 50 };
-  const height = heightMap[heightScale];
   const width = encoded.length * barWidth;
   
   let rects = '';
@@ -63,7 +65,14 @@ function generateBarcodeSVG(text: string, heightScale: 'sm' | 'md' | 'lg'): stri
 }
 
 export interface LabelConfig {
-  labelSize: 'standard' | 'small' | 'large';
+  labelSize: 'standard' | 'small' | 'large' | 'custom';
+  customWidth: number; // en mm
+  customHeight: number; // en mm
+
+  logoType: 'none' | 'stock' | 'own';
+  logoSize: number;
+  logoX: number;
+  logoY: number;
 
   nameSize: number;
   nameX: number;
@@ -81,19 +90,26 @@ export interface LabelConfig {
 
 const DEFAULT_CONFIG: LabelConfig = {
   labelSize: 'standard',
-  
+  customWidth: 70,
+  customHeight: 42,
+
+  logoType: 'stock',
+  logoSize: 24,
+  logoX: 20,
+  logoY: 10,
+
   nameSize: 14,
   nameX: 20,
-  nameY: 15,
-  
+  nameY: 38,
+
   showBarcode: true,
   barcodeHeight: 35,
   barcodeX: 20,
-  barcodeY: 90,
-  
+  barcodeY: 92,
+
   priceSize: 22,
   priceX: 20,
-  priceY: 45,
+  priceY: 60,
 };
 
 interface LabelPrintingScreenProps {
@@ -107,10 +123,31 @@ interface PrintQueueItem {
 }
 
 export function LabelPrintingScreen({ products, onBack }: LabelPrintingScreenProps) {
+  const db = useSQLiteContext();
+  const { user } = useAuth();
+  
   const [config, setConfig] = useState<LabelConfig>(DEFAULT_CONFIG);
   const [searchQuery, setSearchQuery] = useState('');
   const [queue, setQueue] = useState<PrintQueueItem[]>([]);
   const [isGenerating, setIsGenerating] = useState(false);
+  const [logoOwnUri, setLogoOwnUri] = useState<string | null>(null);
+
+  // Cargar el logo de la tienda si está disponible en app_metadata
+  useEffect(() => {
+    async function loadStoreLogo() {
+      if (user?.tenant_id) {
+        try {
+          const logo = await getAppMeta<string>(db, `tenant_logo_${user.tenant_id}`);
+          if (logo) {
+            setLogoOwnUri(logo);
+          }
+        } catch (e) {
+          console.error('[DATABASE] Error cargando logo del comercio:', e);
+        }
+      }
+    }
+    void loadStoreLogo();
+  }, [user, db]);
 
   // Filtrar catálogo para la selección
   const filteredProducts = useMemo(() => {
@@ -173,16 +210,41 @@ export function LabelPrintingScreen({ products, onBack }: LabelPrintingScreenPro
         }
       });
 
-      const previewHeight = config.labelSize === 'large' ? 166 : 150;
+      const previewHeight = config.labelSize === 'custom'
+        ? Math.round(250 * (config.customHeight / config.customWidth))
+        : (config.labelSize === 'large' ? 166 : 150);
       
-      // Medidas físicas reales
-      const sizeSpecs = {
-        standard: { w: '70mm', h: '42mm', cols: 3, gap: '8mm' },
-        small: { w: '50mm', h: '30mm', cols: 4, gap: '6mm' },
-        large: { w: '90mm', h: '60mm', cols: 2, gap: '10mm' },
-      };
-      
-      const spec = sizeSpecs[config.labelSize];
+      // Dimensiones físicas de la plancha
+      let specWidth = '70mm';
+      let specHeight = '42mm';
+      let cols = 3;
+      let gap = '8mm';
+
+      if (config.labelSize === 'small') {
+        specWidth = '50mm';
+        specHeight = '30mm';
+        cols = 4;
+        gap = '6mm';
+      } else if (config.labelSize === 'large') {
+        specWidth = '90mm';
+        specHeight = '60mm';
+        cols = 2;
+        gap = '10mm';
+      } else if (config.labelSize === 'custom') {
+        specWidth = `${config.customWidth}mm`;
+        specHeight = `${config.customHeight}mm`;
+        // Elegir columnas de forma lógica según el ancho de la etiqueta
+        if (config.customWidth > 80) {
+          cols = 2;
+          gap = '10mm';
+        } else if (config.customWidth < 55) {
+          cols = 4;
+          gap = '5mm';
+        } else {
+          cols = 3;
+          gap = '8mm';
+        }
+      }
 
       // Cálculo de porcentajes para posicionamiento absoluto proporcional
       const nameL = ((config.nameX / 250) * 100).toFixed(2);
@@ -194,9 +256,12 @@ export function LabelPrintingScreen({ products, onBack }: LabelPrintingScreenPro
       const barcodeL = ((config.barcodeX / 250) * 100).toFixed(2);
       const barcodeT = ((config.barcodeY / previewHeight) * 100).toFixed(2);
 
+      const logoL = ((config.logoX / 250) * 100).toFixed(2);
+      const logoT = ((config.logoY / previewHeight) * 100).toFixed(2);
+
       let gridCellsHtml = '';
       flatLabels.forEach((label) => {
-        const barcodeSvg = label.barcode ? generateBarcodeSVG(label.barcode, 'md') : '';
+        const barcodeSvg = label.barcode ? generateBarcodeSVG(label.barcode, config.barcodeHeight) : '';
         
         let barcodeHtml = '';
         if (config.showBarcode) {
@@ -214,8 +279,24 @@ export function LabelPrintingScreen({ products, onBack }: LabelPrintingScreenPro
           }
         }
 
+        let logoHtml = '';
+        if (config.logoType === 'stock') {
+          // SVG inline de carrito de compras premium
+          logoHtml = `
+            <div class="logo-container" style="left: ${logoL}%; top: ${logoT}%; width: ${config.logoSize}px; height: ${config.logoSize}px; color: #0497bf;">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="width: 100%; height: 100%;"><circle cx="9" cy="21" r="1"></circle><circle cx="20" cy="21" r="1"></circle><path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"></path></svg>
+            </div>
+          `;
+        } else if (config.logoType === 'own' && logoOwnUri) {
+          logoHtml = `
+            <img src="${logoOwnUri}" style="left: ${logoL}%; top: ${logoT}%; width: ${config.logoSize}px; height: ${config.logoSize}px; object-fit: contain; position: absolute;" />
+          `;
+        }
+
         gridCellsHtml += `
           <div class="label-card">
+            ${logoHtml}
+            
             <div class="label-name" style="left: ${nameL}%; top: ${nameT}%; font-size: ${config.nameSize}px;">
               ${label.name}
             </div>
@@ -247,19 +328,25 @@ export function LabelPrintingScreen({ products, onBack }: LabelPrintingScreenPro
             }
             .grid {
               display: grid;
-              grid-template-columns: repeat(${spec.cols}, 1fr);
-              gap: ${spec.gap};
+              grid-template-columns: repeat(${cols}, 1fr);
+              gap: ${gap};
             }
             .label-card {
               border: 1px dashed #71717a;
               border-radius: 6px;
-              width: ${spec.w};
-              height: ${spec.h};
+              width: ${specWidth};
+              height: ${specHeight};
               box-sizing: border-box;
               position: relative;
               overflow: hidden;
               background-color: #ffffff;
               page-break-inside: avoid;
+            }
+            .logo-container {
+              position: absolute;
+              display: flex;
+              align-items: center;
+              justify-content: center;
             }
             .label-name {
               position: absolute;
@@ -320,16 +407,71 @@ export function LabelPrintingScreen({ products, onBack }: LabelPrintingScreenPro
     }
   };
 
-  const [designerTab, setDesignerTab] = useState<'size' | 'text' | 'barcode'>('size');
+  const [designerTab, setDesignerTab] = useState<'size' | 'logo' | 'text' | 'barcode'>('size');
+  
+  // Estados para milímetros personalizados
+  const [customWidthStr, setCustomWidthStr] = useState('70');
+  const [customHeightStr, setCustomHeightStr] = useState('42');
+  const [customSizeError, setCustomSizeError] = useState<string | null>(null);
+
+  const handleCustomWidthChange = (val: string) => {
+    setCustomWidthStr(val);
+    const parsedWidth = parseFloat(val);
+    const parsedHeight = parseFloat(customHeightStr);
+    
+    if (isNaN(parsedWidth)) {
+      setCustomSizeError('El ancho debe ser un número válido.');
+      return;
+    }
+    
+    if (parsedWidth < 30 || parsedWidth > 120) {
+      setCustomSizeError('El ancho debe estar entre 30 y 120 mm.');
+      return;
+    }
+    
+    if (!isNaN(parsedHeight) && parsedWidth < parsedHeight) {
+      setCustomSizeError('El ancho debe ser mayor o igual al alto.');
+      return;
+    }
+    
+    setCustomSizeError(null);
+    setConfig((prev) => ({ ...prev, customWidth: parsedWidth }));
+  };
+
+  const handleCustomHeightChange = (val: string) => {
+    setCustomHeightStr(val);
+    const parsedWidth = parseFloat(customWidthStr);
+    const parsedHeight = parseFloat(val);
+    
+    if (isNaN(parsedHeight)) {
+      setCustomSizeError('El alto debe ser un número válido.');
+      return;
+    }
+    
+    if (parsedHeight < 15 || parsedHeight > 80) {
+      setCustomSizeError('El alto debe estar entre 15 y 80 mm.');
+      return;
+    }
+    
+    if (!isNaN(parsedWidth) && parsedWidth < parsedHeight) {
+      setCustomSizeError('El ancho debe ser mayor o igual al alto.');
+      return;
+    }
+    
+    setCustomSizeError(null);
+    setConfig((prev) => ({ ...prev, customHeight: parsedHeight }));
+  };
 
   // Crear PanResponders personalizados para arrastrar los elementos con el dedo
-  const createPanResponder = (element: 'name' | 'price' | 'barcode') => {
+  const createPanResponder = (element: 'name' | 'price' | 'barcode' | 'logo') => {
     return PanResponder.create({
       onStartShouldSetPanResponder: () => true,
       onMoveShouldSetPanResponder: () => true,
       onPanResponderGrant: () => {},
       onPanResponderMove: (evt, gestureState) => {
-        const previewHeight = config.labelSize === 'large' ? 166 : 150;
+        const previewHeight = config.labelSize === 'custom'
+          ? Math.round(250 * (config.customHeight / config.customWidth))
+          : (config.labelSize === 'large' ? 166 : 150);
         const previewWidth = 250;
 
         setConfig((prev) => {
@@ -348,6 +490,12 @@ export function LabelPrintingScreen({ products, onBack }: LabelPrintingScreenPro
             gestureState.dx = 0;
             gestureState.dy = 0;
             return { ...prev, priceX: nextX, priceY: nextY };
+          } else if (element === 'logo') {
+            nextX = Math.max(0, Math.min(previewWidth - prev.logoSize, prev.logoX + gestureState.dx));
+            nextY = Math.max(0, Math.min(previewHeight - prev.logoSize, prev.logoY + gestureState.dy));
+            gestureState.dx = 0;
+            gestureState.dy = 0;
+            return { ...prev, logoX: nextX, logoY: nextY };
           } else {
             nextX = Math.max(0, Math.min(previewWidth - 130, prev.barcodeX + gestureState.dx));
             const currentBarcodeHeight = prev.barcodeHeight + 12;
@@ -364,6 +512,7 @@ export function LabelPrintingScreen({ products, onBack }: LabelPrintingScreenPro
 
   const namePanResponder = useMemo(() => createPanResponder('name'), [config.labelSize]);
   const pricePanResponder = useMemo(() => createPanResponder('price'), [config.labelSize]);
+  const logoPanResponder = useMemo(() => createPanResponder('logo'), [config.labelSize, config.logoSize]);
   const barcodePanResponder = useMemo(() => createPanResponder('barcode'), [config.labelSize, config.barcodeHeight]);
 
   const renderLabelPreview = () => {
@@ -372,13 +521,42 @@ export function LabelPrintingScreen({ products, onBack }: LabelPrintingScreenPro
     const pPrice = previewProduct ? `$ ${previewProduct.sale_price.toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : '$ 2.450,00';
     const pBarcode = previewProduct?.barcode || '7791234567890';
     
-    const previewHeight = config.labelSize === 'large' ? 166 : 150;
+    const previewHeight = config.labelSize === 'custom'
+      ? Math.round(250 * (config.customHeight / config.customWidth))
+      : (config.labelSize === 'large' ? 166 : 150);
 
     return (
       <View style={styles.previewContainer}>
         <Text style={styles.sectionLabel}>Previsualización (Arrastrá con el dedo):</Text>
         <View style={styles.previewCardOuter}>
           <View style={[styles.previewCardInner, { height: previewHeight }]}>
+            {/* Logo */}
+            {config.logoType !== 'none' && (
+              <View
+                {...logoPanResponder.panHandlers}
+                style={[styles.draggableItem, { left: config.logoX, top: config.logoY }]}
+              >
+                {config.logoType === 'stock' ? (
+                  <Ionicons
+                    name="cart-outline"
+                    size={config.logoSize}
+                    color={colors.primary}
+                  />
+                ) : logoOwnUri ? (
+                  <Image
+                    source={{ uri: logoOwnUri }}
+                    style={{ width: config.logoSize, height: config.logoSize, resizeMode: 'contain' }}
+                  />
+                ) : (
+                  <Ionicons
+                    name="image-outline"
+                    size={config.logoSize}
+                    color={colors.textMuted}
+                  />
+                )}
+              </View>
+            )}
+
             {/* Nombre del Producto */}
             <View
               {...namePanResponder.panHandlers}
@@ -438,8 +616,8 @@ export function LabelPrintingScreen({ products, onBack }: LabelPrintingScreenPro
 
   const renderConfigTabs = () => (
     <View style={styles.configTabBar}>
-      {(['size', 'text', 'barcode'] as const).map((tab) => {
-        const labels = { size: 'Medidas', text: 'Textos', barcode: 'Código' };
+      {(['size', 'logo', 'text', 'barcode'] as const).map((tab) => {
+        const labels = { size: 'Medidas', logo: 'Logo', text: 'Textos', barcode: 'Código' };
         const active = designerTab === tab;
         return (
           <Pressable
@@ -456,7 +634,7 @@ export function LabelPrintingScreen({ products, onBack }: LabelPrintingScreenPro
     </View>
   );
 
-  const adjustValue = (element: 'name' | 'price' | 'barcode', delta: number) => {
+  const adjustValue = (element: 'name' | 'price' | 'barcode' | 'logo', delta: number) => {
     setConfig((prev) => {
       if (element === 'name') {
         const nextSize = Math.max(10, Math.min(24, prev.nameSize + delta));
@@ -464,6 +642,9 @@ export function LabelPrintingScreen({ products, onBack }: LabelPrintingScreenPro
       } else if (element === 'price') {
         const nextSize = Math.max(12, Math.min(36, prev.priceSize + delta));
         return { ...prev, priceSize: nextSize };
+      } else if (element === 'logo') {
+        const nextSize = Math.max(16, Math.min(48, prev.logoSize + delta));
+        return { ...prev, logoSize: nextSize };
       } else {
         const nextHeight = Math.max(15, Math.min(70, prev.barcodeHeight + delta));
         return { ...prev, barcodeHeight: nextHeight };
@@ -478,8 +659,8 @@ export function LabelPrintingScreen({ products, onBack }: LabelPrintingScreenPro
           <View style={styles.tabContent}>
             <Text style={styles.subOptionTitle}>Tamaño Físico de la Etiqueta</Text>
             <View style={styles.optionsSegment}>
-              {(['standard', 'small', 'large'] as const).map((size) => {
-                const specs = { standard: '42x70 mm', small: '30x50 mm', large: '60x90 mm' };
+              {(['standard', 'small', 'large', 'custom'] as const).map((size) => {
+                const specs = { standard: 'Estándar', small: 'Chica', large: 'Grande', custom: 'Personalizada' };
                 const active = config.labelSize === size;
                 return (
                   <Pressable
@@ -494,9 +675,102 @@ export function LabelPrintingScreen({ products, onBack }: LabelPrintingScreenPro
                 );
               })}
             </View>
-            <Text style={{ fontSize: 11, color: colors.textMuted, marginTop: 4 }}>
+            
+            {config.labelSize === 'custom' && (
+              <View style={{ marginTop: spacing.md, gap: spacing.sm }}>
+                <Text style={styles.sectionHeading}>Dimensiones Manuales (mm)</Text>
+                
+                <View style={{ flexDirection: 'row', gap: spacing.md }}>
+                  <View style={{ flex: 1, gap: 4 }}>
+                    <Text style={{ fontSize: 11, fontWeight: '700', color: colors.textMuted }}>Ancho (30 a 120 mm)</Text>
+                    <TextInput
+                      value={customWidthStr}
+                      onChangeText={handleCustomWidthChange}
+                      keyboardType="numeric"
+                      style={styles.searchInput}
+                      placeholder="Ancho (mm)"
+                    />
+                  </View>
+                  
+                  <View style={{ flex: 1, gap: 4 }}>
+                    <Text style={{ fontSize: 11, fontWeight: '700', color: colors.textMuted }}>Alto (15 a 80 mm)</Text>
+                    <TextInput
+                      value={customHeightStr}
+                      onChangeText={handleCustomHeightChange}
+                      keyboardType="numeric"
+                      style={styles.searchInput}
+                      placeholder="Alto (mm)"
+                    />
+                  </View>
+                </View>
+                
+                {customSizeError && (
+                  <Text style={{ color: colors.danger, fontSize: 11, fontWeight: '700', marginTop: 2 }}>
+                    ⚠️ {customSizeError}
+                  </Text>
+                )}
+              </View>
+            )}
+
+            <Text style={{ fontSize: 11, color: colors.textMuted, marginTop: 6 }}>
               * Cambiar el tamaño ajusta automáticamente la grilla y la escala de la plancha PDF.
             </Text>
+          </View>
+        );
+
+      case 'logo':
+        return (
+          <View style={styles.tabContent}>
+            <Text style={styles.subOptionTitle}>Tipo de Logo</Text>
+            <View style={styles.optionsSegment}>
+              {(['none', 'stock', 'own'] as const).map((type) => {
+                const labels = { none: 'Ninguno', stock: 'Carrito (Stock)', own: 'Logo Propio' };
+                const isOwnAndNoLogo = type === 'own' && !logoOwnUri;
+                const active = config.logoType === type;
+                return (
+                  <Pressable
+                    key={type}
+                    disabled={isOwnAndNoLogo}
+                    onPress={() => setConfig(prev => ({ ...prev, logoType: type }))}
+                    style={[
+                      styles.segmentButton, 
+                      active && styles.segmentButtonActive,
+                      isOwnAndNoLogo && { opacity: 0.35 }
+                    ]}
+                  >
+                    <Text style={[styles.segmentButtonText, active && styles.segmentButtonTextActive]}>
+                      {labels[type]}
+                    </Text>
+                  </Pressable>
+                );
+              })}
+            </View>
+
+            {config.logoType === 'own' && !logoOwnUri && (
+              <Text style={{ color: colors.warning, fontSize: 11, fontWeight: '700', marginTop: 4 }}>
+                ⚠️ Aún no has subido tu logo de comercio. Configúralo en Ajustes {`->`} Perfil de Comercio.
+              </Text>
+            )}
+
+            {config.logoType !== 'none' && (
+              <>
+                <View style={styles.divider} />
+                <View style={styles.incrementRow}>
+                  <View style={styles.incrementInfo}>
+                    <Text style={styles.incrementLabel}>Tamaño del Logo</Text>
+                    <Text style={styles.incrementValueText}>{config.logoSize} px</Text>
+                  </View>
+                  <View style={styles.incrementActions}>
+                    <Pressable onPress={() => adjustValue('logo', -2)} style={styles.adjustBtn}>
+                      <Ionicons name="remove" size={16} color={colors.text} />
+                    </Pressable>
+                    <Pressable onPress={() => adjustValue('logo', 2)} style={styles.adjustBtn}>
+                      <Ionicons name="add" size={16} color={colors.text} />
+                    </Pressable>
+                  </View>
+                </View>
+              </>
+            )}
           </View>
         );
 
@@ -822,6 +1096,14 @@ const getStyles = (colors: ThemeColors, isDark: boolean) =>
       color: colors.text,
       fontSize: 14,
       fontWeight: '700',
+    },
+    sectionHeading: {
+      color: colors.text,
+      fontSize: 13,
+      fontWeight: '800',
+      textTransform: 'uppercase',
+      letterSpacing: 0.4,
+      marginTop: 4,
     },
     subOptionTitle: {
       color: colors.textMuted,
