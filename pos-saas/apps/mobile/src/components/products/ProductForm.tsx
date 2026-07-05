@@ -7,6 +7,8 @@ import {
   Text,
   TextInput,
   View,
+  KeyboardAvoidingView,
+  Platform,
 } from 'react-native';
 import type { SQLiteDatabase } from 'expo-sqlite';
 import type { ProductRecord } from '../../database/types';
@@ -240,25 +242,36 @@ export function ProductForm({
         await updateProduct(db, product.id, { ...payload, tenantId });
       } else {
         // Modo creación
-        await saveProduct(db, { ...payload, tenantId });
+        const savedId = await saveProduct(db, { ...payload, tenantId });
+        if (savedId === '') {
+          setFormError('Límite de la versión Demo alcanzado.');
+          return;
+        }
       }
       onSaved();
     } catch (error) {
-      setFormError(
-        error instanceof Error
-          ? error.message
-          : 'No se pudo guardar el producto.',
-      );
+      const msg = error instanceof Error ? error.message : '';
+      if (msg.includes('Demo') || msg.includes('demo')) {
+        setFormError('Límite de la versión Demo alcanzado.');
+      } else {
+        console.error('Error al guardar producto:', error);
+        setFormError(msg || 'No se pudo guardar el producto.');
+      }
     } finally {
       setSaving(false);
     }
   }
 
   return (
-    <ScrollView
-      contentContainerStyle={styles.container}
-      keyboardShouldPersistTaps="handled"
+    <KeyboardAvoidingView
+      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+      style={{ flex: 1 }}
+      keyboardVerticalOffset={Platform.OS === 'ios' ? 64 : 120}
     >
+      <ScrollView
+        contentContainerStyle={styles.container}
+        keyboardShouldPersistTaps="handled"
+      >
       <View style={styles.section}>
         <Text style={styles.sectionTitle}>Identificación</Text>
         <Text style={styles.sectionHint}>
@@ -435,6 +448,7 @@ export function ProductForm({
         </Pressable>
       </View>
     </ScrollView>
+  </KeyboardAvoidingView>
   );
 }
 

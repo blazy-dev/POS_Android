@@ -338,33 +338,9 @@ export async function pruneAndArchiveSales(db: SQLiteDatabase, tenantId: string)
         console.log(`[PURGE] Purgadas ${oldSales.length} ventas antiguas en cuenta Premium.`);
       }
     } else {
-      // --- CASO DEMO: Retención estricta de los últimos 3 días operativos ---
-      // Obtener la fecha más reciente de transacciones de este tenant
-      const latestSale = await db.getFirstAsync<{ max_date: string }>(
-        `SELECT MAX(created_at) AS max_date FROM sales WHERE tenant_id = $tenant_id`,
-        { $tenant_id: tenantId }
-      );
-
-      if (latestSale?.max_date) {
-        // El umbral es exactamente 3 días antes de la venta más reciente
-        const latestTime = new Date(latestSale.max_date).getTime();
-        const cutoffTime = latestTime - 3 * 24 * 60 * 60 * 1000;
-        const cutoffIso = new Date(cutoffTime).toISOString();
-
-        // Borrar ítems y ventas que sean anteriores al umbral
-        await db.withExclusiveTransactionAsync(async (txn) => {
-          await txn.runAsync(
-            `DELETE FROM sale_items WHERE tenant_id = $tenant_id AND sale_id IN (SELECT id FROM sales WHERE created_at < $cutoff)`,
-            { $tenant_id: tenantId, $cutoff: cutoffIso }
-          );
-          await txn.runAsync(
-            `DELETE FROM sales WHERE tenant_id = $tenant_id AND created_at < $cutoff`,
-            { $tenant_id: tenantId, $cutoff: cutoffIso }
-          );
-        });
-        
-        console.log(`[PURGE] Purgadas ventas antiguas fuera del límite de 3 días de la versión Demo.`);
-      }
+      // --- CASO DEMO / EXPIRADO: Preservar datos locales ---
+      // No eliminamos físicamente las ventas del dispositivo. El historial se limitará visualmente en la UI.
+      console.log(`[PURGE] Licencia Demo/Inactiva. Se omitió la depuración física para proteger los datos históricos del comercio.`);
     }
   } catch (err) {
     console.error('[PURGE] Error durante purga/archivado de ventas:', err);

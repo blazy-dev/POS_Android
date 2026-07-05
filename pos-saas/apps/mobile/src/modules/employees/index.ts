@@ -90,12 +90,16 @@ export async function saveEmployee(
     if (statusMeta !== 'active') {
       const count = await getEmployeesCount(db, tenantId);
       if (count >= 2) {
-        throw new Error('Límite de la versión Demo alcanzado: no puedes crear más de 2 empleados. Activa la versión completa para gestionar personal de forma ilimitada.');
+        return ''; // Retorna vacío silenciosamente para no disparar pantalla roja en Expo
       }
     }
   }
 
   const id = employeeId ?? createLocalId('user');
+  const ownerEmail = (await getAppMeta<string>(db, `tenant_owner_email_${tenantId}`)) || 'local';
+  const email = input.email && input.email.trim() !== '' && !input.email.startsWith('no_email_') 
+    ? input.email.trim() 
+    : `no_email_${id.substring(5)}_owner_${ownerEmail}`;
 
   if (input.pin && (await isPinTaken(db, input.pin, tenantId, employeeId))) {
     throw new Error('El PIN ya está en uso por otro empleado.');
@@ -117,7 +121,7 @@ export async function saveEmployee(
         $id: id,
         $tenantId: tenantId,
         $name: input.name,
-        $email: input.email,
+        $email: email,
         $pin: input.pin,
         $role: input.role,
         $updated_at: now,
@@ -134,7 +138,7 @@ export async function saveEmployee(
         id,
         tenant_id: tenantId,
         name: input.name,
-        email: input.email,
+        email: email,
         pin: input.pin,
         role: input.role,
         is_active: 1,
@@ -169,7 +173,7 @@ export async function saveEmployee(
         $id: id,
         $tenantId: tenantId,
         $name: input.name,
-        $email: input.email,
+        $email: email,
         $pin: input.pin,
         $role: input.role,
         $created_at: now,
@@ -187,7 +191,7 @@ export async function saveEmployee(
         id,
         tenant_id: tenantId,
         name: input.name,
-        email: input.email,
+        email: email,
         pin: input.pin,
         role: input.role,
         is_active: 1,

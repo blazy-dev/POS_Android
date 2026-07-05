@@ -1,10 +1,12 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Platform, Pressable, StyleSheet, Text, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { useSQLiteContext } from 'expo-sqlite';
 import {
   SafeAreaView,
   useSafeAreaInsets,
 } from 'react-native-safe-area-context';
+import { getAppMeta } from '../database';
 import { HomeScreen } from '../screens/HomeScreen';
 import { ProductsScreen } from '../screens/ProductsScreen';
 import { SalesScreen } from '../screens/SalesScreen';
@@ -72,15 +74,34 @@ function SyncBar() {
 }
 
 export function RootNavigator() {
+  const db = useSQLiteContext();
   const { user, onboardingToken } = useAuth();
   // Estado local para saber qué pantalla se encuentra activa
   const [route, setRoute] = useState<RouteKey>('home');
   const [navigationParams, setNavigationParams] = useState<any>(null);
+  const [isSubActive, setIsSubActive] = useState<boolean>(true);
 
   // Hook para obtener los insets de áreas seguras del dispositivo (notch, barra de navegación, etc.)
   const insets = useSafeAreaInsets();
   const { colors, isDark } = useTheme();
   const styles = useMemo(() => getStyles(colors, isDark), [colors, isDark]);
+
+  useEffect(() => {
+    async function checkSubscription() {
+      if (!user) return;
+      try {
+        const tenantId = user.tenant_id || 'local';
+        const cachedStatus = await getAppMeta<string>(db, `tenant_subscription_status_${tenantId}`);
+        const endsAtStr = await getAppMeta<string>(db, `tenant_subscription_ends_at_${tenantId}`);
+        const endsAt = endsAtStr ? parseInt(endsAtStr, 10) : 0;
+        const active = cachedStatus === 'active' && (endsAt === 0 || endsAt > Date.now());
+        setIsSubActive(active);
+      } catch (err) {
+        console.error('Error al comprobar suscripción en RootNavigator:', err);
+      }
+    }
+    void checkSubscription();
+  }, [db, user, route]); // Re-validar al cambiar de pestaña por si se modificó desde Licencias
 
   const handleNavigate = (nextRoute: RouteKey, params?: any) => {
     setRoute(nextRoute);
@@ -121,8 +142,24 @@ export function RootNavigator() {
   return (
     <View style={styles.mainContainer}>
       {/* SyncBar con padding superior para respetar el notch/barra de estado */}
-      <View style={{ paddingTop: insets.top, backgroundColor: isDark ? 'rgba(255,255,255,0.02)' : 'rgba(0,0,0,0.02)' }}>
+      <View style={{
+        paddingTop: insets.top,
+        backgroundColor: isDark ? 'rgba(255,255,255,0.02)' : 'rgba(0,0,0,0.02)',
+        borderBottomWidth: 1,
+        borderBottomColor: colors.border,
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        paddingHorizontal: 16,
+        paddingBottom: 4,
+      }}>
         <SyncBar />
+        {!isSubActive && (
+          <View style={styles.demoHeaderBadge}>
+            <Ionicons name="lock-closed" size={11} color="#ffffff" style={{ marginRight: 3 }} />
+            <Text style={styles.demoHeaderBadgeText}>Versión Demo</Text>
+          </View>
+        )}
       </View>
 
       {/* Área del contenedor principal de la pantalla activa */}
@@ -299,5 +336,20 @@ const getStyles = (colors: ThemeColors, isDark: boolean) =>
     tabLabelActive: {
       color: colors.primary,
       fontWeight: fontWeight.bold,
+    },
+    demoHeaderBadge: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      backgroundColor: '#b45309',
+      paddingHorizontal: 8,
+      paddingVertical: 3,
+      borderRadius: radius.full,
+      marginRight: 4,
+      marginTop: 2,
+    },
+    demoHeaderBadgeText: {
+      color: '#ffffff',
+      fontSize: 10,
+      fontWeight: '800',
     },
   });

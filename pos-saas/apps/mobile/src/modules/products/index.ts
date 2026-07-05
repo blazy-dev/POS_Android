@@ -62,7 +62,7 @@ export async function saveProduct(db: SQLiteDatabase, input: ProductInput) {
   if (statusMeta !== 'active') {
     const productsCount = await getProductsCount(db, tenantId);
     if (productsCount >= 20) {
-      throw new Error('Límite de la versión Demo alcanzado: no puedes crear más de 20 productos. Activa la versión completa para registrar productos de forma ilimitada.');
+      return ''; // Retorna vacío silenciosamente para no disparar pantalla roja en Expo
     }
   }
 

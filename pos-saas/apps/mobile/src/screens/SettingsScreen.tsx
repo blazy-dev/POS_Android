@@ -79,6 +79,17 @@ export function SettingsScreen() {
   const db = useSQLiteContext();
   const [tenantName, setTenantName] = useState<string>('');
   const [logoUri, setLogoUri] = useState<string | null>(null);
+  const [ownerEmail, setOwnerEmail] = useState<string | null>(null);
+
+  useEffect(() => {
+    async function loadOwnerEmail() {
+      if (user?.tenant_id) {
+        const cached = await getAppMeta<string>(db, `tenant_owner_email_${user.tenant_id}`);
+        setOwnerEmail(cached);
+      }
+    }
+    void loadOwnerEmail();
+  }, [db, user?.tenant_id]);
 
   // Estados de Licencia
   const [subStatus, setSubStatus] = useState<'demo' | 'active' | 'expired'>('demo');
@@ -366,7 +377,11 @@ export function SettingsScreen() {
               </View>
               <View style={styles.profileInfo}>
                 <Text style={styles.profileName}>{user.name}</Text>
-                <Text style={styles.profileEmail}>{user.email}</Text>
+                <Text style={styles.profileEmail}>
+                  {user.email.startsWith('no_email_')
+                    ? `Cuenta: ${ownerEmail || 'Administrador'}`
+                    : user.email}
+                </Text>
                 <Badge
                   label={
                     user.role === 'admin'

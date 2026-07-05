@@ -14,6 +14,7 @@ import {
   UIManager,
   Animated,
   View,
+  Alert,
 } from 'react-native';
 
 // Habilitar LayoutAnimation en Android
@@ -28,6 +29,7 @@ import { radius, spacing, fontSize, fontWeight, shadow, ThemeColors } from '../t
 import { useTheme } from '../context/ThemeContext';
 import { useBarcodeInput } from '../hooks/useBarcodeInput';
 import { findProductByBarcode, listProducts } from '../modules/products';
+import { getAppMeta } from '../database';
 import {
   closeRegister,
   getActiveSession,
@@ -94,6 +96,7 @@ export function SalesScreen() {
   const [searchResults, setSearchResults] = useState<ProductRecord[]>([]);
   const [allProducts, setAllProducts] = useState<ProductRecord[]>([]);
   const [lastAddedId, setLastAddedId] = useState<string | null>(null);
+  const [isSubActive, setIsSubActive] = useState<boolean>(true);
 
   // Estados del Checkout
   const [checkoutVisible, setCheckoutVisible] = useState(false);
@@ -124,13 +127,24 @@ export function SalesScreen() {
     try {
       setCheckingSession(true);
       const tenantId = user?.tenant_id || 'local';
+      
+      // Consultar el estado de la suscripción
+      const cachedStatus = await getAppMeta<string>(db, `tenant_subscription_status_${tenantId}`);
+      const endsAtStr = await getAppMeta<string>(db, `tenant_subscription_ends_at_${tenantId}`);
+      const endsAt = endsAtStr ? parseInt(endsAtStr, 10) : 0;
+      const active = cachedStatus === 'active' && (endsAt === 0 || endsAt > Date.now());
+      setIsSubActive(active);
+
       const session = await getActiveSession(db, tenantId);
       setActiveSession(session);
       if (session) {
         setSalesView('pos');
-        // Precargar catálogo de productos para búsqueda rápida
+        // Precargar catálogo de productos ordenados por created_at ASC para consistencia de límite Demo
         const catalog = await listProducts(db, tenantId);
-        setAllProducts(catalog);
+        const sortedCatalog = [...catalog].sort((a, b) => 
+          new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
+        );
+        setAllProducts(sortedCatalog);
       } else {
         setSalesView('open');
       }
@@ -199,6 +213,20 @@ export function SalesScreen() {
 
   // Carrito: agregar producto
   const addToCart = (product: ProductRecord) => {
+    // Validar si el producto está bloqueado en versión Demo
+    const globalIndex = allProducts.findIndex((p) => p.id === product.id);
+    if (!isSubActive && globalIndex >= 20) {
+      void playErrorSound();
+      triggerShake();
+      Alert.alert(
+        'Suscripción requerida',
+        'Este producto (nro. ' + (globalIndex + 1) + ') supera el límite de la versión Demo y está bloqueado. Activa la versión completa para desbloquearlo.'
+      );
+      setSearchQuery('');
+      setSearchResults([]);
+      return;
+    }
+
     const existing = cart.find((item) => item.product.id === product.id);
     const currentQty = existing ? existing.quantity : 0;
 
@@ -590,27 +618,46 @@ export function SalesScreen() {
               data={searchResults}
               keyExtractor={(item) => item.id}
               keyboardShouldPersistTaps="handled"
-              renderItem={({ item }) => (
-                <Pressable
-                  style={styles.searchResultRow}
-                  onPress={() => {
-                    addToCart(item);
-                    setSearchQuery('');
-                    setSearchResults([]);
-                  }}
-                >
-                  <View style={styles.searchResultInfo}>
-                    <Text style={styles.searchResultName}>{item.name}</Text>
-                    <Text style={styles.searchResultMeta}>
-                      Stock: {item.stock} {item.unit} · Barcode:{' '}
-                      {item.barcode ?? 'Sin código'}
+              renderItem={({ item }) => {
+                const globalIndex = allProducts.findIndex((p) => p.id === item.id);
+                const isBlocked = !isSubActive && globalIndex >= 20;
+                
+                return (
+                  <Pressable
+                    style={[styles.searchResultRow, isBlocked && styles.searchResultRowBlocked]}
+                    onPress={() => {
+                      if (isBlocked) {
+                        Alert.alert(
+                          'Suscripción requerida',
+                          'Este producto (nro. ' + (globalIndex + 1) + ') supera el límite de la versión Demo y está bloqueado. Activa la versión completa para poder venderlo.'
+                        );
+                        return;
+                      }
+                      addToCart(item);
+                      setSearchQuery('');
+                      setSearchResults([]);
+                    }}
+                  >
+                    <View style={styles.searchResultInfo}>
+                      <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                        <Text style={[styles.searchResultName, isBlocked && styles.searchResultNameBlocked]}>
+                          {item.name}
+                        </Text>
+                        {isBlocked && (
+                          <Ionicons name="lock-closed" size={13} color="#b45309" style={{ marginLeft: 6 }} />
+                        )}
+                      </View>
+                      <Text style={styles.searchResultMeta}>
+                        Stock: {item.stock} {item.unit} · Barcode:{' '}
+                        {item.barcode ?? 'Sin código'}
+                      </Text>
+                    </View>
+                    <Text style={[styles.searchResultPrice, isBlocked && styles.searchResultPriceBlocked]}>
+                      $ {item.sale_price.toFixed(2)}
                     </Text>
-                  </View>
-                  <Text style={styles.searchResultPrice}>
-                    $ {item.sale_price.toFixed(2)}
-                  </Text>
-                </Pressable>
-              )}
+                  </Pressable>
+                );
+              }}
             />
           </View>
         ) : (
@@ -1449,5 +1496,16 @@ const getStyles = (colors: ThemeColors, isDark: boolean) =>
     },
     buttonDisabled: {
       opacity: 0.4,
+    },
+    searchResultRowBlocked: {
+      opacity: 0.5,
+      backgroundColor: isDark ? 'rgba(255, 255, 255, 0.01)' : 'rgba(0, 0, 0, 0.01)',
+    },
+    searchResultNameBlocked: {
+      color: colors.textMuted,
+      textDecorationLine: 'line-through',
+    },
+    searchResultPriceBlocked: {
+      color: colors.textMuted,
     },
   });

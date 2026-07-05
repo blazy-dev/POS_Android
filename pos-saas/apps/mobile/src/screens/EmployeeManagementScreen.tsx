@@ -8,12 +8,16 @@ import {
   StyleSheet,
   Text,
   View,
+  KeyboardAvoidingView,
+  Platform,
 } from 'react-native';
 import { useSQLiteContext } from 'expo-sqlite';
+import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '../context/AuthContext';
 import { useTheme } from '../context/ThemeContext';
 import { FormField } from '../components/form/FormField';
 import { getAppMeta } from '../database';
+import { createLocalId } from '../utils/ids';
 import { radius, spacing, ThemeColors } from '../theme/tokens';
 import {
   listEmployees,
@@ -61,6 +65,7 @@ export function EmployeeManagementScreen({
   // Estados del listado
   const [employees, setEmployees] = useState<UserRecord[]>([]);
   const [loadingList, setLoadingList] = useState(false);
+  const [isSubActive, setIsSubActive] = useState<boolean>(true);
 
   // Estados del formulario
   const [showForm, setShowForm] = useState(false);
@@ -68,7 +73,6 @@ export function EmployeeManagementScreen({
     null,
   );
   const [formName, setFormName] = useState('');
-  const [formEmail, setFormEmail] = useState('');
   const [formPin, setFormPin] = useState('');
   const [formRole, setFormRole] = useState('cashier');
   const [saving, setSaving] = useState(false);
@@ -78,8 +82,20 @@ export function EmployeeManagementScreen({
   const fetchEmployees = async () => {
     try {
       setLoadingList(true);
+      
+      // Consultar el estado de la suscripción
+      const cachedStatus = await getAppMeta<string>(db, `tenant_subscription_status_${tenantId}`);
+      const endsAtStr = await getAppMeta<string>(db, `tenant_subscription_ends_at_${tenantId}`);
+      const endsAt = endsAtStr ? parseInt(endsAtStr, 10) : 0;
+      const active = cachedStatus === 'active' && (endsAt === 0 || endsAt > Date.now());
+      setIsSubActive(active);
+
       const list = await listEmployees(db, tenantId);
-      setEmployees(list);
+      // Ordenar por fecha de creación para consistencia en límites de la versión Demo
+      const sortedList = [...list].sort((a, b) => 
+        new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
+      );
+      setEmployees(sortedList);
     } catch (err) {
       console.error('Error al listar empleados:', err);
       Alert.alert('Error', 'No se pudieron obtener los empleados locales.');
@@ -110,9 +126,17 @@ export function EmployeeManagementScreen({
 
   // Abrir formulario para agregar nuevo
   const handleNewEmployee = () => {
+    const localEmployeesCount = employees.filter((e) => e.email !== ownerEmail).length;
+    if (!isSubActive && localEmployeesCount >= 2) {
+      Alert.alert(
+        'Límite de empleados alcanzado',
+        'La versión Demo está limitada a un máximo de 2 empleados activos. Activa la versión completa para poder agregar más personal.'
+      );
+      return;
+    }
+    
     setEditingEmployee(null);
     setFormName('');
-    setFormEmail('');
     setFormPin('');
     setFormRole('cashier');
     setFormError(null);
@@ -123,7 +147,6 @@ export function EmployeeManagementScreen({
   const handleEditEmployee = (emp: UserRecord) => {
     setEditingEmployee(emp);
     setFormName(emp.name);
-    setFormEmail(emp.email);
     setFormPin(emp.pin ?? '');
     setFormRole(emp.role);
     setFormError(null);
@@ -159,22 +182,10 @@ export function EmployeeManagementScreen({
     setFormError(null);
 
     const name = formName.trim();
-    const email = formEmail.trim();
     const pin = formPin.trim();
 
     if (!name) {
       setFormError('El nombre completo es obligatorio.');
-      return;
-    }
-
-    if (!email) {
-      setFormError('El correo electrónico es obligatorio.');
-      return;
-    }
-
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    if (!emailRegex.test(email)) {
-      setFormError('Ingresá un correo electrónico válido.');
       return;
     }
 
@@ -185,21 +196,17 @@ export function EmployeeManagementScreen({
       return;
     }
 
-    try {
-      setSaving(true);
-
-      // Verificar unicidad de email
-      const emailTaken = await isEmailTaken(
-        db,
-        email,
-        tenantId,
-        editingEmployee?.id,
-      );
-      if (emailTaken) {
-        setFormError('Este correo ya esta registrado por otro empleado.');
-        setSaving(false);
+    // Validar límite de empleados en versión Demo antes de guardar un nuevo registro
+    if (!editingEmployee) {
+      const localEmployeesCount = employees.filter((e) => e.email !== ownerEmail).length;
+      if (!isSubActive && localEmployeesCount >= 2) {
+        setFormError('Límite de la versión Demo alcanzado.');
         return;
       }
+    }
+
+    try {
+      setSaving(true);
 
       if (pin) {
         const pinTaken = await isPinTaken(
@@ -219,20 +226,28 @@ export function EmployeeManagementScreen({
 
       const input: EmployeeInput = {
         name,
-        email,
+        email: editingEmployee?.email || '', // Conserva el email existente si estamos editando, de lo contrario vacío
         pin: pin || null,
         role: formRole,
         tenantId,
       };
 
-      await saveEmployee(db, input, editingEmployee?.id);
+      const savedId = await saveEmployee(db, input, editingEmployee?.id);
+      if (savedId === '') {
+        setFormError('Límite de la versión Demo alcanzado.');
+        setSaving(false);
+        return;
+      }
       setShowForm(false);
       await fetchEmployees();
     } catch (err) {
-      console.error('Error al guardar empleado:', err);
-      setFormError(
-        err instanceof Error ? err.message : 'Error al guardar el empleado.',
-      );
+      const msg = err instanceof Error ? err.message : '';
+      if (msg.includes('Demo') || msg.includes('demo')) {
+        setFormError('Límite de la versión Demo alcanzado.');
+      } else {
+        console.error('Error al guardar empleado:', err);
+        setFormError(msg || 'Error al guardar el empleado.');
+      }
     } finally {
       setSaving(false);
     }
@@ -240,6 +255,9 @@ export function EmployeeManagementScreen({
 
   // Formulario de Alta/Edición
   if (showForm) {
+    const localEmployees = employees.filter((e) => e.email !== ownerEmail);
+    const isLimitReached = !isSubActive && localEmployees.length >= 2 && !editingEmployee;
+
     return (
       <SafeAreaView style={styles.safeArea}>
         <View style={styles.header}>
@@ -259,27 +277,32 @@ export function EmployeeManagementScreen({
           </Text>
         </View>
 
-        <ScrollView
-          contentContainerStyle={styles.formContainer}
-          keyboardShouldPersistTaps="handled"
+        <KeyboardAvoidingView
+          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+          style={{ flex: 1 }}
+          keyboardVerticalOffset={Platform.OS === 'ios' ? 64 : 120}
         >
+          <ScrollView
+            contentContainerStyle={styles.formContainer}
+            keyboardShouldPersistTaps="handled"
+          >
+          {!isSubActive && (
+            <View style={styles.demoWarningFormBanner}>
+              <Ionicons name="lock-closed" size={18} color="#b45309" style={{ marginRight: 8 }} />
+              <Text style={styles.demoWarningFormBannerText}>
+                {isLimitReached
+                  ? 'Límite de la versión Demo alcanzado: no puedes crear más de 2 empleados activos. Activa la versión completa para quitar esta restricción.'
+                  : 'Versión Demo: Límite de personal de 2 empleados activos.'}
+              </Text>
+            </View>
+          )}
+
           <View style={styles.card}>
             <FormField
               label="Nombre completo *"
               value={formName}
               onChangeText={setFormName}
               placeholder="Juan Pérez"
-              required
-            />
-
-            <FormField
-              label="Correo electrónico *"
-              value={formEmail}
-              onChangeText={setFormEmail}
-              placeholder="juan@comercio.com"
-              keyboardType="email-address"
-              autoCapitalize="none"
-              autoCorrect={false}
               required
             />
 
@@ -326,9 +349,18 @@ export function EmployeeManagementScreen({
 
             <View style={styles.formActions}>
               <Pressable
-                style={[styles.saveButton, saving && styles.buttonDisabled]}
-                onPress={handleSave}
-                disabled={saving}
+                style={[
+                  styles.saveButton,
+                  (saving || isLimitReached) && styles.buttonDisabled,
+                ]}
+                onPress={() => {
+                  if (isLimitReached) {
+                    setFormError('Límite de la versión Demo alcanzado.');
+                    return;
+                  }
+                  handleSave();
+                }}
+                disabled={saving || isLimitReached}
               >
                 {saving ? (
                   <ActivityIndicator size="small" color="#FFFFFF" />
@@ -339,9 +371,10 @@ export function EmployeeManagementScreen({
             </View>
           </View>
         </ScrollView>
-      </SafeAreaView>
-    );
-  }
+      </KeyboardAvoidingView>
+    </SafeAreaView>
+  );
+}
 
   // Vista del listado principal
   return (
@@ -363,6 +396,15 @@ export function EmployeeManagementScreen({
           </Pressable>
         </View>
       </View>
+
+      {!isSubActive && (
+        <View style={styles.demoWarningBanner}>
+          <Ionicons name="lock-closed" size={18} color="#b45309" style={{ marginRight: 8 }} />
+          <Text style={styles.demoWarningBannerText}>
+            Versión Demo: Límite de personal de 2 empleados activos. Empleados adicionales deshabilitados.
+          </Text>
+        </View>
+      )}
 
       {loadingList ? (
         <View style={styles.centered}>
@@ -388,14 +430,27 @@ export function EmployeeManagementScreen({
             // No permitir auto-eliminar o auto-editar el admin OAuth activo directamente desde aquí
             const isSelf = emp.email === user?.email;
             const isOwner = ownerEmail !== null && emp.email === ownerEmail;
+
+            // Calcular índice para el límite de empleados activos
+            const localEmployees = employees.filter((e) => e.email !== ownerEmail);
+            const localIndex = localEmployees.findIndex((e) => e.id === emp.id);
+            const isBlocked = !isSubActive && localIndex >= 2 && !isOwner;
+
             return (
-              <View key={emp.id} style={styles.employeeCard}>
+              <View key={emp.id} style={[styles.employeeCard, isBlocked && styles.employeeCardBlocked]}>
                 <View style={styles.empInfo}>
-                  <Text style={styles.empName}>
-                    {emp.name}{' '}
-                    {isSelf && <Text style={styles.selfTag}>(Tú)</Text>}
-                  </Text>
-                  <Text style={styles.empEmail}>{emp.email}</Text>
+                  <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                    <Text style={[styles.empName, isBlocked && styles.empNameBlocked]}>
+                      {emp.name}{' '}
+                      {isSelf && <Text style={styles.selfTag}>(Tú)</Text>}
+                    </Text>
+                    {isBlocked && (
+                      <Ionicons name="lock-closed" size={13} color="#b45309" style={{ marginLeft: 6 }} />
+                    )}
+                  </View>
+                  {ownerEmail !== null && emp.email === ownerEmail && (
+                    <Text style={styles.empEmail}>{emp.email}</Text>
+                  )}
                   <View style={styles.tagsRow}>
                     <View style={styles.roleTag}>
                       <Text style={styles.roleTagText}>
@@ -421,15 +476,33 @@ export function EmployeeManagementScreen({
                 {!isSelf && (
                   <View style={styles.empActions}>
                     <Pressable
-                      style={styles.editButton}
-                      onPress={() => handleEditEmployee(emp)}
+                      style={[styles.editButton, isBlocked && styles.editButtonBlocked]}
+                      onPress={() => {
+                        if (isBlocked) {
+                          Alert.alert(
+                            'Suscripción requerida',
+                            'Este empleado (nro. ' + (localIndex + 1) + ') supera el límite de 2 de la versión Demo y está inactivo. Activa la versión completa para desbloquearlo.'
+                          );
+                          return;
+                        }
+                        handleEditEmployee(emp);
+                      }}
                     >
                       <Text style={styles.editButtonText}>Editar</Text>
                     </Pressable>
                     {!isOwner ? (
                       <Pressable
-                        style={styles.deleteButton}
-                        onPress={() => handleDeleteEmployee(emp)}
+                        style={[styles.deleteButton, isBlocked && styles.deleteButtonBlocked]}
+                        onPress={() => {
+                          if (isBlocked) {
+                            Alert.alert(
+                              'Suscripción requerida',
+                              'Este empleado está deshabilitado en versión Demo. Activa la versión completa para desbloquear la gestión.'
+                            );
+                            return;
+                          }
+                          handleDeleteEmployee(emp);
+                        }}
                       >
                         <Text style={styles.deleteButtonText}>Baja</Text>
                       </Pressable>
@@ -502,6 +575,7 @@ const getStyles = (colors: ThemeColors, isDark: boolean) =>
     },
     listContainer: {
       padding: 20,
+      paddingBottom: 130,
       gap: 12,
     },
     employeeCard: {
@@ -646,6 +720,7 @@ const getStyles = (colors: ThemeColors, isDark: boolean) =>
     },
     formContainer: {
       padding: 20,
+      paddingBottom: 130,
     },
     card: {
       padding: 18,
@@ -717,5 +792,54 @@ const getStyles = (colors: ThemeColors, isDark: boolean) =>
       color: isDark ? '#FFB4B4' : '#D32F2F',
       fontSize: 13,
       textAlign: 'center',
+    },
+    demoWarningBanner: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      backgroundColor: isDark ? 'rgba(245, 158, 11, 0.08)' : 'rgba(245, 158, 11, 0.05)',
+      borderWidth: 1,
+      borderColor: isDark ? 'rgba(245, 158, 11, 0.2)' : 'rgba(245, 158, 11, 0.15)',
+      borderRadius: radius.md,
+      padding: spacing.md,
+      marginHorizontal: spacing.lg,
+      marginBottom: spacing.md,
+    },
+    demoWarningBannerText: {
+      flex: 1,
+      color: isDark ? '#fcd34d' : '#b45309',
+      fontSize: 12,
+      fontWeight: '600',
+      lineHeight: 16,
+    },
+    demoWarningFormBanner: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      backgroundColor: isDark ? 'rgba(245, 158, 11, 0.08)' : 'rgba(245, 158, 11, 0.05)',
+      borderWidth: 1,
+      borderColor: isDark ? 'rgba(245, 158, 11, 0.2)' : 'rgba(245, 158, 11, 0.15)',
+      borderRadius: radius.md,
+      padding: spacing.md,
+      marginBottom: spacing.md,
+    },
+    demoWarningFormBannerText: {
+      flex: 1,
+      color: isDark ? '#fcd34d' : '#b45309',
+      fontSize: 12,
+      fontWeight: '600',
+      lineHeight: 16,
+    },
+    employeeCardBlocked: {
+      opacity: 0.5,
+      backgroundColor: isDark ? 'rgba(255, 255, 255, 0.01)' : 'rgba(0, 0, 0, 0.01)',
+    },
+    empNameBlocked: {
+      color: colors.textMuted,
+      textDecorationLine: 'line-through',
+    },
+    editButtonBlocked: {
+      backgroundColor: colors.border,
+    },
+    deleteButtonBlocked: {
+      backgroundColor: colors.border,
     },
   });

@@ -5,12 +5,13 @@ import {
   ReactNode,
   useEffect,
 } from 'react';
+import { Alert } from 'react-native';
 import { type SQLiteDatabase, useSQLiteContext } from 'expo-sqlite';
 import * as WebBrowser from 'expo-web-browser';
 import * as Linking from 'expo-linking';
 import { supabase } from '../api/supabase';
 import { apiConfig, setCachedToken } from '../api/client';
-import { setAppMeta, enqueueSyncOperation } from '../database';
+import { setAppMeta, enqueueSyncOperation, getAppMeta } from '../database';
 import { createLocalId } from '../utils/ids';
 import { runSync } from '../sync';
 
@@ -29,7 +30,7 @@ async function migrateLocalUsers(
   // Re-tag all non-seed local users with the real tenant_id
   await db.runAsync(
     `UPDATE users SET tenant_id = $real_tenant_id
-     WHERE tenant_id = 'local' AND email NOT LIKE '%@pos.local'`,
+     WHERE tenant_id = 'local' AND email NOT IN ('admin@pos.local', 'cajero@pos.local')`,
     { $real_tenant_id: realTenantId },
   );
 
@@ -231,6 +232,36 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       );
 
       if (row) {
+        // Validar límite de empleados si la suscripción no está activa
+        const cachedStatus = await getAppMeta<string>(db, `tenant_subscription_status_${row.tenant_id}`);
+        const endsAtStr = await getAppMeta<string>(db, `tenant_subscription_ends_at_${row.tenant_id}`);
+        const endsAt = endsAtStr ? parseInt(endsAtStr, 10) : 0;
+        const active = cachedStatus === 'active' && (endsAt === 0 || endsAt > Date.now());
+
+        if (!active) {
+          const ownerEmail = await getAppMeta<string>(db, `tenant_owner_email_${row.tenant_id}`);
+          if (row.email !== ownerEmail) {
+            // Obtener todos los empleados activos ordenados por fecha de creación
+            const allEmployees = await db.getAllAsync<{ id: string; email: string }>(
+              `SELECT id, email FROM users WHERE (tenant_id = $tenantId OR tenant_id = 'local') AND is_active = 1 ORDER BY created_at ASC`,
+              { $tenantId: row.tenant_id }
+            );
+
+            // Filtrar empleados locales (que no sean el dueño)
+            const localEmployees = allEmployees.filter((e) => e.email !== ownerEmail);
+            const localIndex = localEmployees.findIndex((e) => e.id === row.id);
+
+            // Bloquear si supera la posición 2 de personal Demo
+            if (localIndex >= 2) {
+              Alert.alert(
+                'Acceso denegado (Versión Demo)',
+                'Este empleado está inactivo porque supera el límite de 2 usuarios de la versión de prueba. Activa la versión completa para habilitar su acceso.'
+              );
+              return false;
+            }
+          }
+        }
+
         setUser(row);
         return true;
       }

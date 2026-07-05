@@ -29,6 +29,7 @@ import { useAuth } from '../context/AuthContext';
 import { Button } from '../components/ui/Button';
 import { EmptyState } from '../components/ui/EmptyState';
 import { Badge } from '../components/ui/Badge';
+import { getAppMeta } from '../database';
 
 type ProductsView = 'list' | 'form' | 'adjust' | 'labels';
 
@@ -61,6 +62,7 @@ export function ProductsScreen({ onNavigate, navigationParams }: ProductsScreenP
   const [actionMenuVisible, setActionMenuVisible] = useState(false);
   const [isExporting, setIsExporting] = useState(false);
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
+  const [isSubActive, setIsSubActive] = useState<boolean>(true);
 
   const tenantId = user?.tenant_id || 'local';
 
@@ -205,7 +207,7 @@ export function ProductsScreen({ onNavigate, navigationParams }: ProductsScreenP
        FROM products p
        LEFT JOIN categories c ON p.category_id = c.id
        WHERE p.tenant_id = $tenant_id AND p.is_active = 1
-       ORDER BY p.updated_at DESC`,
+       ORDER BY p.created_at ASC`,
       { $tenant_id: tenantId }
     );
     setProducts(rows);
@@ -225,6 +227,16 @@ export function ProductsScreen({ onNavigate, navigationParams }: ProductsScreenP
     async function load() {
       try {
         setLoading(true);
+        
+        // Consultar el estado de la suscripción
+        const cachedStatus = await getAppMeta<string>(db, `tenant_subscription_status_${tenantId}`);
+        const endsAtStr = await getAppMeta<string>(db, `tenant_subscription_ends_at_${tenantId}`);
+        const endsAt = endsAtStr ? parseInt(endsAtStr, 10) : 0;
+        const active = cachedStatus === 'active' && (endsAt === 0 || endsAt > Date.now());
+        if (mounted) {
+          setIsSubActive(active);
+        }
+
         await refreshProducts();
         if (mounted) {
           setErrorMessage(null);
@@ -375,11 +387,27 @@ export function ProductsScreen({ onNavigate, navigationParams }: ProductsScreenP
           Consultá, buscá por código de barras o cargá nuevos productos.
         </Text>
 
+        {!isSubActive && (
+          <View style={styles.demoWarningBanner}>
+            <Ionicons name="lock-closed" size={18} color="#b45309" style={{ marginRight: 8 }} />
+            <Text style={styles.demoWarningBannerText}>
+              Versión Demo: Catálogo limitado a 20 productos. Los productos excedentes están bloqueados con un candado.
+            </Text>
+          </View>
+        )}
+
         {!isCashier && (
           <Button
             label="Nuevo producto"
             icon="add-circle-outline"
             onPress={() => {
+              if (!isSubActive && products.length >= 20) {
+                Alert.alert(
+                  'Límite de productos alcanzado',
+                  'La versión Demo está limitada a un máximo de 20 productos. Activa la versión completa para cargar productos de forma ilimitada.'
+                );
+                return;
+              }
               setSelectedProduct(undefined);
               setView('form');
             }}
@@ -502,33 +530,53 @@ export function ProductsScreen({ onNavigate, navigationParams }: ProductsScreenP
             />
           ) : (
             <>
-              {visibleProducts.map((product) => (
-                <Pressable
-                  key={product.id}
-                  style={styles.productRow}
-                  onPress={() => {
-                    if (isCashier) return;
-                    setSelectedProduct(product);
-                    setActionMenuVisible(true);
-                  }}
-                >
-                  <View style={styles.productInfo}>
-                    <Text style={styles.productName}>{product.name}</Text>
-                    <Text style={styles.productMeta}>
-                      Stock: {product.stock} {product.unit} ·{' '}
-                      {product.barcode || 'Sin código'}
-                    </Text>
-                  </View>
-                  <View style={styles.priceContainer}>
-                    <Text style={styles.productPrice}>
-                      $ {product.sale_price.toFixed(2)}
-                    </Text>
-                    {!isCashier && (
-                      <Text style={styles.editIndicator}>Gestionar →</Text>
-                    )}
-                  </View>
-                </Pressable>
-              ))}
+              {visibleProducts.map((product) => {
+                const globalIndex = products.findIndex((p) => p.id === product.id);
+                const isBlocked = !isSubActive && globalIndex >= 20;
+                
+                return (
+                  <Pressable
+                    key={product.id}
+                    style={[styles.productRow, isBlocked && styles.productRowBlocked]}
+                    onPress={() => {
+                      if (isBlocked) {
+                        Alert.alert(
+                          'Suscripción requerida',
+                          'Este producto (nro. ' + (globalIndex + 1) + ') supera el límite de la versión Demo y está bloqueado. Activa la versión completa para desbloquearlo.'
+                        );
+                        return;
+                      }
+                      if (isCashier) return;
+                      setSelectedProduct(product);
+                      setActionMenuVisible(true);
+                    }}
+                  >
+                    <View style={styles.productInfo}>
+                      <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                        <Text style={[styles.productName, isBlocked && styles.productNameBlocked]}>{product.name}</Text>
+                        {isBlocked && (
+                          <Ionicons name="lock-closed" size={13} color="#b45309" style={{ marginLeft: 6 }} />
+                        )}
+                      </View>
+                      <Text style={styles.productMeta}>
+                        Stock: {product.stock} {product.unit} ·{' '}
+                        {product.barcode || 'Sin código'}
+                      </Text>
+                    </View>
+                    <View style={styles.priceContainer}>
+                      <Text style={[styles.productPrice, isBlocked && styles.productPriceBlocked]}>
+                        $ {product.sale_price.toFixed(2)}
+                      </Text>
+                      {!isCashier && !isBlocked && (
+                        <Text style={styles.editIndicator}>Gestionar →</Text>
+                      )}
+                      {isBlocked && (
+                        <Text style={styles.blockedBadgeLabel}>Bloqueado</Text>
+                      )}
+                    </View>
+                  </Pressable>
+                );
+              })}
 
               {/* Botones de navegación Anterior / Siguiente */}
               {filteredProducts.length > PAGE_SIZE && (
@@ -967,5 +1015,40 @@ const getStyles = (colors: ThemeColors, isDark: boolean) =>
     },
     categoryChipTextActive: {
       color: isDark ? '#EAF4FF' : colors.primary,
+    },
+    demoWarningBanner: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      backgroundColor: isDark ? 'rgba(245, 158, 11, 0.08)' : 'rgba(245, 158, 11, 0.05)',
+      borderWidth: 1,
+      borderColor: isDark ? 'rgba(245, 158, 11, 0.2)' : 'rgba(245, 158, 11, 0.15)',
+      borderRadius: radius.md,
+      padding: spacing.md,
+      marginBottom: spacing.md,
+    },
+    demoWarningBannerText: {
+      flex: 1,
+      color: isDark ? '#fcd34d' : '#b45309',
+      fontSize: 12,
+      fontWeight: '600',
+      lineHeight: 16,
+    },
+    productRowBlocked: {
+      opacity: 0.5,
+      backgroundColor: isDark ? 'rgba(255, 255, 255, 0.01)' : 'rgba(0, 0, 0, 0.01)',
+    },
+    productNameBlocked: {
+      color: colors.textMuted,
+      textDecorationLine: 'line-through',
+    },
+    productPriceBlocked: {
+      color: colors.textMuted,
+    },
+    blockedBadgeLabel: {
+      color: isDark ? '#fcd34d' : '#b45309',
+      fontSize: 10,
+      fontWeight: '800',
+      textTransform: 'uppercase',
+      marginTop: 2,
     },
   });
