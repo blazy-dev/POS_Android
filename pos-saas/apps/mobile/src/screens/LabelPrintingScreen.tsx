@@ -15,6 +15,7 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import * as Print from 'expo-print';
 import * as Sharing from 'expo-sharing';
+import * as FileSystem from 'expo-file-system';
 import { useSQLiteContext } from 'expo-sqlite';
 import type { ProductRecord } from '../database/types';
 import { radius, spacing, fontSize, fontWeight, ThemeColors } from '../theme/tokens';
@@ -218,6 +219,21 @@ export function LabelPrintingScreen({ products, onBack }: LabelPrintingScreenPro
 
     setIsGenerating(true);
     try {
+      // Intentar leer y codificar el logo propio a Base64 para inyectarlo en el HTML de la Webview de expo-print
+      let base64LogoDataUrl = '';
+      if (config.logoType === 'own' && logoOwnUri) {
+        try {
+          const base64Str = await FileSystem.readAsStringAsync(logoOwnUri, {
+            encoding: 'base64',
+          });
+          const ext = logoOwnUri.split('.').pop()?.toLowerCase() || 'png';
+          const mimeType = ext === 'jpg' || ext === 'jpeg' ? 'image/jpeg' : 'image/png';
+          base64LogoDataUrl = `data:${mimeType};base64,${base64Str}`;
+        } catch (err) {
+          console.error('[PDF] Error al convertir logo a base64:', err);
+        }
+      }
+
       const flatLabels: { name: string; price: string; barcode: string }[] = [];
       queue.forEach(({ product, quantity }) => {
         for (let i = 0; i < quantity; i++) {
@@ -229,7 +245,7 @@ export function LabelPrintingScreen({ products, onBack }: LabelPrintingScreenPro
         }
       });
 
-            const previewHeight = config.labelSize === 'custom'
+      const previewHeight = config.labelSize === 'custom'
         ? Math.round(250 * (config.customHeight / config.customWidth))
         : (config.labelSize === 'large' ? 166 : 150);
       
@@ -338,9 +354,9 @@ export function LabelPrintingScreen({ products, onBack }: LabelPrintingScreenPro
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="width: 100%; height: 100%;"><circle cx="9" cy="21" r="1"></circle><circle cx="20" cy="21" r="1"></circle><path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"></path></svg>
             </div>
           `;
-        } else if (config.logoType === 'own' && logoOwnUri) {
+        } else if (config.logoType === 'own' && base64LogoDataUrl) {
           logoHtml = `
-            <img src="${logoOwnUri}" style="left: ${logoLMm}mm; top: ${logoTMm}mm; width: ${logoSizeMm}mm; height: ${logoSizeMm}mm; object-fit: contain; position: absolute;" />
+            <img src="${base64LogoDataUrl}" style="left: ${logoLMm}mm; top: ${logoTMm}mm; width: ${logoSizeMm}mm; height: ${logoSizeMm}mm; object-fit: contain; position: absolute;" />
           `;
         }
 
