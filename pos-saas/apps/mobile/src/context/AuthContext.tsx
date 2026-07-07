@@ -9,6 +9,7 @@ import { Alert } from 'react-native';
 import { type SQLiteDatabase, useSQLiteContext } from 'expo-sqlite';
 import * as WebBrowser from 'expo-web-browser';
 import * as Linking from 'expo-linking';
+import * as SecureStore from 'expo-secure-store';
 import { supabase } from '../api/supabase';
 import { apiConfig, setCachedToken } from '../api/client';
 import { setAppMeta, enqueueSyncOperation, getAppMeta } from '../database';
@@ -193,6 +194,27 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     async function restoreSession() {
       try {
+        // Intentar restaurar sesión offline-first usando nuestro almacenamiento seguro local
+        const savedToken = await SecureStore.getItemAsync('custom_access_token');
+        const savedUserId = await SecureStore.getItemAsync('logged_in_user_id');
+
+        if (savedToken && savedUserId) {
+          console.log('[AUTH] Restaurando sesión localmente persistida para:', savedUserId);
+          setCachedToken(savedToken);
+          const localUser = await db.getFirstAsync<User>(
+            `SELECT id, tenant_id, name, email, role
+             FROM users
+             WHERE id = $id AND is_active = 1`,
+            { $id: savedUserId },
+          );
+
+          if (localUser) {
+            setUser(localUser);
+            return;
+          }
+        }
+
+        // Fallback al cliente de Supabase si no se encuentra sesión local manual
         const {
           data: { session },
         } = await supabase.auth.getSession();
@@ -283,6 +305,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       console.log('[AUTH] supabaseUrl:', apiConfig.supabaseUrl);
       console.log('[AUTH] backendUrl:', apiConfig.baseUrl);
 
+      // Escuchar deep links entrantes de forma paralela por si Android retorna "dismiss"
+      let capturedUrl: string | null = null;
+      const subscription = Linking.addEventListener('url', (event) => {
+        console.log('[AUTH] Deep link interceptado:', event.url);
+        capturedUrl = event.url;
+      });
+
       // Construir URL de OAuth manualmente y abrir navegador directo
       // EVITAMOS supabase.auth.signInWithOAuth() y supabase.auth.setSession()
       // porque esos metodos internamente llaman fetch() a Supabase desde el celu,
@@ -294,21 +323,27 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         oauthUrl,
         redirectUrl,
       );
+      
+      // Remover listener
+      subscription.remove();
       console.log('[AUTH] Resultado navegador:', result.type);
 
-      if (result.type === 'success' && result.url) {
-        console.log('[AUTH] Callback recibida');
+      const finalUrl = (result.type === 'success' && result.url) ? result.url : capturedUrl;
+
+      if (finalUrl) {
+        console.log('[AUTH] Callback recibida con URL:', finalUrl);
         const getParam = (url: string, param: string) => {
           const regex = new RegExp(`[#?&]${param}=([^&#]*)`);
           const results = regex.exec(url);
           return results ? decodeURIComponent(results[1]) : '';
         };
 
-        const accessToken = getParam(result.url, 'access_token');
+        const accessToken = getParam(finalUrl, 'access_token');
         console.log('[AUTH] accessToken:', accessToken ? 'SI' : 'NO');
 
         if (!accessToken) {
           console.error('[AUTH] No se recibio access_token en el callback');
+          Alert.alert('Error de Redirección', 'La URL recibida no contiene el token de acceso.');
           return false;
         }
 
@@ -328,10 +363,21 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         // El backend se encarga de validar el token via JWKS de Supabase.
 
         console.log('[AUTH] Verificando estado en backend...');
-        const statusRes = await fetch(`${apiConfig.baseUrl}/auth/status`, {
-          method: 'GET',
-          headers: { Authorization: `Bearer ${accessToken}` },
-        });
+        let statusRes;
+        try {
+          statusRes = await fetch(`${apiConfig.baseUrl}/auth/status`, {
+            method: 'GET',
+            headers: { Authorization: `Bearer ${accessToken}` },
+          });
+        } catch (fetchErr) {
+          console.error('[AUTH] Error de conexion con backend:', fetchErr);
+          Alert.alert(
+            'Error de Conexión',
+            `No se pudo contactar al backend en ${apiConfig.baseUrl}.\n\nDetalle: ${fetchErr instanceof Error ? fetchErr.message : String(fetchErr)}`
+          );
+          return false;
+        }
+
         console.log('[AUTH] Backend status:', statusRes.status);
 
         if (!statusRes.ok) {
@@ -340,6 +386,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             '[AUTH] Backend error:',
             statusRes.status,
             errText.slice(0, 200),
+          );
+          Alert.alert(
+            'Error del Backend',
+            `Código HTTP: ${statusRes.status}\nRespuesta: ${errText.slice(0, 150)}`
           );
           throw new Error(`Backend respondio con ${statusRes.status}`);
         }
@@ -354,6 +404,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           console.log('[AUTH] Usuario existe, sincronizando perfil...');
           const synced = await syncWithBackend(db, accessToken);
           if (synced) {
+            // Guardar en SecureStore para persistencia offline-first
+            await SecureStore.setItemAsync('custom_access_token', accessToken);
+            await SecureStore.setItemAsync('logged_in_user_id', statusData.data.user.id);
+
             // Migrar usuarios locales al tenant real y encolarlos para sync
             try {
               await migrateLocalUsers(
@@ -382,9 +436,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         result.type,
         ')',
       );
+      Alert.alert(
+        'Flujo Cancelado',
+        `El navegador se cerró sin completar la autenticación. Tipo de cierre: ${result.type}.`
+      );
       return false;
     } catch (err) {
       console.error('[AUTH] Error al iniciar sesión con Google:', err);
+      Alert.alert(
+        'Error Inesperado',
+        `Ocurrió un error inesperado durante el login con Google.\n\nDetalle: ${err instanceof Error ? err.message : String(err)}`
+      );
       return false;
     } finally {
       setLoading(false);
@@ -479,6 +541,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
       await setAppMeta(db, `tenant_${apiData.tenant.id}`, apiData.tenant.name);
 
+      // Guardar en SecureStore para persistencia offline-first de sesión de onboarding
+      await SecureStore.setItemAsync('custom_access_token', onboardingToken);
+      await SecureStore.setItemAsync('logged_in_user_id', userProfile.id);
+
       setUser(userProfile);
       setOnboardingToken(null);
 
@@ -508,6 +574,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   async function logout() {
     setCachedToken(null);
+    try {
+      await SecureStore.deleteItemAsync('custom_access_token');
+      await SecureStore.deleteItemAsync('logged_in_user_id');
+    } catch (e) {
+      // ignorar error de almacenamiento
+    }
     try {
       await supabase.auth.signOut();
     } catch (e) {

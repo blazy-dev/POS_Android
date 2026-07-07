@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
+  Image,
   Pressable,
   SafeAreaView,
   StyleSheet,
@@ -49,7 +50,7 @@ export function LoginScreen() {
       if (!success) {
         setTimeout(() => {
           setPin('');
-          setErrorMsg('PIN incorrecto. ReintentÃ¡.');
+          setErrorMsg('PIN incorrecto. Reintentá.');
         }, 300);
       }
     }
@@ -88,7 +89,11 @@ export function LoginScreen() {
         {/* â”€â”€ Marca â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
         <View style={styles.header}>
           <View style={styles.logoContainer}>
-            <Ionicons name="storefront-outline" size={26} color={colors.text} />
+            <Image
+              source={require('../../assets/logo.png')}
+              style={styles.logoImage}
+              resizeMode="contain"
+            />
           </View>
           <Text style={styles.brandName}>POS SaaS</Text>
           {tenantName ? (
@@ -122,7 +127,7 @@ export function LoginScreen() {
             ) : errorMsg ? (
               <Text style={styles.errorText}>{errorMsg}</Text>
             ) : (
-              <Text style={styles.hintText}>PIN demo: admin 1234 Â· cajero 4321</Text>
+              <Text style={styles.hintText}>PIN demo: admin 1234 · cajero 4321</Text>
             )}
           </View>
 
@@ -177,7 +182,7 @@ export function LoginScreen() {
             ]}
             onPress={async () => {
               const success = await loginWithGoogle(db);
-              if (!success) setErrorMsg('Error al iniciar sesiÃ³n con Google.');
+              if (!success) setErrorMsg('Error al iniciar sesión con Google.');
             }}
             disabled={loading}
           >
@@ -228,6 +233,11 @@ const getStyles = (colors: ThemeColors, isDark: boolean) =>
       alignItems: 'center',
       justifyContent: 'center',
       marginBottom: 4,
+      overflow: 'hidden',
+    },
+    logoImage: {
+      width: '100%',
+      height: '100%',
     },
     brandName: {
       color: colors.text,
