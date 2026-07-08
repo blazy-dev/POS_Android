@@ -2,9 +2,7 @@ version: '3.8'
 
 services:
   nestjs_app:
-    build:
-      context: ./backend
-      dockerfile: ./Dockerfile
+    image: ghcr.io/blazy-dev/pos-backend:latest
     container_name: nestjs_app
     restart: always
     env_file:
@@ -15,9 +13,7 @@ services:
       - pos_network
 
   nextjs_app:
-    build:
-      context: ./web
-      dockerfile: ./Dockerfile
+    image: ghcr.io/blazy-dev/pos-web:latest
     container_name: nextjs_app
     restart: always
     expose:

@@ -48,6 +48,19 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Copy docker-compose.yml and nginx.conf to VPS
+        uses: appleboy/scp-action@v0.1.7
+        with:
+          host: ${{ secrets.VPS_IP }}
+          username: ${{ secrets.VPS_USER }}
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          source: "produccion/backend/docker-compose.yml,produccion/backend/nginx.conf"
+          target: "/srv/pos-saas/"
+          strip_components: 2
+
       - name: Deploy to VPS via SSH
         uses: appleboy/ssh-action@v1.0.3
         with:
