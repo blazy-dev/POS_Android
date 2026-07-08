@@ -57,7 +57,6 @@ jobs:
           host: ${{ secrets.VPS_IP }}
           username: ${{ secrets.VPS_USER }}
           key: ${{ secrets.SSH_PRIVATE_KEY }}
-          passphrase: ${{ secrets.SSH_PASSPHRASE }}
           source: "produccion/backend/docker-compose.yml,produccion/backend/nginx.conf"
           target: "/srv/pos-saas/"
           strip_components: 2
@@ -68,7 +67,6 @@ jobs:
           host: ${{ secrets.VPS_IP }}
           username: ${{ secrets.VPS_USER }}
           key: ${{ secrets.SSH_PRIVATE_KEY }}
-          passphrase: ${{ secrets.SSH_PASSPHRASE }}
           script: |
             cd /srv/pos-saas
             # Loguearse a GitHub Registry desde el VPS para poder descargar las imágenes
