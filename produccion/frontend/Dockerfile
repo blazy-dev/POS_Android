@@ -6,6 +6,8 @@ COPY package*.json pnpm-lock.yaml* ./
 RUN pnpm install --no-frozen-lockfile
 COPY . .
 ENV NEXT_PUBLIC_API_URL=https://api.ventu.ar/api/v1
+ENV NEXT_PUBLIC_SUPABASE_URL=https://dukyedgoyshhtjkuphow.supabase.co
+ENV NEXT_PUBLIC_SUPABASE_ANON_KEY=sb_publishable_VqVvijnn9uzhCjaAUJgvaw_FqZ_2jyA
 RUN pnpm build
 
 # Estadio 2: Ejecución
