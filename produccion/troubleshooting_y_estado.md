@@ -147,12 +147,42 @@ Este documento resume el estado actual del despliegue del backend en la etapa **
   1. Mapear explícitamente las dependencias requeridas para la compilación (`vitest`, `jsdom`, `@vitejs/plugin-react`, `@testing-library/*`) dentro del campo `devDependencies` de la app frontend en [package.json](file:///c:/Users/juanj/Desktop/Proyecto%20POS%20global/POS_Android/pos-saas/apps/web/package.json).
   2. Ajustar el `Dockerfile` del frontend para instalar usando el flag `--no-frozen-lockfile` ya que el archivo lockfile local no contenía la sincronización de estas nuevas dependencias.
 
-### Error 2.12. Nginx no inicia con error `cannot load certificate ... No such file or directory`
-* **Síntoma**: El contenedor `nginx_proxy` entra en ciclo infinito de reinicio mostrando en logs:
+### Error 2.13. Compilación de Next.js falló en GitHub Actions por variables de Supabase ausentes
+* **Síntoma**:
   ```text
-  cannot load certificate "/etc/letsencrypt/live/ventu.ar/fullchain.pem": BIO_new_file() failed ... No such file or directory
+  Export encountered an error on /_not-found/page: /_not-found, exiting the build.
+  Next.js build worker exited with code: 1
   ```
-* **Causa**: El comando de Certbot standalone utilizó un montaje físico del disco del host (`/srv/pos-saas/certbot_etc`), mientras que `docker-compose.yml` montaba un volumen nombrado virtual de Docker (`certbot_etc`). Al estar el volumen virtual vacío, Nginx no tenía acceso a los certificados reales guardados en el disco.
-* **Solución**: Actualizar `docker-compose.yml` para reemplazar el volumen nombrado virtual por montajes de carpetas locales reales del host (`./certbot_etc` y `./certbot_var`).
+* **Causa**: Al realizar la compilación estática (`next build`) en los servidores de GitHub Actions, el código intentaba inicializar el cliente de Supabase (`createClient`). Dado que el archivo `.env.production` está ignorado en Git por seguridad, las variables de entorno públicas `NEXT_PUBLIC_SUPABASE_URL` y `NEXT_PUBLIC_SUPABASE_ANON_KEY` estaban vacías, causando una excepción fatal durante el build.
+* **Solución**: Inyectar las variables públicas de Supabase directamente a nivel del Dockerfile del frontend (`produccion/frontend/Dockerfile`) utilizando directivas `ENV` antes del comando de build.
+
+### Error 2.14. Despliegue fallaba al intentar descifrar llave SSH protegida por contraseña
+* **Síntoma**:
+  ```text
+  ssh.ParsePrivateKey: ssh: this private key is passphrase protected
+  ssh: handshake failed: ssh: unable to authenticate
+  ```
+* **Causa**: El workflow de GitHub Actions estaba configurado para usar una llave SSH personal cifrada que requería una contraseña. A pesar de intentar agregar `SSH_PASSPHRASE`, la librería de SSH del pipeline no lograba descifrar la llave.
+* **Solución**: Generar una nueva llave SSH dedicada exclusivamente para el pipeline de GitHub Actions (`id_github_actions`) **sin contraseña**. Se agregó su versión pública (`.pub`) al archivo `/home/deploy/.ssh/authorized_keys` del VPS, y la versión privada a los Secrets de GitHub (`SSH_PRIVATE_KEY`), removiendo el parámetro `passphrase` del pipeline.
+
+### Error 2.15. Las actualizaciones de `docker-compose.yml` y `nginx.conf` no se aplicaban en el VPS
+* **Síntoma**:
+  ```text
+  drone-scp version: v1.6.14
+  ...
+  error copy file to dest: ..., error message: ssh: handshake failed
+  ```
+  *(O bien, las rutas de dominio seguían invertidas después del despliegue exitoso).*
+* **Causa**: Por defecto, la acción `appleboy/scp-action` tiene la opción `overwrite` desactivada (`false`). Los nuevos archivos de configuración subidos por GitHub Actions no sobreescribían los ya existentes en el VPS. Además, Nginx no recargaba automáticamente la configuración del archivo `nginx.conf` montado.
+* **Solución**:
+  1. Habilitar la opción `overwrite: true` en el paso de copia de archivos en `.github/workflows/deploy.yml`.
+  2. Agregar el comando de recarga segura `docker exec nginx_proxy nginx -s reload` al script del paso de despliegue para forzar a Nginx a leer la nueva configuración sin interrumpir el servicio.
+
+### Error 2.16. El inicio de sesión con Google en producción no redireccionaba al Dashboard web
+* **Síntoma**: Al iniciar sesión con Google en `https://ventu.ar`, el flujo se completaba en Google pero no devolvía al usuario al dashboard web del frontend, quedándose estancado o redirigiendo a `http://localhost:3000`.
+* **Causa**: Supabase bloquea redireccionamientos OAuth que no estén explícitamente en la lista de URLs seguras en su panel de administración. El proyecto solo tenía configurado el entorno local de desarrollo.
+* **Solución**: Ingresar al panel de Supabase -> **Authentication -> URL Configuration** y configurar:
+  * **Site URL**: `https://ventu.ar`
+  * **Redirect URLs**: Agregar `https://ventu.ar` y `https://ventu.ar/**`.
 
 
