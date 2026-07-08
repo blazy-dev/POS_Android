@@ -60,6 +60,7 @@ jobs:
           source: "produccion/backend/docker-compose.yml,produccion/backend/nginx.conf"
           target: "/srv/pos-saas/"
           strip_components: 2
+          overwrite: true
 
       - name: Deploy to VPS via SSH
         uses: appleboy/ssh-action@v1.0.3
@@ -75,5 +76,7 @@ jobs:
             docker compose pull
             # Levantar/Reiniciar los contenedores aplicando los cambios sin caída del servicio
             docker compose up -d --remove-orphans
+            # Recargar Nginx para aplicar cambios de nginx.conf
+            docker exec nginx_proxy nginx -s reload
             # Limpiar imágenes viejas que ya no sirven para ahorrar espacio en disco
             docker image prune -f
