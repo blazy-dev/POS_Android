@@ -1,0 +1,66 @@
+name: Deploy to DigitalOcean VPS
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  build-and-push:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      # 1. Compilar y subir el Backend
+      - name: Build and push Backend image
+        uses: docker/build-push-action@v5
+        with:
+          context: ./pos-saas/backend
+          file: ./produccion/backend/Dockerfile
+          push: true
+          tags: |
+            ghcr.io/${{ github.repository_owner }}/pos-backend:latest
+
+      # 2. Compilar y subir el Frontend Web
+      - name: Build and push Web image
+        uses: docker/build-push-action@v5
+        with:
+          context: ./pos-saas/apps/web
+          file: ./produccion/frontend/Dockerfile
+          push: true
+          tags: |
+            ghcr.io/${{ github.repository_owner }}/pos-web:latest
+
+  deploy:
+    needs: build-and-push
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Deploy to VPS via SSH
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.VPS_IP }}
+          username: ${{ secrets.VPS_USER }}
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          script: |
+            cd /srv/pos-saas
+            # Loguearse a GitHub Registry desde el VPS para poder descargar las imágenes
+            echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u ${{ github.actor }} --password-stdin
+            # Descargar las nuevas imágenes compiladas
+            docker compose pull
+            # Levantar/Reiniciar los contenedores aplicando los cambios sin caída del servicio
+            docker compose up -d --remove-orphans
+            # Limpiar imágenes viejas que ya no sirven para ahorrar espacio en disco
+            docker image prune -f
