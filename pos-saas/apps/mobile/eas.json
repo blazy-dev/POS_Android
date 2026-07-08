@@ -11,9 +11,20 @@
       "distribution": "internal",
       "android": {
         "buildType": "apk"
+      },
+      "env": {
+        "EXPO_PUBLIC_SUPABASE_URL": "https://dukyedgoyshhtjkuphow.supabase.co",
+        "EXPO_PUBLIC_SUPABASE_ANON_KEY": "sb_publishable_VqVvijnn9uzhCjaAUJgvaw_FqZ_2jyA",
+        "EXPO_PUBLIC_API_URL": "https://api.ventu.ar/api/v1"
       }
     },
-    "production": {}
+    "production": {
+      "env": {
+        "EXPO_PUBLIC_SUPABASE_URL": "https://dukyedgoyshhtjkuphow.supabase.co",
+        "EXPO_PUBLIC_SUPABASE_ANON_KEY": "sb_publishable_VqVvijnn9uzhCjaAUJgvaw_FqZ_2jyA",
+        "EXPO_PUBLIC_API_URL": "https://api.ventu.ar/api/v1"
+      }
+    }
   },
   "submit": {
     "production": {}

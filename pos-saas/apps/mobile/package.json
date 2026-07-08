@@ -29,6 +29,8 @@
   },
   "scripts": {
     "start": "expo start",
+    "start:dev": "copy .env.development .env && expo start --clear",
+    "start:prod": "copy .env.production .env && expo start --clear",
     "start:tunnel": "expo start --tunnel",
     "android": "expo start --android",
     "ios": "expo start --ios",
