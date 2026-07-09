@@ -79,7 +79,7 @@ export default function PrivacyPolicyPage() {
               Para solicitar la eliminación definitiva de tu cuenta y todos los datos asociados, por favor envíanos un correo a:
             </p>
             <p className="text-indigo-400 font-mono mt-1">
-              soporte@ventu.ar
+              tecno.juy.ar@gmail.com
             </p>
             <p className="mt-2">
               Procesaremos tu solicitud de eliminación dentro de un plazo máximo de 7 días hábiles, eliminando de forma definitiva todos tus registros de nuestra base de datos activa y respaldos.
@@ -103,7 +103,7 @@ export default function PrivacyPolicyPage() {
               Si tienes preguntas o inquietudes sobre esta Política de Privacidad, no dudes en contactarnos en:
             </p>
             <p className="text-indigo-400 font-mono mt-1">
-              soporte@ventu.ar
+              tecno.juy.ar@gmail.com
             </p>
           </div>
         </div>

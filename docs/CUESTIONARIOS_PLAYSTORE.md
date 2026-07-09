@@ -31,12 +31,12 @@ A continuación tienes las instrucciones exactas sobre cómo responder cada secc
 
 ### 2. Acceso a la Aplicación
 * **Pregunta:** ¿Parte de tu aplicación está restringida por credenciales de inicio de sesión u otras restricciones?
-* **Respuesta:** Selecciona **"Algunas funciones o todas están restringidas"** (ya que requiere iniciar sesión con usuario y contraseña).
+* **Respuesta:** Selecciona **"Algunas funciones o todas están restringidas"** (ya que requiere iniciar sesión).
 * **Configuración obligatoria:** Haz clic en **Agregar instrucciones** y provee los siguientes datos:
-  * **Nombre de la instrucción:** Acceso de prueba
-  * **Usuario / Correo de prueba:** (Escribe un correo de prueba existente en tu Supabase de producción, ej. `test-google@ventu.ar`)
-  * **Contraseña:** (La contraseña de esa cuenta de prueba)
-  * **Notas / Instrucciones:** *"Iniciar sesión con este usuario y contraseña para acceder al panel principal del POS (Punto de Venta) y probar las funciones de inventario y ventas offline."*
+  * **Nombre de la instrucción:** Acceso de prueba con PIN (Offline-First)
+  * **Usuario / Correo de prueba:** `admin@pos.local`
+  * **Contraseña:** `1234`
+  * **Notas / Instrucciones:** *"La aplicación cuenta con un teclado numérico en su pantalla de inicio. Para probar todas las funciones comerciales de la app con permisos de Administrador, introduzca el PIN de 4 dígitos '1234' en dicho teclado. No es necesario realizar la autenticación de Google para evaluar el funcionamiento del Punto de Venta (POS), la gestión de inventario y la base de datos local SQLite."*
 
 ### 3. Anuncios
 * **Pregunta:** ¿Tu app contiene anuncios?
@@ -93,7 +93,7 @@ A continuación tienes las instrucciones exactas sobre cómo responder cada secc
 ### 10. Categoría y Detalles de Contacto
 * **Tipo de app:** **Aplicación**.
 * **Categoría:** **Negocios** (Business) o **Productividad** (Productivity).
-* **Detalles de contacto:** Coloca un correo electrónico de soporte público (ej. `soporte@ventu.ar`).
+* **Detalles de contacto:** Coloca un correo electrónico de soporte público (ej. `tecno.juy.ar@gmail.com`).
 
 ### 11. Ficha de Play Store Principal
 *Aquí cargas el material de marketing de la app:*
