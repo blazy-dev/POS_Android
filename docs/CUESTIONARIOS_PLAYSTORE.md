@@ -107,5 +107,5 @@ A continuación tienes las instrucciones exactas sobre cómo responder cada secc
   * Compatibilidad con impresión de etiquetas/recibos.
 * **Activos gráficos:**
   * Sube el icono definitivo (PNG 512x512).
-  * Sube el banner promocional (1024x500).
+  * Sube el banner promocional (1024x500): Ya generado y disponible en [playstore_banner.png](file:///c:/Users/juanj/Desktop/Proyecto%20POS%20global/POS_Android/docs/playstore_banner.png).
   * Sube capturas de pantalla de la app (mínimo 2 capturas de celular, puedes tomar capturas limpias del emulador).
