@@ -173,6 +173,7 @@ export async function saveProduct(db: SQLiteDatabase, input: ProductInput) {
     },
   });
 
+  barcodeCache.clear();
   return productId;
 }
 
@@ -239,6 +240,7 @@ export async function updateProduct(
       unit: input.unit ?? 'unit',
     },
   });
+  barcodeCache.clear();
 }
 
 /**
@@ -362,7 +364,16 @@ export async function adjustStock(
       created_at: now,
     },
   });
+  barcodeCache.clear();
 }
+
+interface CacheEntry {
+  product: ProductRecord | null;
+  timestamp: number;
+}
+
+const barcodeCache = new Map<string, CacheEntry>();
+const CACHE_TTL_MS = 60000; // 60s en ms
 
 export async function findProductByBarcode(
   db: SQLiteDatabase,
@@ -375,7 +386,15 @@ export async function findProductByBarcode(
     return null;
   }
 
-  return db.getFirstAsync<ProductRecord>(
+  const cacheKey = `${tenantId}:${normalizedBarcode}`;
+  const cached = barcodeCache.get(cacheKey);
+  const now = Date.now();
+
+  if (cached && now - cached.timestamp < CACHE_TTL_MS) {
+    return cached.product;
+  }
+
+  const result = await db.getFirstAsync<ProductRecord>(
     `SELECT
       id,
       tenant_id,
@@ -396,6 +415,13 @@ export async function findProductByBarcode(
       $barcode: normalizedBarcode,
     },
   );
+
+  barcodeCache.set(cacheKey, {
+    product: result,
+    timestamp: now,
+  });
+
+  return result;
 }
 
 /**
@@ -432,4 +458,5 @@ export async function deleteProduct(
       tenant_id: tenantId,
     },
   });
+  barcodeCache.clear();
 }

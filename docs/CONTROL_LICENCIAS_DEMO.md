@@ -74,7 +74,7 @@ En la pantalla de Ajustes, si la cuenta posee el estado `'demo'` o `'expired'`, 
 * **Acción de Activación**: Un botón con el icono de WhatsApp (`logo-whatsapp`) y color de marca verde esmeralda.
 * **Integración de Enlace**:
   Al presionarse, el sistema construye y abre el siguiente enlace de API de WhatsApp:
-  `https://wa.me/5491132857002?text=Hola!%20Quiero%20activar%20la%20versión%20completa%20de%20mi%20POS.%20Mi%20ID%20de%20Comercio%20es:%20[TENANT_ID]`
+  `https://wa.me/5493884653500?text=Hola!%20Quiero%20activar%20la%20versión%20completa%20de%20mi%20POS.%20Mi%20ID%20de%20Comercio%20es:%20[TENANT_ID]`
   *(Donde `[TENANT_ID]` se reemplaza dinámicamente con el UUID del comercio del usuario actual).*
 
 ---

@@ -27,7 +27,6 @@ import type { ProductRecord, SaleRecord } from '../database/types';
 import { useAuth } from '../context/AuthContext';
 import { radius, spacing, fontSize, fontWeight, shadow, ThemeColors } from '../theme/tokens';
 import { useTheme } from '../context/ThemeContext';
-import { useBarcodeInput } from '../hooks/useBarcodeInput';
 import { findProductByBarcode, listProducts } from '../modules/products';
 import { getAppMeta } from '../database';
 import {
@@ -74,6 +73,17 @@ export function SalesScreen() {
   const styles = useMemo(() => getStyles(colors, isDark), [colors, isDark]);
 
   const searchInputRef = useRef<TextInput>(null);
+  const currentSearchText = useRef('');
+  const searchTimeoutRef = useRef<any>(null);
+
+  // Limpieza del timeout de búsqueda al desmontar el componente
+  useEffect(() => {
+    return () => {
+      if (searchTimeoutRef.current) {
+        clearTimeout(searchTimeoutRef.current);
+      }
+    };
+  }, []);
 
   // Estados de la sesión de caja
   const [activeSession, setActiveSession] = useState<CashRegisterRecord | null>(
@@ -170,15 +180,21 @@ export function SalesScreen() {
         trimmed,
         user?.tenant_id || 'local',
       );
+      if (searchTimeoutRef.current) {
+        clearTimeout(searchTimeoutRef.current);
+      }
+      
+      // Limpiar input y estados inmediatamente para rapidez nativa
+      currentSearchText.current = '';
+      searchInputRef.current?.clear();
+      setSearchQuery('');
+      setSearchResults([]);
+
       if (product) {
         addToCart(product);
-        setSearchQuery('');
-        setSearchResults([]);
       } else {
         void playErrorSound();
         triggerShake();
-        setSearchQuery(''); // Limpia el input si falla
-        setSearchResults([]);
         setErrorMsg(`Producto con código ${trimmed} no encontrado.`);
         setTimeout(() => setErrorMsg(null), 3000);
       }
@@ -193,22 +209,31 @@ export function SalesScreen() {
     }
   };
 
-  const { handleKeyPress } = useBarcodeInput({ onScan: handleBarcodeScan });
 
   // Maneja la búsqueda de productos al escribir
   const handleSearch = (text: string) => {
-    setSearchQuery(text);
+    currentSearchText.current = text;
+
+    if (searchTimeoutRef.current) {
+      clearTimeout(searchTimeoutRef.current);
+    }
+
     if (!text.trim()) {
+      setSearchQuery('');
       setSearchResults([]);
       return;
     }
 
-    const filtered = allProducts.filter(
-      (p) =>
-        p.name.toLowerCase().includes(text.toLowerCase()) ||
-        (p.barcode?.toLowerCase().includes(text.toLowerCase()) ?? false),
-    );
-    setSearchResults(filtered);
+    // Debounce de 250ms para actualizar el estado de búsqueda y filtrar el catálogo
+    searchTimeoutRef.current = setTimeout(() => {
+      setSearchQuery(text);
+      const filtered = allProducts.filter(
+        (p) =>
+          p.name.toLowerCase().includes(text.toLowerCase()) ||
+          (p.barcode?.toLowerCase().includes(text.toLowerCase()) ?? false),
+      );
+      setSearchResults(filtered);
+    }, 250);
   };
 
   // Carrito: agregar producto
@@ -222,6 +247,8 @@ export function SalesScreen() {
         'Suscripción requerida',
         'Este producto (nro. ' + (globalIndex + 1) + ') supera el límite de la versión Demo y está bloqueado. Activa la versión completa para desbloquearlo.'
       );
+      currentSearchText.current = '';
+      searchInputRef.current?.clear();
       setSearchQuery('');
       setSearchResults([]);
       return;
@@ -233,6 +260,8 @@ export function SalesScreen() {
     if (product.stock < currentQty + 1) {
       void playErrorSound();
       triggerShake();
+      currentSearchText.current = '';
+      searchInputRef.current?.clear();
       setSearchQuery(''); // Limpia el input por falta de stock
       setSearchResults([]);
       setErrorMsg(
@@ -242,8 +271,7 @@ export function SalesScreen() {
       return;
     }
 
-    // Animación suave de entrada nativa
-    LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
+    // setCart sin LayoutAnimation para mayor velocidad nativa
     setCart((current) => {
       const exists = current.find((item) => item.product.id === product.id);
       if (exists) {
@@ -263,7 +291,6 @@ export function SalesScreen() {
 
   // Carrito: modificar cantidad
   const updateQuantity = (productId: string, delta: number) => {
-    LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
     setCart((current) => {
       return current
         .map((item) => {
@@ -290,7 +317,6 @@ export function SalesScreen() {
 
   // Carrito: eliminar ítem
   const removeProduct = (productId: string) => {
-    LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
     setCart((current) =>
       current.filter((item) => item.product.id !== productId),
     );
@@ -428,6 +454,11 @@ export function SalesScreen() {
       // Refresca catálogo de productos en memoria para actualizar stock
       const catalog = await listProducts(db, tenantId);
       setAllProducts(catalog);
+      
+      // Auto-enfoque inmediato después de finalizar la venta
+      setTimeout(() => {
+        searchInputRef.current?.focus();
+      }, 100);
     } catch (err) {
       setErrorMsg(
         err instanceof Error ? err.message : 'Error al registrar la venta.',
@@ -586,17 +617,18 @@ export function SalesScreen() {
         <View style={styles.searchBarContainer}>
           <TextInput
             ref={searchInputRef}
-            value={searchQuery}
             onChangeText={handleSearch}
-            onKeyPress={handleKeyPress}
             onSubmitEditing={() => {
-              void handleBarcodeScan(searchQuery);
+              void handleBarcodeScan(currentSearchText.current);
             }}
             placeholder="Escaneá código o buscá por nombre..."
             placeholderTextColor="#708090"
             style={styles.searchInput}
             autoCapitalize="none"
             autoCorrect={false}
+            spellCheck={false}
+            autoComplete="off"
+            keyboardType="visible-password"
             returnKeyType="search"
             blurOnSubmit={false}
           />
@@ -634,6 +666,8 @@ export function SalesScreen() {
                         return;
                       }
                       addToCart(item);
+                      currentSearchText.current = '';
+                      searchInputRef.current?.clear();
                       setSearchQuery('');
                       setSearchResults([]);
                     }}

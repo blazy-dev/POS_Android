@@ -34,12 +34,15 @@ const CASH_REGISTERS_TABLE = 'cash_registers';
  * @param db Instancia de la base de datos SQLite proporcionada por expo-sqlite
  */
 export async function initializeDatabase(db: SQLiteDatabase) {
-  // Configura optimizaciones de SQLite:
   // - WAL (Write-Ahead Logging) para permitir lecturas concurrentes con escrituras y mejor rendimiento.
   // - ON (Foreign Keys) para forzar la integridad referencial en relaciones.
+  // - synchronous = NORMAL, temp_store = MEMORY, y cache_size para máxima velocidad.
   await db.execAsync(`
     PRAGMA journal_mode = WAL;
     PRAGMA foreign_keys = ON;
+    PRAGMA synchronous = NORMAL;
+    PRAGMA temp_store = MEMORY;
+    PRAGMA cache_size = -32000;
   `);
 
   // Obtiene la versión actual del esquema en el archivo de base de datos

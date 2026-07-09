@@ -1,6 +1,6 @@
 {
   "expo": {
-    "name": "mobile",
+    "name": "Ventu",
     "slug": "mobile",
     "scheme": "posglobal",
     "version": "1.0.0",
@@ -11,7 +11,7 @@
       "supportsTablet": true
     },
     "android": {
-      "package": "com.posglobal.mobile",
+      "package": "com.ventupos.mobile",
       "usesCleartextTraffic": true,
       "adaptiveIcon": {
         "backgroundColor": "#E6F4FE",

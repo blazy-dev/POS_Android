@@ -44,6 +44,8 @@ Estos documentos no definen el esqueleto; sirven para operar, implementar o depu
 - [CONTROL_CAMBIOS.md](CONTROL_CAMBIOS.md)
 - [CONTROL_CAMBIOS_BACKEND.md](CONTROL_CAMBIOS_BACKEND.md)
 - [HARDWARE.md](HARDWARE.md)
+- [SUBIDA_PLAYSTORE.md](SUBIDA_PLAYSTORE.md) - guía de preparación, compilación AAB y publicación en Google Play.
+- [CUESTIONARIOS_PLAYSTORE.md](CUESTIONARIOS_PLAYSTORE.md) - checklist detallado y respuestas sugeridas para los cuestionarios de Google Play.
 
 ## Flujo mental del proyecto
 

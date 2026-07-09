@@ -19,6 +19,7 @@
       }
     },
     "production": {
+      "distribution": "store",
       "env": {
         "EXPO_PUBLIC_SUPABASE_URL": "https://dukyedgoyshhtjkuphow.supabase.co",
         "EXPO_PUBLIC_SUPABASE_ANON_KEY": "sb_publishable_VqVvijnn9uzhCjaAUJgvaw_FqZ_2jyA",

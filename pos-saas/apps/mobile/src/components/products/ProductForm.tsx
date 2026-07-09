@@ -14,7 +14,6 @@ import type { SQLiteDatabase } from 'expo-sqlite';
 import type { ProductRecord } from '../../database/types';
 import { FormField } from '../form/FormField';
 import { UnitPicker } from './UnitPicker';
-import { useBarcodeInput } from '../../hooks/useBarcodeInput';
 import {
   findProductByBarcode,
   saveProduct,
@@ -212,8 +211,6 @@ export function ProductForm({
     [checkBarcodeAvailability, updateField],
   );
 
-  const { handleKeyPress } = useBarcodeInput({ onScan: handleBarcodeScan });
-
   async function handleSubmit() {
     try {
       setSaving(true);
@@ -286,13 +283,15 @@ export function ProductForm({
           onBlur={() => {
             void checkBarcodeAvailability(values.barcode);
           }}
-          onKeyPress={handleKeyPress}
           onSubmitEditing={() => {
             void handleBarcodeScan(values.barcode);
           }}
           placeholder="7791234567890"
           autoCapitalize="none"
           autoCorrect={false}
+          spellCheck={false}
+          autoComplete="off"
+          keyboardType="visible-password"
           returnKeyType="next"
           error={fieldErrors.barcode}
           accessory={

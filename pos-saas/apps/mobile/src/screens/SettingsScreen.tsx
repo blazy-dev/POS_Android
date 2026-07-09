@@ -208,7 +208,7 @@ export function SettingsScreen() {
 
   function handleActivateByWhatsapp() {
     if (!user?.tenant_id) return;
-    const phoneNumber = '5491132857002'; // Número del creador/plataforma en Argentina
+    const phoneNumber = '5493884653500'; // Número del creador/plataforma en Argentina
     const text = encodeURIComponent(
       `¡Hola! Quiero activar la versión completa de mi comercio POS.\n\n` +
       `• ID de Comercio: ${user.tenant_id}\n` +
@@ -409,6 +409,50 @@ export function SettingsScreen() {
           </View>
         ) : null}
 
+        {/* Sección Licencia (Visible para todos los empleados/roles) */}
+        {user ? (
+          <View style={styles.card}>
+            <Text style={styles.cardTitle}>Licencia de Uso</Text>
+            
+            <View style={styles.detailRow}>
+              <Text style={styles.detailLabel}>Estado de Licencia:</Text>
+              {subStatus === 'active' ? (
+                <Badge variant="success" label="Versión Completa" />
+              ) : (
+                <Badge variant="warning" label="Versión Demo" />
+              )}
+            </View>
+
+            {subStatus === 'active' && subEndsAt > 0 && subEndsAt < 4102444800000 && (
+              <View style={styles.detailRow}>
+                <Text style={styles.detailLabel}>Vencimiento:</Text>
+                <Text style={styles.detailValue}>
+                  {new Date(subEndsAt).toLocaleDateString('es-AR', {
+                    day: '2-digit',
+                    month: '2-digit',
+                    year: 'numeric',
+                  })}
+                </Text>
+              </View>
+            )}
+
+            {subStatus !== 'active' && (
+              <View style={styles.demoActivateBanner}>
+                <Text style={styles.demoBannerText}>
+                  Tu cuenta está en la versión de prueba. Activá la versión completa para registrar ventas ilimitadas, más de 20 productos y más empleados.
+                </Text>
+                <Pressable
+                  style={styles.whatsappButton}
+                  onPress={handleActivateByWhatsapp}
+                >
+                  <Ionicons name="logo-whatsapp" size={18} color="#FFFFFF" style={{ marginRight: 6 }} />
+                  <Text style={styles.whatsappButtonText}>Activar versión completa</Text>
+                </Pressable>
+              </View>
+            )}
+          </View>
+        ) : null}
+
         {/* Sección Perfil de Comercio (Multi-tenant) */}
         {isOnlineUser && tenantInfo ? (
           <View style={styles.card}>
@@ -544,43 +588,6 @@ export function SettingsScreen() {
                   <Text style={styles.detailLabel}>Zona Horaria:</Text>
                   <Text style={styles.detailValue}>{tenantInfo.timezone}</Text>
                 </View>
-
-                <View style={styles.detailRow}>
-                  <Text style={styles.detailLabel}>Estado de Licencia:</Text>
-                  {subStatus === 'active' ? (
-                    <Badge variant="success" label="Versión Completa" />
-                  ) : (
-                    <Badge variant="warning" label="Versión Demo" />
-                  )}
-                </View>
-
-                {subStatus === 'active' && subEndsAt > 0 && subEndsAt < 4102444800000 && (
-                  <View style={styles.detailRow}>
-                    <Text style={styles.detailLabel}>Vencimiento:</Text>
-                    <Text style={styles.detailValue}>
-                      {new Date(subEndsAt).toLocaleDateString('es-AR', {
-                        day: '2-digit',
-                        month: '2-digit',
-                        year: 'numeric',
-                      })}
-                    </Text>
-                  </View>
-                )}
-
-                {subStatus !== 'active' && (
-                  <View style={styles.demoActivateBanner}>
-                    <Text style={styles.demoBannerText}>
-                      Tu cuenta está en la versión de prueba. Activá la versión completa para registrar ventas ilimitadas, más de 20 productos y más empleados.
-                    </Text>
-                    <Pressable
-                      style={styles.whatsappButton}
-                      onPress={handleActivateByWhatsapp}
-                    >
-                      <Ionicons name="logo-whatsapp" size={18} color="#FFFFFF" style={{ marginRight: 6 }} />
-                      <Text style={styles.whatsappButtonText}>Activar versión completa</Text>
-                    </Pressable>
-                  </View>
-                )}
 
                 {isAdmin && (
                   <>

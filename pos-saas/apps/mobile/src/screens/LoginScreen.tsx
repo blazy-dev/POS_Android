@@ -95,7 +95,7 @@ export function LoginScreen() {
               resizeMode="contain"
             />
           </View>
-          <Text style={styles.brandName}>POS SaaS</Text>
+          <Text style={styles.brandName}>Ventu POS</Text>
           {tenantName ? (
             <View style={styles.tenantBadge}>
               <Text style={styles.tenantBadgeText}>{tenantName}</Text>
@@ -126,9 +126,7 @@ export function LoginScreen() {
               <ActivityIndicator size="small" color={colors.text} />
             ) : errorMsg ? (
               <Text style={styles.errorText}>{errorMsg}</Text>
-            ) : (
-              <Text style={styles.hintText}>PIN demo: admin 1234 · cajero 4321</Text>
-            )}
+            ) : null}
           </View>
 
           {/* Teclado numÃ©rico */}
@@ -222,18 +220,14 @@ const getStyles = (colors: ThemeColors, isDark: boolean) =>
     header: {
       alignItems: 'center',
       gap: 8,
+      paddingTop: 32,
     },
     logoContainer: {
-      width: 56,
-      height: 56,
-      borderRadius: 14,
-      backgroundColor: colors.surface,
-      borderWidth: 1,
-      borderColor: colors.border,
+      width: 100,
+      height: 100,
       alignItems: 'center',
       justifyContent: 'center',
-      marginBottom: 4,
-      overflow: 'hidden',
+      marginBottom: 8,
     },
     logoImage: {
       width: '100%',
