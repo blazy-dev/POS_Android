@@ -50,8 +50,8 @@ export class SyncController {
     );
     return {
       success: true,
-      changes: result.changes,
-      server_time: result.server_time,
+      changes: result?.changes || [],
+      server_time: result?.server_time || new Date().toISOString(),
     };
   }
 }

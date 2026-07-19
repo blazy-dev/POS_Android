@@ -68,6 +68,8 @@ export class AuthService {
           email: supabaseUser.email,
           currency: currency || 'ARS',
           timezone: timezone || 'America/Argentina/Buenos_Aires',
+          subscriptionStatus: 'demo',
+          trialStart: new Date(),
         },
       });
 
@@ -141,6 +143,9 @@ export class AuthService {
         email: result.tenant.email,
         currency: result.tenant.currency,
         timezone: result.tenant.timezone,
+        subscriptionStatus: result.tenant.subscriptionStatus,
+        subscriptionEndsAt: result.tenant.subscriptionEndsAt ? result.tenant.subscriptionEndsAt.getTime() : 0,
+        trialStart: result.tenant.trialStart ? result.tenant.trialStart.getTime() : null,
       },
     };
   }
@@ -158,6 +163,28 @@ export class AuthService {
         ...(name && { name }),
         ...(currency && { currency }),
         ...(timezone && { timezone }),
+      },
+    });
+  }
+
+  async listAllTenantsForAdmin() {
+    return this.prisma.tenant.findMany({
+      orderBy: { createdAt: 'desc' },
+    });
+  }
+
+  async updateTenantSubscription(
+    tenantId: string,
+    status: string,
+    endsAtMs?: number,
+    trialStartMs?: number,
+  ) {
+    return this.prisma.tenant.update({
+      where: { id: tenantId },
+      data: {
+        subscriptionStatus: status,
+        subscriptionEndsAt: endsAtMs ? new Date(endsAtMs) : null,
+        trialStart: trialStartMs ? new Date(trialStartMs) : undefined,
       },
     });
   }
