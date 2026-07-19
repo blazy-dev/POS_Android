@@ -344,6 +344,18 @@ export class SyncService {
                 create: clean,
                 update: clean,
               });
+            } else if (entity_type === 'tenant_subscription') {
+              this.logger.log(
+                `PUSH tenant_subscription: ${validEntityId} status=${payload.status}`,
+              );
+              await tx.tenant.update({
+                where: { id: validEntityId },
+                data: {
+                  subscriptionStatus: payload.status,
+                  subscriptionEndsAt: payload.endsAt ? new Date(payload.endsAt) : null,
+                  trialStart: payload.trialStart ? new Date(payload.trialStart) : undefined,
+                },
+              });
             }
           }
         }, {
@@ -419,6 +431,12 @@ export class SyncService {
     const serverTime = new Date().toISOString();
     const validDeviceId = this.toUuid(deviceId);
 
+    // ── Limit to prevent overwhelming mobile SQLite ──
+    // The mobile app processes all changes in a single exclusive transaction.
+    // Sending too many (e.g. 70k+ after a migration) causes "database is locked".
+    // We cap at 2000 per pull; the app will pull again on next sync cycle.
+    const PULL_LIMIT = 2000;
+
     // Register or update device
     try {
       await this.prisma.device.upsert({
@@ -443,9 +461,13 @@ export class SyncService {
       filter.updatedAt = { gt: new Date(lastSyncAt) };
     }
 
-    // 1. Categories
+    // Helper: check if we've hit the limit
+    const hasRoom = () => changes.length < PULL_LIMIT;
+
+    // 1. Categories (high priority — small count)
     const categories = await this.prisma.category.findMany({ where: filter });
     for (const category of categories) {
+      if (!hasRoom()) break;
       changes.push({
         id: category.id,
         entity_type: 'category',
@@ -462,169 +484,225 @@ export class SyncService {
       });
     }
 
-    // 2. Products
-    const products = await this.prisma.product.findMany({ where: filter });
-    for (const product of products) {
-      changes.push({
-        id: product.id,
-        entity_type: 'product',
-        entity_id: product.id,
-        operation: product.isActive ? 'update' : 'delete',
-        payload: {
-          id: product.id,
-          tenant_id: product.tenantId,
-          barcode: product.barcode,
-          name: product.name,
-          description: product.description,
-          category_id: product.categoryId,
-          purchase_price: Number(product.purchasePrice),
-          sale_price: Number(product.salePrice),
-          cost_price: Number(product.costPrice),
-          stock: Number(product.stock),
-          minimum_stock: Number(product.minimumStock),
-          unit: product.unit,
-          is_active: product.isActive,
-          created_at: product.createdAt.toISOString(),
-          updated_at: product.updatedAt.toISOString(),
-        },
-        created_at: product.updatedAt.toISOString(),
+    // 2. Products (high priority)
+    if (hasRoom()) {
+      const products = await this.prisma.product.findMany({
+        where: filter,
+        orderBy: { updatedAt: 'asc' },
+        take: PULL_LIMIT - changes.length,
       });
+      for (const product of products) {
+        if (!hasRoom()) break;
+        changes.push({
+          id: product.id,
+          entity_type: 'product',
+          entity_id: product.id,
+          operation: product.isActive ? 'update' : 'delete',
+          payload: {
+            id: product.id,
+            tenant_id: product.tenantId,
+            barcode: product.barcode,
+            name: product.name,
+            description: product.description,
+            category_id: product.categoryId,
+            purchase_price: Number(product.purchasePrice),
+            sale_price: Number(product.salePrice),
+            cost_price: Number(product.costPrice),
+            stock: Number(product.stock),
+            minimum_stock: Number(product.minimumStock),
+            unit: product.unit,
+            is_active: product.isActive,
+            created_at: product.createdAt.toISOString(),
+            updated_at: product.updatedAt.toISOString(),
+          },
+          created_at: product.updatedAt.toISOString(),
+        });
+      }
     }
 
     // 3. Customers
-    const customers = await this.prisma.customer.findMany({ where: filter });
-    for (const customer of customers) {
-      changes.push({
-        id: customer.id,
-        entity_type: 'customer',
-        entity_id: customer.id,
-        operation: 'update',
-        payload: {
+    if (hasRoom()) {
+      const customers = await this.prisma.customer.findMany({ where: filter });
+      for (const customer of customers) {
+        if (!hasRoom()) break;
+        changes.push({
           id: customer.id,
-          tenant_id: customer.tenantId,
-          name: customer.name,
-          phone: customer.phone,
-          email: customer.email,
-          address: customer.address,
-          created_at: customer.createdAt.toISOString(),
-          updated_at: customer.updatedAt.toISOString(),
-        },
-        created_at: customer.updatedAt.toISOString(),
-      });
+          entity_type: 'customer',
+          entity_id: customer.id,
+          operation: 'update',
+          payload: {
+            id: customer.id,
+            tenant_id: customer.tenantId,
+            name: customer.name,
+            phone: customer.phone,
+            email: customer.email,
+            address: customer.address,
+            created_at: customer.createdAt.toISOString(),
+            updated_at: customer.updatedAt.toISOString(),
+          },
+          created_at: customer.updatedAt.toISOString(),
+        });
+      }
     }
 
     // 4. Cash Registers
-    const cashRegisters = await this.prisma.cashRegister.findMany({ where: filter });
-    for (const register of cashRegisters) {
-      changes.push({
-        id: register.id,
-        entity_type: 'cash_register',
-        entity_id: register.id,
-        operation: 'update',
-        payload: {
+    if (hasRoom()) {
+      const cashRegisters = await this.prisma.cashRegister.findMany({ where: filter });
+      for (const register of cashRegisters) {
+        if (!hasRoom()) break;
+        changes.push({
           id: register.id,
-          tenant_id: register.tenantId,
-          opened_by: register.openedBy,
-          opened_at: register.openedAt.toISOString(),
-          closed_at: register.closedAt?.toISOString() || null,
-          opening_amount: Number(register.openingAmount),
-          closing_amount: register.closingAmount ? Number(register.closingAmount) : null,
-          status: register.status,
-          created_at: register.createdAt.toISOString(),
-          updated_at: register.updatedAt.toISOString(),
-        },
-        created_at: register.updatedAt.toISOString(),
-      });
+          entity_type: 'cash_register',
+          entity_id: register.id,
+          operation: 'update',
+          payload: {
+            id: register.id,
+            tenant_id: register.tenantId,
+            opened_by: register.openedBy,
+            opened_at: register.openedAt.toISOString(),
+            closed_at: register.closedAt?.toISOString() || null,
+            opening_amount: Number(register.openingAmount),
+            closing_amount: register.closingAmount ? Number(register.closingAmount) : null,
+            status: register.status,
+            created_at: register.createdAt.toISOString(),
+            updated_at: register.updatedAt.toISOString(),
+          },
+          created_at: register.updatedAt.toISOString(),
+        });
+      }
     }
 
-    // 5. Sales
-    const sales = await this.prisma.sale.findMany({
-      where: filter,
-      include: { items: true },
-    });
-    for (const sale of sales) {
-      changes.push({
-        id: sale.id,
-        entity_type: 'sale',
-        entity_id: sale.id,
-        operation: 'update',
-        payload: {
-          id: sale.id,
-          tenant_id: sale.tenantId,
-          cash_register_id: sale.cashRegisterId,
-          customer_id: sale.customerId,
-          user_id: sale.userId,
-          total: Number(sale.total),
-          payment_method: sale.paymentMethod,
-          status: sale.status,
-          device_id: sale.deviceId,
-          created_at: sale.createdAt.toISOString(),
-          updated_at: sale.updatedAt.toISOString(),
-          items: sale.items.map((item) => ({
-            id: item.id,
-            sale_id: item.saleId,
-            product_id: item.productId,
-            product_name: item.productName,
-            product_unit: item.productUnit,
-            quantity: Number(item.quantity),
-            unit_price: Number(item.unitPrice),
-            subtotal: Number(item.subtotal),
-            created_at: item.createdAt.toISOString(),
-            updated_at: item.updatedAt.toISOString(),
-          })),
-        },
-        created_at: sale.updatedAt.toISOString(),
+    // 5. Sales (lower priority — can be very large after migration)
+    if (hasRoom()) {
+      const salesLimit = PULL_LIMIT - changes.length;
+      const sales = await this.prisma.sale.findMany({
+        where: filter,
+        include: { items: true },
+        orderBy: { updatedAt: 'asc' },
+        take: salesLimit,
       });
+      for (const sale of sales) {
+        if (!hasRoom()) break;
+        changes.push({
+          id: sale.id,
+          entity_type: 'sale',
+          entity_id: sale.id,
+          operation: 'update',
+          payload: {
+            id: sale.id,
+            tenant_id: sale.tenantId,
+            cash_register_id: sale.cashRegisterId,
+            customer_id: sale.customerId,
+            user_id: sale.userId,
+            total: Number(sale.total),
+            payment_method: sale.paymentMethod,
+            status: sale.status,
+            device_id: sale.deviceId,
+            created_at: sale.createdAt.toISOString(),
+            updated_at: sale.updatedAt.toISOString(),
+            items: sale.items.map((item) => ({
+              id: item.id,
+              sale_id: item.saleId,
+              product_id: item.productId,
+              product_name: item.productName,
+              product_unit: item.productUnit,
+              quantity: Number(item.quantity),
+              unit_price: Number(item.unitPrice),
+              subtotal: Number(item.subtotal),
+              created_at: item.createdAt.toISOString(),
+              updated_at: item.updatedAt.toISOString(),
+            })),
+          },
+          created_at: sale.updatedAt.toISOString(),
+        });
+      }
     }
 
     // 6. Inventory Movements
-    const inventoryMovements = await this.prisma.inventoryMovement.findMany({ where: filter });
-    for (const movement of inventoryMovements) {
+    if (hasRoom()) {
+      const inventoryMovements = await this.prisma.inventoryMovement.findMany({
+        where: filter,
+        orderBy: { updatedAt: 'asc' },
+        take: PULL_LIMIT - changes.length,
+      });
+      for (const movement of inventoryMovements) {
+        if (!hasRoom()) break;
+        changes.push({
+          id: movement.id,
+          entity_type: 'inventory_movement',
+          entity_id: movement.id,
+          operation: 'update',
+          payload: {
+            id: movement.id,
+            tenant_id: movement.tenantId,
+            product_id: movement.productId,
+            user_id: movement.userId,
+            reference_type: movement.referenceType,
+            reference_id: movement.referenceId,
+            movement_type: movement.movementType,
+            quantity: Number(movement.quantity),
+            created_at: movement.createdAt.toISOString(),
+            updated_at: movement.updatedAt.toISOString(),
+          },
+          created_at: movement.updatedAt.toISOString(),
+        });
+      }
+    }
+
+    // 7. Users / Employees (high priority)
+    if (hasRoom()) {
+      const users = await this.prisma.user.findMany({
+        where: filter,
+        include: { role: true },
+      });
+      for (const u of users) {
+        if (!hasRoom()) break;
+        changes.push({
+          id: u.id,
+          entity_type: 'user',
+          entity_id: u.id,
+          operation: u.isActive ? 'update' : 'delete',
+          payload: {
+            id: u.id,
+            tenant_id: u.tenantId,
+            name: u.name,
+            email: u.email,
+            pin: u.pin,
+            role: u.role?.name || 'cashier',
+            is_active: u.isActive,
+            created_at: u.createdAt.toISOString(),
+            updated_at: u.updatedAt.toISOString(),
+          },
+          created_at: u.updatedAt.toISOString(),
+        });
+      }
+    }
+
+    // 8. Tenant Subscription details
+    const tenant = await this.prisma.tenant.findUnique({
+      where: { id: tenantId },
+    });
+    if (tenant && (!lastSyncAt || tenant.updatedAt > new Date(lastSyncAt))) {
       changes.push({
-        id: movement.id,
-        entity_type: 'inventory_movement',
-        entity_id: movement.id,
+        id: tenant.id,
+        entity_type: 'tenant_subscription',
+        entity_id: tenant.id,
         operation: 'update',
         payload: {
-          id: movement.id,
-          tenant_id: movement.tenantId,
-          product_id: movement.productId,
-          user_id: movement.userId,
-          reference_type: movement.referenceType,
-          reference_id: movement.referenceId,
-          movement_type: movement.movementType,
-          quantity: Number(movement.quantity),
-          created_at: movement.createdAt.toISOString(),
-          updated_at: movement.updatedAt.toISOString(),
+          status: tenant.subscriptionStatus || 'demo',
+          endsAt: tenant.subscriptionEndsAt ? tenant.subscriptionEndsAt.getTime() : 0,
+          trialStart: tenant.trialStart ? tenant.trialStart.getTime() : null,
         },
-        created_at: movement.updatedAt.toISOString(),
+        created_at: tenant.updatedAt.toISOString(),
       });
     }
 
-    // 7. Users / Employees
-    const users = await this.prisma.user.findMany({
-      where: filter,
-      include: { role: true },
-    });
-    for (const u of users) {
-      changes.push({
-        id: u.id,
-        entity_type: 'user',
-        entity_id: u.id,
-        operation: u.isActive ? 'update' : 'delete',
-        payload: {
-          id: u.id,
-          tenant_id: u.tenantId,
-          name: u.name,
-          email: u.email,
-          pin: u.pin,
-          role: u.role?.name || 'cashier',
-          is_active: u.isActive,
-          created_at: u.createdAt.toISOString(),
-          updated_at: u.updatedAt.toISOString(),
-        },
-        created_at: u.updatedAt.toISOString(),
-      });
+    // Log if we hit the limit (indicates more data pending)
+    if (changes.length >= PULL_LIMIT) {
+      this.logger.warn(
+        `Pull for tenant ${tenantId} hit limit of ${PULL_LIMIT}. ` +
+        `Some changes will sync on next pull cycle.`,
+      );
     }
 
     // Write audit log
@@ -638,6 +716,7 @@ export class SyncService {
           metadataJson: {
             last_sync_at: lastSyncAt,
             changes_count: changes.length,
+            hit_limit: changes.length >= PULL_LIMIT,
           },
         },
       });
