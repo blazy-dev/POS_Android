@@ -53,6 +53,13 @@ export class AuthService {
           email: updatedUser.tenant.email,
           currency: updatedUser.tenant.currency,
           timezone: updatedUser.tenant.timezone,
+          subscriptionStatus: updatedUser.tenant.subscriptionStatus,
+          subscriptionEndsAt: updatedUser.tenant.subscriptionEndsAt
+            ? updatedUser.tenant.subscriptionEndsAt.getTime()
+            : 0,
+          trialStart: updatedUser.tenant.trialStart
+            ? updatedUser.tenant.trialStart.getTime()
+            : null,
         },
       };
     }

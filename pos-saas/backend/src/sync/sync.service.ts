@@ -678,11 +678,13 @@ export class SyncService {
       }
     }
 
-    // 8. Tenant Subscription details
+    // 8. Tenant Subscription details — ALWAYS included (no timestamp filter)
+    // This ensures license upgrades (demo→active) are reflected in the app
+    // on every pull cycle, even if the tenant was updated before lastSyncAt.
     const tenant = await this.prisma.tenant.findUnique({
       where: { id: tenantId },
     });
-    if (tenant && (!lastSyncAt || tenant.updatedAt > new Date(lastSyncAt))) {
+    if (tenant) {
       changes.push({
         id: tenant.id,
         entity_type: 'tenant_subscription',
